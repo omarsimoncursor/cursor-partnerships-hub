@@ -7,6 +7,7 @@ import { CalendarWidget } from '../time/calendar-widget';
 import { OverrideCard } from '../override-card';
 import { CursorLogo } from '../cursor-logo';
 import { AccelerationTile } from '../acceleration-tile';
+import { StoryBeat } from '../story-beat';
 import { ACT_TIMING } from '../data/script';
 import { ORDERS_STACK_CDK, CODEX_PATCHES } from '../data/orders-stack';
 import { ORDERS_SERVICE_JAVA } from '../data/orders-java-source';
@@ -129,7 +130,25 @@ export function Act4Build({ onAdvance }: Act4Props) {
     >
       <ActHeader
         act={4}
-        eyebrow="Cursor Cloud Agent transforms 2.8k LOC of Java EE into TypeScript + AWS CDK. Codex auto-patches security. M. Chen approves."
+        eyebrow="Watch a 20-year-old Java service get rewritten as modern AWS code — live — while a second agent patches the security issues before a human even opens the PR."
+      />
+
+      <StoryBeat
+        tone="dark"
+        agent="both"
+        title="What’s happening: Cursor is rewriting the legacy service into AWS code, line by line, on the right screen."
+        body={
+          <>
+            The left pane is the old <strong>Java monolith</strong>. The middle pane is being written <em>right now</em> by a{' '}
+            <strong style={{ color: '#FF9900' }}>Cursor Cloud Agent</strong> — reading the Java, producing AWS Lambda + CDK in TypeScript,
+            and running the test suite at the bottom as it goes. When the tests go red, the agent auto-patches and re-runs.
+            A second agent, <strong style={{ color: '#FBBF24' }}>Cursor Codex review</strong>, scans the output for security issues
+            (over-privileged IAM, missing VPC endpoints) and fixes them before M. Chen ever opens the pull request.
+            All she has to do is verify it matches policy.
+          </>
+        }
+        oldWay="12 weeks · a GSI pod hand-porting Java → TypeScript, plus a 2-day security review"
+        newWay="9 agent-days of coding + 12 minutes of Codex patches — the security review becomes a rubber stamp"
       />
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr_380px]">

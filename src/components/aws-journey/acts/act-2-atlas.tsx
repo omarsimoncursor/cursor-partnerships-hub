@@ -5,6 +5,7 @@ import { AlertTriangle, Clock, Database, GitBranch, GitPullRequest, Layers } fro
 import { ActShell, ActHeader } from './act-shell';
 import { CursorLogo } from '../cursor-logo';
 import { AccelerationTile } from '../acceleration-tile';
+import { StoryBeat } from '../story-beat';
 import {
   BOUNDARY_VIOLATIONS,
   BOUNDED_CONTEXTS,
@@ -84,7 +85,23 @@ export function Act2Atlas({ onAdvance }: Act2Props) {
 
   return (
     <ActShell act={2}>
-      <ActHeader act={2} eyebrow="Cursor Cloud Agent scans 4.2M LOC in hours, not weeks. One right answer." />
+      <ActHeader act={2} eyebrow="Overnight, a Cursor Cloud Agent reads the entire codebase so the team doesn’t have to." />
+
+      <StoryBeat
+        tone="dark"
+        agent="cloud"
+        title="What’s happening: the agent mapped every service in the monolith — while the team slept."
+        body={
+          <>
+            Usually this is where a GSI parachutes in 3 senior consultants with spreadsheets for a month.
+            Instead, a <strong>Cursor Cloud Agent</strong> read all 4.2 million lines of code overnight, drew this map,
+            and ranked every service by risk and revenue — so the team walks in on day 3 with one clear answer:
+            start with <strong>OrdersService</strong>.
+          </>
+        }
+        oldWay="GSI consultants · 4 weeks of interviews & diagrams"
+        newWay="Cursor Cloud Agent · 5 hours, $0 in consulting fees"
+      />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[240px_1fr_320px]">
         {/* Left rail: findings */}

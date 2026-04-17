@@ -7,6 +7,7 @@ import { OverrideCard } from '../override-card';
 import { CalendarWidget } from '../time/calendar-widget';
 import { CursorLogo } from '../cursor-logo';
 import { AccelerationTile } from '../acceleration-tile';
+import { StoryBeat } from '../story-beat';
 import { ACT_TIMING } from '../data/script';
 
 interface Act3Props {
@@ -48,7 +49,24 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
     >
       <ActHeader
         act={3}
-        eyebrow="Cursor Cloud Agent drafts the target architecture in 45 minutes. The architect pushes back. The agent absorbs the correction."
+        eyebrow="The agent drafts a new architecture in 45 minutes. The architect pushes back in Slack. The agent rewrites the plan — grounded in a 2023 post-mortem."
+      />
+
+      <StoryBeat
+        tone="light"
+        agent="both"
+        title="What’s happening: Cursor drafted the target architecture, then took a senior architect’s correction in stride."
+        body={
+          <>
+            A <strong style={{ color: '#B45309' }}>Cursor Cloud Agent</strong> sketched a candidate AWS
+            architecture — API Gateway, six Lambdas, Aurora Serverless — in <strong>45 minutes</strong> and
+            pinged the architect in Slack. When J. Park pushes back on the cutover plan, the agent doesn’t
+            argue: it reads the 2023 Inventory post-mortem, rewrites the dual-write window to 14 days, and adds a
+            parity-check Lambda. The sticky note on the whiteboard updates live.
+          </>
+        }
+        oldWay="Five 8-hour whiteboard sessions, then 2 days of rework after the architect’s review"
+        newWay="Cursor · 45-min draft + 6-min rewrite after the override — all grounded in real prior incidents"
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_420px]">

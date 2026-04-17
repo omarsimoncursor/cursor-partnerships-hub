@@ -37,6 +37,23 @@ export function Act1Room({ onAdvance }: Act1Props) {
         eyebrow="A Tuesday, 6 days after a production outage. The CTO has a board meeting in nine days."
       />
 
+      <div
+        className="mb-6 rounded-xl border px-4 py-3 text-[12.5px] leading-relaxed md:px-5 md:py-4"
+        style={{
+          background: 'rgba(255,153,0,0.06)',
+          borderColor: 'rgba(255,153,0,0.3)',
+          color: 'rgba(243,244,246,0.85)',
+        }}
+      >
+        <span className="mr-2 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ borderColor: 'rgba(255,153,0,0.4)', color: '#FF9900' }}>
+          <CursorLogo size={10} tone="dark" /> How to watch this journey
+        </span>
+        Over the next six screens, you&rsquo;ll watch the same OrdersService team use{' '}
+        <strong style={{ color: '#FF9900' }}>Cursor Cloud Agents</strong> (running overnight in the background on AWS) and{' '}
+        <strong style={{ color: '#4DD4FF' }}>Cursor in the IDE</strong> (pair-programming with engineers during the day) to replace
+        a 5-year GSI contract with a <strong>22-day modernization</strong>. Every gate is still approved by a named human.
+      </div>
+
       <div className="grid gap-5 md:grid-cols-3">
         <CeoEmail />
         <PostMortemCard />

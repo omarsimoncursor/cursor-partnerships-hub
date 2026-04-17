@@ -26,7 +26,7 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
     <ActShell act={7}>
       <ActHeader
         act={7}
-        eyebrow="22 calendar days · 4 / 4 gates passed · 13 tasks where Cursor Cloud Agents did the heavy lifting."
+        eyebrow="Cursor Cloud Agents turned a 14-month modernization into a 22-day one — with every gate still approved by a named human."
       />
 
       {/* The close */}
@@ -43,11 +43,14 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
               </span>
             </div>
             <h2 className="text-2xl font-bold leading-tight text-[#0F172A] md:text-3xl">
-              OrdersService live on AWS
+              What took 14 months now takes 22 days — because Cursor did the work.
             </h2>
             <p className="mt-1 text-[14px]" style={{ color: '#475569' }}>
-              22 calendar days · {Math.round(AI_TOTALS.baselineHours / 8)} person-days of work completed in{' '}
-              <strong>{AI_TOTALS.cursorHours.toFixed(1)} agent-hours</strong> · one AI override absorbed · $6.3M/yr run-cost swing
+              OrdersService is live on AWS. <strong>{Math.round(AI_TOTALS.baselineHours / 8)} person-days</strong> of
+              senior-engineer work were completed in{' '}
+              <strong>{AI_TOTALS.cursorHours.toFixed(1)} agent-hours</strong> — a{' '}
+              <strong style={{ color: '#B45309' }}>{Math.round(AI_TOTALS.speedup)}× speedup</strong>. Humans still signed
+              every gate; Cursor did the drafting, porting, testing, cutover, and the midnight watch.
             </p>
           </div>
           <div className="flex items-center gap-4 md:border-l md:pl-4" style={{ borderColor: 'rgba(17,24,39,0.08)' }}>
@@ -62,10 +65,32 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
             10 mo ahead
           </span>
           <span>
-            At the Cursor Cloud Agents cadence you finish the portfolio{' '}
-            <strong>10 months before</strong> the Oracle contract expires. At the GSI’s cadence, you finish{' '}
-            <strong>30 months late</strong>.
+            With Cursor Cloud Agents driving the work, the full 38-service portfolio finishes{' '}
+            <strong>10 months before</strong> the Oracle contract ends. Without Cursor, the same GSI plan finishes{' '}
+            <strong>30 months late</strong> — and Acme pays the Oracle extension.
           </span>
+        </div>
+
+        {/* Story recap of what Cursor specifically did, per act */}
+        <div className="mt-5 grid gap-2 rounded-lg border p-4 text-[12.5px] leading-relaxed md:grid-cols-2" style={{ borderColor: 'rgba(17,24,39,0.08)', background: '#FFFBF2', color: '#334155' }}>
+          <div>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#B45309' }}>
+              Where Cursor did the heavy lifting
+            </div>
+            <ul className="space-y-1.5">
+              <RecapItem act="Act 2" role="Cloud Agent" text="Read 4.2M lines of legacy code overnight and mapped 38 services." />
+              <RecapItem act="Act 3" role="Cloud Agent" text="Drafted the AWS architecture in 45 minutes and rewrote it in 6 minutes after the architect pushed back." />
+              <RecapItem act="Act 4" role="Cloud + Codex" text="Ported a 2.8k-line Java service to AWS Lambda + CDK, wrote 47 tests, and patched security issues before review." />
+            </ul>
+          </div>
+          <div>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] md:invisible">&nbsp;</div>
+            <ul className="space-y-1.5">
+              <RecapItem act="Act 5" role="Cloud Agent" text="Stress-tested at 12k rps, caught a cold-start issue live, proposed the fix with a dollar number attached." />
+              <RecapItem act="Act 6" role="Cloud Agent" text="Wrote the cutover runbook, drove traffic 0→100% in 4 canary steps, and live-watched every metric." />
+              <RecapItem act="Gates" role="Humans" text="4 / 4 approval gates still reviewed and signed by named humans." />
+            </ul>
+          </div>
         </div>
       </section>
 
@@ -121,7 +146,7 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
         </span>
         <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold" style={{ borderColor: 'rgba(180,83,9,0.3)', background: 'rgba(255,153,0,0.08)', color: '#B45309' }}>
           <CursorLogo size={14} tone="light" />
-          Cursor Cloud Agents did the rest
+          Everything else: Cursor Cloud Agents
         </span>
       </section>
 
@@ -192,6 +217,29 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
         <GitHubPrArtifact />
       </ArtifactModal>
     </ActShell>
+  );
+}
+
+function RecapItem({ act, role, text }: { act: string; role: string; text: string }) {
+  const roleColor = role === 'Humans' ? '#15803D' : role === 'Cloud + Codex' ? '#B45309' : '#B45309';
+  return (
+    <li className="flex items-start gap-2">
+      <span
+        className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider"
+        style={{
+          borderColor: role === 'Humans' ? 'rgba(21,128,61,0.3)' : 'rgba(180,83,9,0.3)',
+          background: role === 'Humans' ? 'rgba(21,128,61,0.08)' : 'rgba(255,153,0,0.1)',
+          color: roleColor,
+        }}
+      >
+        {role !== 'Humans' && <CursorLogo size={10} tone="light" />}
+        {role}
+      </span>
+      <span className="text-[12px]">
+        <span className="font-semibold text-[#0F172A]">{act}.</span>{' '}
+        <span style={{ color: '#475569' }}>{text}</span>
+      </span>
+    </li>
   );
 }
 
@@ -385,8 +433,8 @@ function WhatHappensNext() {
         <div className="text-sm font-semibold uppercase tracking-widest text-[#475569]">What happens next</div>
       </div>
       <p className="text-[12px] text-[#475569]">
-        The same agent pod — with the same four reviewers keeping the gates — rolls across the
-        remaining 37 bounded contexts.
+        Same Cursor Cloud Agent pod, same four human reviewers on the gates — now rolling across the
+        remaining 37 services in parallel waves. No new headcount, no new SOW.
       </p>
 
       <NextRow color="#4DD4FF" title="Wave 1 · Day 23"   detail="4 contexts in parallel · ~30 days" />

@@ -7,6 +7,7 @@ import { WeekBarWidget } from '../time/week-bar-widget';
 import { OverrideCard } from '../override-card';
 import { CursorLogo } from '../cursor-logo';
 import { AccelerationTile } from '../acceleration-tile';
+import { StoryBeat } from '../story-beat';
 import { ACT_TIMING } from '../data/script';
 
 interface Act5Props {
@@ -100,7 +101,26 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
     >
       <ActHeader
         act={5}
-        eyebrow="Cursor Cloud Agent authored the 12k rps load test overnight. It’s also tailing CloudWatch live. R. Davis makes the FinOps call."
+        eyebrow="Before we put this in front of real customers, we stress-test it with synthetic traffic. A Cursor Cloud Agent runs the test, spots a problem the instant it appears, and proposes a fix."
+      />
+
+      <StoryBeat
+        tone="dark"
+        agent="cloud"
+        title="What’s happening: Cursor is stress-testing the new service, catching a cold-start spike, and proposing the fix — all while the team watches."
+        body={
+          <>
+            This is <strong>staging</strong>, not production. A{' '}
+            <strong style={{ color: '#4DD4FF' }}>Cursor Cloud Agent</strong> wrote a 12,000-requests-per-second load test
+            overnight, is now firing it at the new service, and is tailing CloudWatch at the same time. When p99 latency
+            spikes (that red flash in a second), the agent correctly diagnoses it as a <em>Lambda cold-start</em> problem,
+            proposes the fix (provisioned concurrency on one function), and shows the cost delta —{' '}
+            <strong>$180/month</strong>. The FinOps lead, R. Davis, only has to answer one question: &ldquo;$180/month
+            vs $47k/hour of downtime risk — yes or no?&rdquo;
+          </>
+        }
+        oldWay="3 days to write a realistic load test · 3 more days for an engineer to diagnose the spike"
+        newWay="20 minutes to author the load test · 3 minutes to diagnose the spike and write the fix"
       />
 
       {/* Top: 4 metric tiles */}

@@ -7,6 +7,7 @@ import { WeekBarWidget } from '../time/week-bar-widget';
 import { OverrideCard } from '../override-card';
 import { CursorLogo } from '../cursor-logo';
 import { AccelerationTile } from '../acceleration-tile';
+import { StoryBeat } from '../story-beat';
 import { CUTOVER_RUNBOOK } from '../data/runbook';
 import { ACT_TIMING } from '../data/script';
 
@@ -72,7 +73,25 @@ export function Act6Cutover({ onAdvance }: Act6Props) {
     >
       <ActHeader
         act={6}
-        eyebrow="Cursor Cloud Agent wrote the runbook, orchestrates the canary, and tails CloudWatch. S. Kim holds the rollback lever."
+        eyebrow="Real customer traffic gets moved to the new service, a little at a time: 1% → 10% → 50% → 100%. A Cursor Cloud Agent drives each step and watches the metrics; a human holds the rollback lever."
+      />
+
+      <StoryBeat
+        tone="dark"
+        agent="cloud"
+        title="What’s happening: Cursor is performing the live cutover — the riskiest moment of the whole project."
+        body={
+          <>
+            The old monolith is still serving orders on the left. The new AWS service is ready on the right. A{' '}
+            <strong style={{ color: '#FF9900' }}>Cursor Cloud Agent</strong> authored the 12-step runbook (left panel)
+            overnight, is now <em>executing</em> it step-by-step, and is shifting real traffic through the dial in the
+            middle: first 1%, then 10%, 50%, 100%. At each step it tails CloudWatch on the right, and if any
+            SLO trips it would roll back automatically. The on-call engineer, S. Kim, does not type a command —{' '}
+            she just watches, and holds the rollback lever. This used to be the thing that kept people up all night.
+          </>
+        }
+        oldWay="4 days to write the runbook · 5 days to script the canary · an all-hands war room on cutover night"
+        newWay="30 min to author the runbook · 25 min to orchestrate the canary · 6 min of live SLO watch"
       />
 
       <div className="grid gap-4 lg:grid-cols-[280px_1fr_280px]">

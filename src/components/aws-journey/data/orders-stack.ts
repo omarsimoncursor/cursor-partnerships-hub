@@ -1,0 +1,120 @@
+/**
+ * The CDK source that Cursor "authors" in Act 4.
+ * Each element is one line; Act 4 reveals them progressively.
+ */
+export const ORDERS_STACK_CDK: string[] = [
+  "import * as cdk from 'aws-cdk-lib';",
+  "import * as lambda from 'aws-cdk-lib/aws-lambda';",
+  "import * as rds from 'aws-cdk-lib/aws-rds';",
+  "import * as ec2 from 'aws-cdk-lib/aws-ec2';",
+  "import * as apigw from 'aws-cdk-lib/aws-apigateway';",
+  "import * as iam from 'aws-cdk-lib/aws-iam';",
+  "import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';",
+  "import { Construct } from 'constructs';",
+  "",
+  "export interface OrdersStackProps extends cdk.StackProps {",
+  "  readonly vpc: ec2.IVpc;",
+  "}",
+  "",
+  "// @Stateless @EJB OrdersServiceBean  →  Lambda handler factory",
+  "export class OrdersStack extends cdk.Stack {",
+  "  constructor(scope: Construct, id: string, props: OrdersStackProps) {",
+  "    super(scope, id, props);",
+  "",
+  "    const { vpc } = props;",
+  "",
+  "    // --- Lambda: createOrder ---------------------------------------",
+  "    const createOrderFn = new lambda.Function(this, 'CreateOrderFn', {",
+  "      runtime: lambda.Runtime.NODEJS_20_X,",
+  "      handler: 'handlers/create-order.handler',",
+  "      code: lambda.Code.fromAsset('dist/handlers'),",
+  "      vpc,",
+  "      timeout: cdk.Duration.seconds(10),",
+  "      memorySize: 512,",
+  "      environment: { LOG_LEVEL: 'info', TABLE: 'orders-prod' },",
+  "      tracing: lambda.Tracing.ACTIVE,",
+  "    });",
+  "",
+  "    // --- Handlers: getOrder · listOrders · updateStatus · cancel · reconcile",
+  "    // REF_CURSOR  Oracle PL/SQL  →  Postgres procedure",
+  "    // mapped to: db/migrations/orders.createOrderProc.sql",
+  "    ['getOrder','listOrders','updateStatus','cancelOrder','reconcile']",
+  "      .forEach((name) => new lambda.Function(this, name + 'Fn', {",
+  "        runtime: lambda.Runtime.NODEJS_20_X,",
+  "        handler: `handlers/${name}.handler`,",
+  "        code: lambda.Code.fromAsset('dist/handlers'),",
+  "        vpc,",
+  "      }));",
+  "",
+  "    // --- Aurora Serverless v2 (Postgres) ----------------------------",
+  "    const cluster = new rds.DatabaseCluster(this, 'Orders', {",
+  "      engine: rds.DatabaseClusterEngine.auroraPostgres({",
+  "        version: rds.AuroraPostgresEngineVersion.VER_15_4,",
+  "      }),",
+  "      serverlessV2MinCapacity: 0.5,",
+  "      serverlessV2MaxCapacity: 4,",
+  "      writer: rds.ClusterInstance.serverlessV2('writer'),",
+  "      readers: [rds.ClusterInstance.serverlessV2('r1', { scaleWithWriter: true })],",
+  "      vpc,",
+  "      storageEncrypted: true,",
+  "      deletionProtection: true,",
+  "    });",
+  "",
+  "    // --- Secrets Manager (PRE-PATCH) --------------------------------",
+  "    const dbSecret = new secretsmanager.Secret(this, 'OrdersDbSecret');",
+  "    dbSecret.grantRead(createOrderFn);",
+  "",
+  "    // --- IAM policy (PRE-PATCH from Codex) --------------------------",
+  "    createOrderFn.addToRolePolicy(new iam.PolicyStatement({",
+  "      actions: ['dynamodb:*'],",
+  "      resources: ['arn:aws:dynamodb:*:*:table/orders-prod'],",
+  "    }));",
+  "",
+  "    // --- API Gateway (private) --------------------------------------",
+  "    const api = new apigw.RestApi(this, 'OrdersApi', {",
+  "      endpointConfiguration: { types: [apigw.EndpointType.PRIVATE] },",
+  "      deployOptions: { tracingEnabled: true },",
+  "    });",
+  "    api.root.addResource('orders').addMethod('POST', new apigw.LambdaIntegration(createOrderFn));",
+  "",
+  "    // --- Parity-diff Lambda (per J. Park override) ------------------",
+  "    new lambda.Function(this, 'ParityDiffFn', {",
+  "      runtime: lambda.Runtime.NODEJS_20_X,",
+  "      handler: 'handlers/parity-diff.handler',",
+  "      code: lambda.Code.fromAsset('dist/handlers'),",
+  "      vpc,",
+  "      timeout: cdk.Duration.minutes(2),",
+  "      environment: { DRIFT_FAIL_THRESHOLD: '0.0001' },",
+  "    });",
+  "  }",
+  "}",
+];
+
+/**
+ * Codex auto-patches applied at ~11s.
+ * Both patches replace the "pre-patch" lines above with scoped versions.
+ */
+export interface CodexPatch {
+  line: number;            // 1-indexed line in the file above
+  category: 'iam' | 'vpc';
+  summary: string;
+  detail: string;
+  replacementLine: string; // the line we animate in after patch
+}
+
+export const CODEX_PATCHES: CodexPatch[] = [
+  {
+    line: 62,
+    category: 'iam',
+    summary: '`iam.PolicyStatement` too broad',
+    detail: 'allows dynamodb:* on the whole table family. Scope to arn:aws:dynamodb:*:*:table/orders-prod only. Auto-patching…',
+    replacementLine: "      actions: ['dynamodb:GetItem','dynamodb:PutItem','dynamodb:UpdateItem'],",
+  },
+  {
+    line: 48,
+    category: 'vpc',
+    summary: 'Aurora cluster has no VPC endpoint for Secrets Manager',
+    detail: 'routes via NAT. Add ec2.InterfaceVpcEndpoint for SecretsManager + RDS. Auto-patching…',
+    replacementLine: "      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED }, // + SecretsManager + RDS VPC endpoints added below",
+  },
+];

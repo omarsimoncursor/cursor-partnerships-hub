@@ -1,0 +1,249 @@
+/* ============================================================================
+ * daily_revenue_rollup.bteq
+ *
+ * Legacy Teradata BTEQ batch: computes the daily revenue rollup across regions,
+ * currencies, and product hierarchies. Runs nightly on the Acme Analytics
+ * Teradata 17 platform (perf_dw schema) and lands the rollup in
+ * perf_dw.fct_daily_revenue.
+ *
+ * This file is deliberately vendor-locked to Teradata BTEQ + Teradata SQL. It
+ * is the canonical example of the idioms that Cursor rewrites into Snowflake +
+ * dbt when modernizing Acme Analytics' 247 BTEQ scripts and 412 T-SQL procs.
+ *
+ * Dependencies (in perf_dw):
+ *   - stg_orders        (raw order events)
+ *   - stg_order_lines   (line-item grain)
+ *   - dim_product       (hierarchy: category -> subcategory -> product)
+ *   - dim_region        (region / country / currency)
+ *   - fx_rates          (FX rates, effective-dated)
+ *   - fct_daily_revenue (target)
+ *
+ * Author:  j.oshea@acme.com  (no longer at the company)
+ * Last touched: 2.3 years ago (commit 7c91ab2)
+ * ============================================================================ */
+
+.LOGON ${TD_HOST}/${TD_USER},${TD_PASSWORD};
+.SET ERRORLEVEL 3807 SEVERITY 0;          -- table already exists: warn only
+.SET WIDTH 300;
+.SET ECHOREQ ON;
+.SET MAXERROR 1;
+
+/* Parameterized run date. Production passes via BTEQ ${RUN_DATE}. */
+.IF ERRORCODE <> 0 THEN .QUIT 12;
+
+DATABASE perf_dw;
+
+/* ---------------------------------------------------------------------------
+ * 1. Volatile staging of yesterday's orders.
+ *
+ * LEGACY: MULTISET VOLATILE TABLE + ON COMMIT PRESERVE ROWS is Teradata-only.
+ *         Snowflake equivalent is a CTE or a transient/temp table inside a
+ *         dbt model. Cursor will rewrite this as a staging CTE.
+ * --------------------------------------------------------------------------- */
+CREATE MULTISET VOLATILE TABLE tmp_orders_raw AS (
+    SELECT
+        o.order_id,
+        o.customer_id,
+        o.region_code,
+        o.currency_code,
+        o.order_ts,
+        CAST(o.order_ts AS DATE) AS order_date,
+        o.order_status
+    FROM stg_orders o
+    WHERE CAST(o.order_ts AS DATE) = (DATE - 1)
+      AND o.order_status IN ('SHIPPED', 'DELIVERED', 'INVOICED')
+) WITH DATA
+  PRIMARY INDEX (order_id)
+  ON COMMIT PRESERVE ROWS;
+
+COLLECT STATISTICS ON tmp_orders_raw COLUMN (region_code);
+COLLECT STATISTICS ON tmp_orders_raw COLUMN (currency_code);
+COLLECT STATISTICS ON tmp_orders_raw COLUMN (order_date);
+
+.IF ERRORCODE <> 0 THEN .QUIT 12;
+
+/* ---------------------------------------------------------------------------
+ * 2. Line-item grain — one row per order line after de-duplication.
+ *
+ * LEGACY: QUALIFY ROW_NUMBER() is Teradata-native. Snowflake supports QUALIFY
+ *         natively too, but the join shape below uses Teradata-specific
+ *         VOLATILE tables; Cursor rewrites the whole thing as CTEs.
+ * LEGACY: Teradata date math `(DATE - 1)` + `ADD_MONTHS(...)` is ported to
+ *         Snowflake's DATEADD / DATE_TRUNC.
+ * --------------------------------------------------------------------------- */
+CREATE MULTISET VOLATILE TABLE tmp_order_lines AS (
+    SELECT
+        ol.order_id,
+        ol.line_number,
+        ol.product_id,
+        ol.quantity,
+        ol.unit_price_local,
+        ol.line_discount_local,
+        ol.tax_local,
+        o.customer_id,
+        o.region_code,
+        o.currency_code,
+        o.order_date
+    FROM stg_order_lines ol
+    INNER JOIN tmp_orders_raw o
+      ON ol.order_id = o.order_id
+    /* Only keep the latest version of each (order_id, line_number) — Teradata
+       occasionally emits a correction row for the same line. */
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY ol.order_id, ol.line_number
+        ORDER BY ol.updated_ts DESC
+    ) = 1
+) WITH DATA
+  PRIMARY INDEX (order_id, line_number)
+  ON COMMIT PRESERVE ROWS;
+
+COLLECT STATISTICS ON tmp_order_lines COLUMN (order_id);
+COLLECT STATISTICS ON tmp_order_lines COLUMN (product_id);
+
+.IF ERRORCODE <> 0 THEN .QUIT 12;
+
+/* ---------------------------------------------------------------------------
+ * 3. Join FX rates to convert line-item totals into USD.
+ *
+ * LEGACY: Effective-dated FX lookup uses a correlated subquery that Teradata
+ *         plans efficiently but Snowflake would prefer as an ASOF JOIN.
+ * --------------------------------------------------------------------------- */
+CREATE MULTISET VOLATILE TABLE tmp_line_usd AS (
+    SELECT
+        ol.order_id,
+        ol.line_number,
+        ol.product_id,
+        ol.customer_id,
+        ol.region_code,
+        ol.currency_code,
+        ol.order_date,
+        ol.quantity,
+        (ol.unit_price_local * ol.quantity) - ol.line_discount_local AS gross_local,
+        ol.tax_local,
+        ((ol.unit_price_local * ol.quantity) - ol.line_discount_local) * fx.rate_to_usd AS gross_usd,
+        ol.tax_local * fx.rate_to_usd                                                   AS tax_usd
+    FROM tmp_order_lines ol
+    INNER JOIN fx_rates fx
+      ON fx.currency_code = ol.currency_code
+     AND fx.effective_date = (
+            SELECT MAX(fx2.effective_date)
+            FROM fx_rates fx2
+            WHERE fx2.currency_code = ol.currency_code
+              AND fx2.effective_date <= ol.order_date
+         )
+) WITH DATA
+  PRIMARY INDEX (order_id, line_number)
+  ON COMMIT PRESERVE ROWS;
+
+.IF ERRORCODE <> 0 THEN .QUIT 12;
+
+/* ---------------------------------------------------------------------------
+ * 4. Attach product hierarchy. dim_product models 3 levels
+ *    (category -> subcategory -> product) as self-referencing rows.
+ *
+ * LEGACY: Teradata-style implicit hierarchy via LEFT JOIN. Snowflake prefers
+ *         a flattened dim_product with category_name / subcategory_name
+ *         columns populated by dbt. Cursor emits a dbt snapshot that matches.
+ * --------------------------------------------------------------------------- */
+CREATE MULTISET VOLATILE TABLE tmp_line_enriched AS (
+    SELECT
+        l.order_date,
+        l.region_code,
+        l.currency_code,
+        l.customer_id,
+        l.product_id,
+        p.product_name,
+        sub.product_name  AS subcategory_name,
+        cat.product_name  AS category_name,
+        l.quantity,
+        l.gross_local,
+        l.tax_local,
+        l.gross_usd,
+        l.tax_usd
+    FROM tmp_line_usd l
+    LEFT JOIN dim_product p   ON p.product_id   = l.product_id
+    LEFT JOIN dim_product sub ON sub.product_id = p.parent_product_id
+    LEFT JOIN dim_product cat ON cat.product_id = sub.parent_product_id
+) WITH DATA
+  PRIMARY INDEX (order_date, region_code)
+  ON COMMIT PRESERVE ROWS;
+
+COLLECT STATISTICS ON tmp_line_enriched COLUMN (order_date);
+
+.IF ERRORCODE <> 0 THEN .QUIT 12;
+
+/* ---------------------------------------------------------------------------
+ * 5. Roll up to (date, region, category) grain and MERGE into target.
+ *
+ * LEGACY: MERGE ... WHEN MATCHED THEN UPDATE ... WHEN NOT MATCHED THEN INSERT
+ *         is Teradata dialect. Snowflake's MERGE INTO is syntactically close
+ *         but Cursor's dbt model emits this as an incremental model with
+ *         unique_key = (order_date, region_code, category_name) — cleaner,
+ *         tested, and measurable via dbt test.
+ * --------------------------------------------------------------------------- */
+MERGE INTO fct_daily_revenue AS tgt
+USING (
+    SELECT
+        order_date,
+        region_code,
+        currency_code,
+        category_name,
+        COUNT(DISTINCT customer_id) AS customer_count,
+        SUM(quantity)               AS unit_count,
+        SUM(gross_local)            AS gross_local,
+        SUM(tax_local)              AS tax_local,
+        SUM(gross_usd)              AS gross_usd,
+        SUM(tax_usd)                AS tax_usd,
+        SUM(gross_usd + tax_usd)    AS net_revenue_usd,
+        CURRENT_TIMESTAMP           AS last_refreshed_at
+    FROM tmp_line_enriched
+    GROUP BY order_date, region_code, currency_code, category_name
+) AS src
+ON  tgt.order_date    = src.order_date
+AND tgt.region_code   = src.region_code
+AND tgt.currency_code = src.currency_code
+AND tgt.category_name = src.category_name
+WHEN MATCHED THEN UPDATE SET
+    customer_count    = src.customer_count,
+    unit_count        = src.unit_count,
+    gross_local       = src.gross_local,
+    tax_local         = src.tax_local,
+    gross_usd         = src.gross_usd,
+    tax_usd           = src.tax_usd,
+    net_revenue_usd   = src.net_revenue_usd,
+    last_refreshed_at = src.last_refreshed_at
+WHEN NOT MATCHED THEN INSERT (
+    order_date, region_code, currency_code, category_name,
+    customer_count, unit_count, gross_local, tax_local,
+    gross_usd, tax_usd, net_revenue_usd, last_refreshed_at
+) VALUES (
+    src.order_date, src.region_code, src.currency_code, src.category_name,
+    src.customer_count, src.unit_count, src.gross_local, src.tax_local,
+    src.gross_usd, src.tax_usd, src.net_revenue_usd, src.last_refreshed_at
+);
+
+.IF ERRORCODE <> 0 THEN .QUIT 12;
+
+COLLECT STATISTICS ON fct_daily_revenue COLUMN (order_date);
+COLLECT STATISTICS ON fct_daily_revenue COLUMN (region_code);
+
+/* ---------------------------------------------------------------------------
+ * 6. Sanity checks (abort job if unexpected).
+ * --------------------------------------------------------------------------- */
+SELECT
+    CASE
+        WHEN COUNT(*) = 0 THEN 'ABORT: no rollup rows produced for ' || CAST((DATE - 1) AS VARCHAR(12))
+        ELSE 'OK: ' || CAST(COUNT(*) AS VARCHAR(12)) || ' rollup rows landed for ' || CAST((DATE - 1) AS VARCHAR(12))
+    END AS run_status
+FROM fct_daily_revenue
+WHERE order_date = (DATE - 1);
+
+.IF ERRORCODE <> 0 THEN .QUIT 12;
+
+DROP TABLE tmp_orders_raw;
+DROP TABLE tmp_order_lines;
+DROP TABLE tmp_line_usd;
+DROP TABLE tmp_line_enriched;
+
+.LOGOFF;
+.QUIT 0;

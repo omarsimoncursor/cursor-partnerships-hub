@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Informatica PowerCenter mapping stub for the customer-360 enrichment flow.
+  Exported from the Acme Analytics Informatica repository (Designer 10.4).
+  This mapping is called by the SSIS orchestrator alongside
+  dbo.usp_enrich_customers_360 to land the mart_customer_360 mart.
+
+  Cursor parses this XML and emits an equivalent dbt model + snapshot.
+-->
+<POWERMART REPOSITORY_VERSION="186.0" DATABASETYPE="Oracle">
+  <REPOSITORY NAME="ACME_EDW_REPO" VERSION="100">
+    <FOLDER NAME="CUSTOMER_360" GROUP="ANALYTICS">
+
+      <SOURCE NAME="SRC_STG_CUSTOMER_EVENTS" DBDNAME="ACME_CRM" OWNERNAME="DBO" SOURCETYPE="Relational">
+        <SOURCEFIELD NAME="EVENT_ID"        DATATYPE="number(18)"   NULLABLE="NOTNULL" PRECISION="18" KEYTYPE="PRIMARY KEY"/>
+        <SOURCEFIELD NAME="CUSTOMER_ID"     DATATYPE="number(18)"   NULLABLE="NOTNULL" PRECISION="18"/>
+        <SOURCEFIELD NAME="EVENT_TS"        DATATYPE="datetime2(3)" NULLABLE="NOTNULL"/>
+        <SOURCEFIELD NAME="EVENT_CHANNEL"   DATATYPE="varchar(32)"  NULLABLE="NULL" PRECISION="32"/>
+        <SOURCEFIELD NAME="EVENT_PAYLOAD"   DATATYPE="nvarchar(max)" NULLABLE="NULL"/>
+      </SOURCE>
+
+      <SOURCE NAME="SRC_DIM_LOYALTY_TIER" DBDNAME="ACME_CRM" OWNERNAME="DBO" SOURCETYPE="Relational">
+        <SOURCEFIELD NAME="TIER_CODE"       DATATYPE="varchar(8)"   NULLABLE="NOTNULL" PRECISION="8" KEYTYPE="PRIMARY KEY"/>
+        <SOURCEFIELD NAME="TIER_NAME"       DATATYPE="varchar(64)"  NULLABLE="NOTNULL" PRECISION="64"/>
+        <SOURCEFIELD NAME="MIN_SPEND_USD"   DATATYPE="decimal(18,4)" NULLABLE="NOTNULL"/>
+      </SOURCE>
+
+      <TARGET NAME="TGT_MART_CUSTOMER_360" DATABASETYPE="Oracle" OWNERNAME="ACME_CRM">
+        <TARGETFIELD NAME="CUSTOMER_ID"    DATATYPE="number(18)"    PRECISION="18" KEYTYPE="PRIMARY KEY"/>
+        <TARGETFIELD NAME="SPEND_13M_USD"  DATATYPE="decimal(18,4)" PRECISION="18,4"/>
+        <TARGETFIELD NAME="SPEND_30D_USD"  DATATYPE="decimal(18,4)" PRECISION="18,4"/>
+        <TARGETFIELD NAME="ORDERS_13M"     DATATYPE="number(10)"    PRECISION="10"/>
+        <TARGETFIELD NAME="LOYALTY_TIER"   DATATYPE="varchar(8)"    PRECISION="8"/>
+        <TARGETFIELD NAME="LOYALTY_LABEL"  DATATYPE="varchar(64)"   PRECISION="64"/>
+        <TARGETFIELD NAME="LAST_EVENT_TS"  DATATYPE="datetime2(3)"/>
+        <TARGETFIELD NAME="UPDATED_AT"     DATATYPE="datetime2(3)"/>
+      </TARGET>
+
+      <MAPPING NAME="m_customer_360_enrich" ISVALID="YES" VERSIONNUMBER="11">
+        <TRANSFORMATION NAME="SQ_STG_CUSTOMER_EVENTS" TYPE="Source Qualifier">
+          <TABLEATTRIBUTE NAME="Sql Query">
+            SELECT event_id, customer_id, event_ts, event_channel, event_payload
+              FROM dbo.stg_customer_events
+             WHERE event_ts &gt;= $$LAST_RUN_TS
+          </TABLEATTRIBUTE>
+        </TRANSFORMATION>
+
+        <TRANSFORMATION NAME="EXP_PARSE_PAYLOAD" TYPE="Expression">
+          <TRANSFORMFIELD NAME="event_type"      DATATYPE="string"    PRECISION="64"
+                          EXPRESSION=":LKP.JSON_LOOKUP(EVENT_PAYLOAD, '$.type')"/>
+          <TRANSFORMFIELD NAME="order_value_usd" DATATYPE="decimal"   PRECISION="18,4"
+                          EXPRESSION="TO_DECIMAL(:LKP.JSON_LOOKUP(EVENT_PAYLOAD, '$.order.value_usd'), 18, 4)"/>
+          <TRANSFORMFIELD NAME="loyalty_points"  DATATYPE="integer"   PRECISION="10"
+                          EXPRESSION="TO_INTEGER(:LKP.JSON_LOOKUP(EVENT_PAYLOAD, '$.loyalty.points_delta'))"/>
+        </TRANSFORMATION>
+
+        <TRANSFORMATION NAME="AGG_ROLLING_WINDOWS" TYPE="Aggregator">
+          <TABLEATTRIBUTE NAME="Group By">CUSTOMER_ID</TABLEATTRIBUTE>
+          <TRANSFORMFIELD NAME="SPEND_13M_USD" EXPRESSION="SUM(IIF(EVENT_TS &gt;= ADD_TO_DATE(SESSSTARTTIME, 'MM', -13), order_value_usd, 0))"/>
+          <TRANSFORMFIELD NAME="SPEND_30D_USD" EXPRESSION="SUM(IIF(EVENT_TS &gt;= ADD_TO_DATE(SESSSTARTTIME, 'DD', -30), order_value_usd, 0))"/>
+          <TRANSFORMFIELD NAME="ORDERS_13M"    EXPRESSION="COUNT(DISTINCT IIF(event_type = 'ORDER_PLACED', order_id, NULL))"/>
+        </TRANSFORMATION>
+
+        <TRANSFORMATION NAME="LKP_LOYALTY_TIER" TYPE="Lookup">
+          <TABLEATTRIBUTE NAME="Lookup table name">dbo.dim_loyalty_tier</TABLEATTRIBUTE>
+          <TABLEATTRIBUTE NAME="Lookup condition">MIN_SPEND_USD &lt;= SPEND_13M_USD</TABLEATTRIBUTE>
+          <TABLEATTRIBUTE NAME="Lookup policy on multiple match">Use Last Value</TABLEATTRIBUTE>
+        </TRANSFORMATION>
+
+        <TRANSFORMATION NAME="UPD_MART_CUSTOMER_360" TYPE="Update Strategy">
+          <TABLEATTRIBUTE NAME="Update Strategy Expression">IIF(ISNULL(LKP_MART.CUSTOMER_ID), DD_INSERT, DD_UPDATE)</TABLEATTRIBUTE>
+        </TRANSFORMATION>
+      </MAPPING>
+
+      <WORKFLOW NAME="wf_customers_360" ISVALID="YES" SERVERNAME="ACME_PROD_NODE_01">
+        <SESSION NAME="s_m_customer_360_enrich" MAPPINGNAME="m_customer_360_enrich">
+          <SESSIONEXTENSION SUBTYPE="Relational Writer" NAME="TGT_MART_CUSTOMER_360">
+            <ATTRIBUTE NAME="Target load type">Bulk</ATTRIBUTE>
+            <ATTRIBUTE NAME="Update as Update">YES</ATTRIBUTE>
+          </SESSIONEXTENSION>
+        </SESSION>
+      </WORKFLOW>
+
+    </FOLDER>
+  </REPOSITORY>
+</POWERMART>

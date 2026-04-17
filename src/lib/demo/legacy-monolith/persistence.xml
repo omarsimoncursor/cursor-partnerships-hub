@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence version="2.1"
+             xmlns="http://xmlns.jcp.org/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence
+                                 http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd">
+
+  <!--
+    LEGACY: WebSphere Application Server 8.5 + EclipseLink + Oracle 12c.
+    Every property below pins us to the WAS container. Migrating to Aurora
+    PostgreSQL requires:
+      - switching target-database to PostgreSQL
+      - dropping target-server=WebSphere in favor of Lambda runtime
+      - removing Oracle-specific ORACLE_JDBC_DRIVER hints
+      - replacing the JNDI DataSource with the AWS RDS Data API
+  -->
+  <persistence-unit name="orders-pu" transaction-type="JTA">
+    <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+
+    <jta-data-source>jdbc/OracleDS</jta-data-source>
+
+    <class>com.acme.orders.domain.Order</class>
+    <class>com.acme.orders.domain.OrderLine</class>
+    <class>com.acme.orders.domain.RevenueLedger</class>
+
+    <exclude-unlisted-classes>true</exclude-unlisted-classes>
+
+    <properties>
+      <!-- LEGACY: Oracle-specific dialect + driver hints -->
+      <property name="eclipselink.target-database"
+                value="org.eclipse.persistence.platform.database.OraclePlatform" />
+      <property name="eclipselink.jdbc.batch-writing" value="ORACLE-JDBC" />
+      <property name="eclipselink.jdbc.native-sql" value="true" />
+
+      <!-- LEGACY: target-server pins this unit to WebSphere's JTA + JNDI -->
+      <property name="eclipselink.target-server" value="WebSphere_7" />
+
+      <!-- LEGACY: aggressive L2 cache sized for a single-JVM monolith.
+           This breaks the moment we scale horizontally on Lambda. -->
+      <property name="eclipselink.cache.type.default" value="SoftWeak" />
+      <property name="eclipselink.cache.size.default" value="5000" />
+      <property name="eclipselink.cache.shared.default" value="true" />
+
+      <!-- LEGACY: relies on the container-managed Oracle DataSource's
+           session-level NLS settings (NLS_DATE_FORMAT, NLS_NUMERIC_CHARACTERS).
+           Aurora PG has no such knobs. -->
+      <property name="eclipselink.session.customizer"
+                value="com.acme.orders.persistence.OracleSessionCustomizer" />
+
+      <!-- LEGACY: JDBC pool tuned for on-prem capacity. -->
+      <property name="eclipselink.connection-pool.default.initial" value="8" />
+      <property name="eclipselink.connection-pool.default.min" value="8" />
+      <property name="eclipselink.connection-pool.default.max" value="64" />
+
+      <property name="eclipselink.logging.level" value="INFO" />
+      <property name="eclipselink.logging.level.sql" value="WARNING" />
+      <property name="eclipselink.weaving" value="static" />
+    </properties>
+  </persistence-unit>
+
+</persistence>

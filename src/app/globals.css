@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-brand-black: #26251e;
+  --color-brand-light: #edecec;
+  --color-dark-bg: #14120b;
+  --color-dark-surface: #1a1814;
+  --color-dark-surface-hover: #222018;
+  --color-dark-border: rgba(237, 236, 236, 0.08);
+  --color-dark-border-hover: rgba(237, 236, 236, 0.15);
+  --color-cta-bg: rgba(237, 236, 236, 0.06);
+  --color-cta-bg-hover: rgba(237, 236, 236, 0.12);
+  --color-text-primary: #edecec;
+  --color-text-secondary: rgba(237, 236, 236, 0.55);
+  --color-text-tertiary: rgba(237, 236, 236, 0.35);
+  --color-accent-green: #4ade80;
+  --color-accent-blue: #60a5fa;
+  --color-accent-amber: #fbbf24;
+  --color-accent-red: #f87171;
+  --color-glass: rgba(237, 236, 236, 0.03);
+  --color-glass-hover: rgba(237, 236, 236, 0.06);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    background-color: var(--color-dark-bg);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+}
+
+@layer base {
+  ::selection {
+    background-color: rgba(237, 236, 236, 0.2);
+    color: var(--color-text-primary);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(237, 236, 236, 0.12);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(237, 236, 236, 0.2);
+  }
+}
+
+@layer components {
+  .glass-card {
+    background: var(--color-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--color-dark-border);
+    border-radius: 12px;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+  }
+
+  .glass-card:hover {
+    border-color: var(--color-dark-border-hover);
+    background: var(--color-glass-hover);
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-text-secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-gradient-text {
+    background: linear-gradient(
+      160deg,
+      var(--color-text-primary) 0%,
+      rgba(237, 236, 236, 0.7) 50%,
+      rgba(237, 236, 236, 0.4) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .stat-gradient-text {
+    background: linear-gradient(
+      180deg,
+      var(--color-text-primary) 0%,
+      rgba(237, 236, 236, 0.5) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .section-divider {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--color-dark-border-hover) 50%,
+      transparent 100%
+    );
+  }
+
+  .example-cta-pulse {
+    animation: ctaPulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes ctaPulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 var(--pulse-color, rgba(96, 165, 250, 0.3));
+    }
+    50% {
+      box-shadow: 0 0 20px 4px var(--pulse-color, rgba(96, 165, 250, 0.15));
+    }
+  }
+
+  .account-card-shimmer {
+    animation: subtlePulse 3s ease-in-out infinite;
+    animation-delay: var(--shimmer-delay, 0s);
+  }
+
+  @keyframes subtlePulse {
+    0%, 100% {
+      border-color: rgba(237, 236, 236, 0.08);
+    }
+    50% {
+      border-color: rgba(96, 165, 250, 0.15);
+    }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+    20%, 40%, 60%, 80% { transform: translateX(4px); }
+  }
+}

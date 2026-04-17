@@ -45,7 +45,7 @@ export function ActShell({
           {topRight}
         </div>
       )}
-      <div className={`relative mx-auto max-w-7xl px-6 pb-28 pt-8 md:px-10 ${contentClassName ?? ''}`}>
+      <div className={`relative mx-auto max-w-7xl px-6 pb-44 pt-8 md:px-10 ${contentClassName ?? ''}`}>
         {children}
       </div>
     </section>

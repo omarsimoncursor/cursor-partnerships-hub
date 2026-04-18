@@ -1,10 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { AlertTriangle, Clock, Database, GitBranch, GitPullRequest, Layers } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Clock, GitBranch, GitPullRequest, Layers, Play } from 'lucide-react';
 import { ActShell, ActHeader } from './act-shell';
 import { CursorLogo } from '../cursor-logo';
-import { AccelerationTile } from '../acceleration-tile';
 import { StoryBeat } from '../story-beat';
 import {
   BOUNDARY_VIOLATIONS,
@@ -80,70 +79,120 @@ function useGraphLayout() {
 export function Act2Atlas({ onAdvance }: Act2Props) {
   const { nodes, byId, domainEdges } = useGraphLayout();
   const [hovered, setHovered] = useState<LaidOutNode | null>(null);
+  const [scanState, setScanState] = useState<'idle' | 'scanning' | 'done'>('idle');
+  const [scanProgress, setScanProgress] = useState(0);
 
   const violationIds = useMemo(() => new Set(BOUNDARY_VIOLATIONS.flat()), []);
 
+  useEffect(() => {
+    if (scanState !== 'scanning') return;
+    const start = performance.now();
+    let raf = 0;
+    const tick = () => {
+      const t = (performance.now() - start) / 2200;
+      if (t >= 1) {
+        setScanProgress(1);
+        setScanState('done');
+        return;
+      }
+      setScanProgress(t);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [scanState]);
+
+  const revealed = scanState === 'done';
+
   return (
     <ActShell act={2}>
-      <ActHeader act={2} eyebrow="Overnight, a Cursor Cloud Agent reads the entire codebase so the team doesn’t have to." />
+      <ActHeader act={2} eyebrow="Step 1: ask the Cursor Cloud Agent to read the entire monolith. Click scan and watch it map 4.2 million lines of code." />
 
       <StoryBeat
         tone="dark"
         agent="cloud"
-        title="What’s happening: the agent mapped every service in the monolith — while the team slept."
+        title="A GSI sends three consultants for a month. Cursor does it overnight."
         body={
-          <>
-            Usually this is where a GSI parachutes in 3 senior consultants with spreadsheets for a month.
-            Instead, a <strong>Cursor Cloud Agent</strong> read all 4.2 million lines of code overnight, drew this map,
-            and ranked every service by risk and revenue — so the team walks in on day 3 with one clear answer:
-            start with <strong>OrdersService</strong>.
-          </>
+          <>The agent reads every file, maps service boundaries, flags dead code, and ranks each piece by risk and revenue — so the team walks in with one clear answer.</>
         }
-        oldWay="GSI consultants · 4 weeks of interviews & diagrams"
-        newWay="Cursor Cloud Agent · 5 hours, $0 in consulting fees"
+        oldWay="4 weeks of interviews"
+        newWay="5 hours, $0 in fees"
       />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[240px_1fr_320px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr_280px]">
         {/* Left rail: findings */}
         <aside
-          className="flex flex-col gap-3 rounded-xl border p-4"
+          className="flex flex-col gap-3 rounded-xl border p-3.5"
           style={{ background: 'rgba(77, 212, 255, 0.04)', borderColor: 'rgba(77,212,255,0.15)' }}
         >
           <div className="flex items-center gap-2">
-            <CursorLogo size={16} tone="dark" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#4DD4FF' }}>
-              Cursor Cloud Agent · Discovery
+            <CursorLogo size={14} tone="dark" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#4DD4FF' }}>
+              Findings
             </span>
           </div>
-          <ul className="space-y-3">
-            <Finding n="38" label="bounded contexts mapped" icon={<Layers className="h-4 w-4" />} />
-            <Finding n="8"  label="boundary violations found" icon={<GitBranch className="h-4 w-4" />} accent="#EF4444" />
-            <Finding n="17" label="orphaned cron jobs (no owner)" icon={<Clock className="h-4 w-4" />} />
-            <Finding n="4"  label="dead-code subsystems (0 calls in 90d)" icon={<AlertTriangle className="h-4 w-4" />} />
-            <Finding n="3"  label="tables with cross-context write contention" icon={<Database className="h-4 w-4" />} />
+          <ul className="space-y-2.5" style={{ opacity: revealed ? 1 : 0.35, transition: 'opacity 350ms' }}>
+            <Finding n={revealed ? '38' : '—'} label="bounded contexts mapped" icon={<Layers className="h-4 w-4" />} />
+            <Finding n={revealed ? '8' : '—'} label="boundary violations" icon={<GitBranch className="h-4 w-4" />} accent="#EF4444" />
+            <Finding n={revealed ? '17' : '—'} label="orphaned cron jobs" icon={<Clock className="h-4 w-4" />} />
+            <Finding n={revealed ? '4' : '—'} label="dead-code subsystems" icon={<AlertTriangle className="h-4 w-4" />} />
           </ul>
-          <AccelerationTile taskId="codebase-scan" tone="dark" variant="card" />
-
-          <div
-            className="rounded-md border px-3 py-2 text-[10px] font-mono leading-relaxed"
-            style={{ background: 'rgba(77,212,255,0.05)', borderColor: 'rgba(77,212,255,0.2)', color: 'rgba(229,231,235,0.7)' }}
-          >
-            Cursor Cloud Agent + AWS Knowledge MCP + Bedrock
-            <br />
-            3 calendar days · <span style={{ color: '#7EE787' }}>$0</span> additional cost
-          </div>
         </aside>
 
         {/* Center: SVG graph */}
         <div
           className="relative overflow-hidden rounded-xl border"
           style={{
-            minHeight: 560,
+            minHeight: 440,
             background: 'radial-gradient(ellipse at center, rgba(77,212,255,0.06) 0%, transparent 60%)',
             borderColor: 'rgba(77,212,255,0.15)',
           }}
         >
-          <svg viewBox="0 0 1000 680" className="h-full w-full" style={{ minHeight: 560 }}>
+          {scanState !== 'done' && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-center">
+              {scanState === 'idle' ? (
+                <>
+                  <div className="max-w-xs text-[12.5px]" style={{ color: 'rgba(229,231,235,0.7)' }}>
+                    Ready to scan <strong className="text-white">4,200,000 lines</strong> of Java.
+                    Click below to let Cursor Cloud Agent read the monolith.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setScanState('scanning')}
+                    className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-transform hover:-translate-y-0.5"
+                    style={{ background: '#4DD4FF', color: '#0B1220' }}
+                  >
+                    <Play className="h-4 w-4 fill-current" />
+                    Run Cursor scan
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="text-[11px] uppercase tracking-[0.2em]" style={{ color: '#4DD4FF' }}>
+                    Scanning · {Math.round(scanProgress * 4.2 * 1_000_000).toLocaleString()} LOC
+                  </div>
+                  <div
+                    className="h-1.5 w-64 overflow-hidden rounded-full"
+                    style={{ background: 'rgba(77,212,255,0.15)' }}
+                  >
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${scanProgress * 100}%`,
+                        background: 'linear-gradient(90deg, #4DD4FF 0%, #7EE787 100%)',
+                        transition: 'width 120ms linear',
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <svg
+            viewBox="0 0 1000 680"
+            className="h-full w-full transition-opacity duration-500"
+            style={{ minHeight: 440, opacity: revealed ? 1 : 0.15 }}
+          >
             {/* Grid background */}
             <defs>
               <pattern id="atlas-grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -291,40 +340,34 @@ export function Act2Atlas({ onAdvance }: Act2Props) {
 
         {/* Right: Cursor's recommendation */}
         <aside
-          className="flex h-fit flex-col gap-4 rounded-xl border p-5"
+          className="flex h-fit flex-col gap-3 rounded-xl border p-4 transition-opacity duration-500"
           style={{
             background: 'linear-gradient(180deg, rgba(255,153,0,0.08) 0%, rgba(255,153,0,0.02) 100%)',
             borderColor: 'rgba(255,153,0,0.3)',
+            opacity: revealed ? 1 : 0.3,
           }}
         >
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#FF9900' }}>
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#FF9900' }}>
             <CursorLogo size={14} tone="dark" />
-            Cursor Cloud Agent recommends
+            Cursor&rsquo;s pick
           </div>
 
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-wider" style={{ color: 'rgba(229,231,235,0.55)' }}>Start with</div>
-            <h3 className="text-2xl font-bold" style={{ color: '#FF9900' }}>OrdersService</h3>
+            <div className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(229,231,235,0.55)' }}>Start with</div>
+            <h3 className="text-2xl font-bold leading-tight" style={{ color: '#FF9900' }}>OrdersService</h3>
           </div>
 
-          <ul className="space-y-2 text-[12px] leading-relaxed" style={{ color: 'rgba(229,231,235,0.85)' }}>
-            <li className="flex gap-2"><span className="mt-0.5 font-mono text-[10px]" style={{ color: '#4DD4FF' }}>▸</span>Tier 0 · <span className="font-semibold text-white">63%</span> of revenue flows through it</li>
-            <li className="flex gap-2"><span className="mt-0.5 font-mono text-[10px]" style={{ color: '#4DD4FF' }}>▸</span>180k LOC (<span className="font-semibold text-white">only 4.3%</span> of monolith)</li>
-            <li className="flex gap-2"><span className="mt-0.5 font-mono text-[10px]" style={{ color: '#4DD4FF' }}>▸</span>4 external callers · unblocks <span className="font-semibold text-white">6 downstream contexts</span></li>
-            <li className="flex gap-2"><span className="mt-0.5 font-mono text-[10px]" style={{ color: '#EF4444' }}>▸</span>2 active boundary violations (resolvable during extraction)</li>
+          <ul className="space-y-1.5 text-[12px] leading-snug" style={{ color: 'rgba(229,231,235,0.85)' }}>
+            <li className="flex gap-1.5"><span className="mt-0.5 font-mono text-[10px]" style={{ color: '#4DD4FF' }}>▸</span><span className="font-semibold text-white">63%</span>&nbsp;of revenue flows through it</li>
+            <li className="flex gap-1.5"><span className="mt-0.5 font-mono text-[10px]" style={{ color: '#4DD4FF' }}>▸</span>Just <span className="font-semibold text-white">4.3%</span>&nbsp;of the codebase</li>
+            <li className="flex gap-1.5"><span className="mt-0.5 font-mono text-[10px]" style={{ color: '#4DD4FF' }}>▸</span>Unblocks <span className="font-semibold text-white">6 downstream services</span></li>
           </ul>
-
-          <div
-            className="rounded-md border-l-2 px-3 py-2 text-[11px] italic leading-relaxed"
-            style={{ background: 'rgba(255,153,0,0.05)', borderColor: '#FF9900', color: 'rgba(229,231,235,0.8)' }}
-          >
-            Highest ROI, lowest blast radius. Recommended starting context in 100% of comparable MAP engagements.
-          </div>
 
           <button
             type="button"
             onClick={onAdvance}
-            className="mt-2 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+            disabled={!revealed}
+            className="mt-1 inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: '#FF9900', color: '#0B1220' }}
           >
             <GitPullRequest className="h-4 w-4" />

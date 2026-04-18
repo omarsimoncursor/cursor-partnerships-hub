@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 export function ArtifactModal({
@@ -18,20 +19,37 @@ export function ArtifactModal({
   children: ReactNode;
   accent?: string;
 }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  /*
+   * Rendered through a portal into document.body so the modal can't be
+   * trapped by a transformed ancestor (ActTransition applies a transform
+   * that would otherwise turn `position: fixed` into a local containing
+   * block and hide the modal behind the act content).
+   */
+  const node = (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -63,4 +81,6 @@ export function ArtifactModal({
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }

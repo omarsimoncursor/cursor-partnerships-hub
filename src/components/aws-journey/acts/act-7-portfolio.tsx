@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Cloud, FileText, GitPullRequest, Mail, RefreshCcw, Rocket, Ticket, Zap } from 'lucide-react';
+import { Cloud, FileText, GitPullRequest, Mail, RefreshCcw, Ticket, Zap } from 'lucide-react';
 import { ActShell, ActHeader } from './act-shell';
 import { CHARACTERS, CHARACTER_ORDER } from '../data/characters';
 import { CharacterStack } from '../character';
@@ -31,104 +31,76 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
 
       {/* The close */}
       <section
-        className="mb-6 rounded-2xl border bg-white p-6 shadow-sm"
+        className="mb-5 rounded-2xl border bg-white p-5 shadow-sm"
         style={{ borderColor: 'rgba(17, 24, 39, 0.1)' }}
       >
         <div className="grid gap-4 md:grid-cols-[1fr_auto]">
           <div>
-            <div className="mb-2 flex items-center gap-2">
-              <CursorLogo size={20} tone="light" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#B45309]">
+            <div className="mb-1.5 flex items-center gap-2">
+              <CursorLogo size={18} tone="light" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#B45309]">
                 Cursor Cloud Agents + AWS
               </span>
             </div>
-            <h2 className="text-2xl font-bold leading-tight text-[#0F172A] md:text-3xl">
-              What took 14 months now takes 22 days — because Cursor did the work.
+            <h2 className="text-2xl font-bold leading-tight text-[#0F172A] md:text-[28px]">
+              14 months of work, done in 22 days — because Cursor did the work.
             </h2>
-            <p className="mt-1 text-[14px]" style={{ color: '#475569' }}>
-              OrdersService is live on AWS. <strong>{Math.round(AI_TOTALS.baselineHours / 8)} person-days</strong> of
-              senior-engineer work were completed in{' '}
-              <strong>{AI_TOTALS.cursorHours.toFixed(1)} agent-hours</strong> — a{' '}
-              <strong style={{ color: '#B45309' }}>{Math.round(AI_TOTALS.speedup)}× speedup</strong>. Humans still signed
-              every gate; Cursor did the drafting, porting, testing, cutover, and the midnight watch.
+            <p className="mt-1.5 text-[13.5px]" style={{ color: '#475569' }}>
+              <strong>{Math.round(AI_TOTALS.baselineHours / 8)} person-days</strong> of senior-engineer work completed in{' '}
+              <strong>{AI_TOTALS.cursorHours.toFixed(1)} agent-hours</strong> —{' '}
+              <strong style={{ color: '#B45309' }}>{Math.round(AI_TOTALS.speedup)}× faster</strong>. Humans still signed every gate.
             </p>
           </div>
-          <div className="flex items-center gap-4 md:border-l md:pl-4" style={{ borderColor: 'rgba(17,24,39,0.08)' }}>
-            <Stat7 label="Oracle EoL" value="Dec 31, 2027" />
-            <Stat7 label="Your finish" value="Feb 15, 2028" accent="#FF9900" />
-            <Stat7 label="GSI finish" value="May 2030" accent="#DC2626" muted />
+          <div className="flex items-center gap-3 md:border-l md:pl-4" style={{ borderColor: 'rgba(17,24,39,0.08)' }}>
+            <Stat7 label="Oracle EoL" value="Dec 2027" />
+            <Stat7 label="Cursor" value="Feb 2028" accent="#FF9900" />
+            <Stat7 label="GSI" value="May 2030" accent="#DC2626" muted />
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-[#F8FAFC] px-4 py-3 text-[13px] text-[#334155]">
-          <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider" style={{ background: '#DCFCE7', color: '#15803D' }}>
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-[#F8FAFC] px-3 py-2 text-[12.5px] text-[#334155]">
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider" style={{ background: '#DCFCE7', color: '#15803D' }}>
             10 mo ahead
           </span>
           <span>
-            With Cursor Cloud Agents driving the work, the full 38-service portfolio finishes{' '}
-            <strong>10 months before</strong> the Oracle contract ends. Without Cursor, the same GSI plan finishes{' '}
-            <strong>30 months late</strong> — and Acme pays the Oracle extension.
+            Full 38-service portfolio finishes <strong>10 months before</strong> Oracle support ends.
+            The GSI plan would finish <strong>30 months late</strong>.
           </span>
-        </div>
-
-        {/* Story recap of what Cursor specifically did, per act */}
-        <div className="mt-5 grid gap-2 rounded-lg border p-4 text-[12.5px] leading-relaxed md:grid-cols-2" style={{ borderColor: 'rgba(17,24,39,0.08)', background: '#FFFBF2', color: '#334155' }}>
-          <div>
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#B45309' }}>
-              Where Cursor did the heavy lifting
-            </div>
-            <ul className="space-y-1.5">
-              <RecapItem act="Act 2" role="Cloud Agent" text="Read 4.2M lines of legacy code overnight and mapped 38 services." />
-              <RecapItem act="Act 3" role="Cloud Agent" text="Drafted the AWS architecture in 45 minutes and rewrote it in 6 minutes after the architect pushed back." />
-              <RecapItem act="Act 4" role="Cloud + Codex" text="Ported a 2.8k-line Java service to AWS Lambda + CDK, wrote 47 tests, and patched security issues before review." />
-            </ul>
-          </div>
-          <div>
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] md:invisible">&nbsp;</div>
-            <ul className="space-y-1.5">
-              <RecapItem act="Act 5" role="Cloud Agent" text="Stress-tested at 12k rps, caught a cold-start issue live, proposed the fix with a dollar number attached." />
-              <RecapItem act="Act 6" role="Cloud Agent" text="Wrote the cutover runbook, drove traffic 0→100% in 4 canary steps, and live-watched every metric." />
-              <RecapItem act="Gates" role="Humans" text="4 / 4 approval gates still reviewed and signed by named humans." />
-            </ul>
-          </div>
         </div>
       </section>
 
-      {/* The Acceleration Ledger + what's next */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <AccelerationLedger />
-        <WhatHappensNext />
-      </div>
+      {/* The Acceleration Ledger */}
+      <AccelerationLedger />
 
       {/* Artifact receipts */}
-      <section className="mt-8">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-widest text-[#475569]">Receipts</h3>
-          <span className="text-[11px] text-[#94A3B8]">Click to open the same artifacts every reviewer saw.</span>
+      <section className="mt-6">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h3 className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#475569]">Receipts</h3>
+          <span className="text-[11px] text-[#94A3B8]">The same artifacts every reviewer signed off on.</span>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           <ReceiptButton
             icon={<Cloud className="h-4 w-4" />}
             title="AWS Console"
-            sub="orders-prod · us-east-1"
+            sub="orders-prod live"
             onClick={() => setOpenArtifact('console')}
           />
           <ReceiptButton
             icon={<FileText className="h-4 w-4" />}
             title="Triage report"
-            sub="Target-state plan v1.2"
+            sub="Target plan v1.2"
             onClick={() => setOpenArtifact('triage')}
           />
           <ReceiptButton
             icon={<Ticket className="h-4 w-4" />}
-            title="Jira ORDERS-4201"
-            sub="Done · 34 story points"
+            title="Jira epic"
+            sub="ORDERS-4201 · Done"
             onClick={() => setOpenArtifact('jira')}
           />
           <ReceiptButton
             icon={<GitPullRequest className="h-4 w-4" />}
-            title="GitHub PR #247"
-            sub="Merged · 47 tests green"
+            title="GitHub PR"
+            sub="#247 · 47 tests green"
             onClick={() => setOpenArtifact('pr')}
           />
         </div>
@@ -136,7 +108,7 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
 
       {/* Curtain call */}
       <section
-        className="mt-8 flex flex-wrap items-center gap-3 rounded-lg border p-4"
+        className="mt-6 flex flex-wrap items-center gap-3 rounded-lg border p-3"
         style={{ borderColor: 'rgba(17,24,39,0.08)', background: '#FFFFFFAA' }}
       >
         <span className="text-[11px] uppercase tracking-widest text-[#475569]">Reviewed by</span>
@@ -151,22 +123,14 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
       </section>
 
       {/* Final CTAs */}
-      <section className="mt-8 flex flex-wrap items-center justify-center gap-3">
+      <section className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <a
-          href="/partnerships/aws"
+          href="mailto:enterprise@cursor.com?subject=AWS%20modernization%20demo%20%E2%80%94%20next%20steps&body=Hi%20team%2C%20I%20just%20watched%20the%20Cursor%20x%20AWS%20journey.%20Can%20we%20find%20time%20this%20week%3F"
           className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow-sm transition-transform hover:-translate-y-0.5"
           style={{ background: '#FF9900', color: '#0F172A' }}
         >
-          <Rocket className="h-4 w-4" />
-          Start your own assessment
-        </a>
-        <a
-          href="mailto:enterprise@cursor.com?subject=AWS%20modernization%20demo%20%E2%80%94%20next%20steps&body=Hi%20team%2C%20I%20just%20watched%20the%20Cursor%20x%20AWS%20journey.%20Can%20we%20find%20time%20this%20week%3F"
-          className="inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
-          style={{ borderColor: 'rgba(15,23,42,0.2)', color: '#0F172A' }}
-        >
           <Mail className="h-4 w-4" />
-          Talk to your AWS rep
+          Talk to your Cursor Advisor
         </a>
         <button
           type="button"
@@ -217,29 +181,6 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
         <GitHubPrArtifact />
       </ArtifactModal>
     </ActShell>
-  );
-}
-
-function RecapItem({ act, role, text }: { act: string; role: string; text: string }) {
-  const roleColor = role === 'Humans' ? '#15803D' : role === 'Cloud + Codex' ? '#B45309' : '#B45309';
-  return (
-    <li className="flex items-start gap-2">
-      <span
-        className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider"
-        style={{
-          borderColor: role === 'Humans' ? 'rgba(21,128,61,0.3)' : 'rgba(180,83,9,0.3)',
-          background: role === 'Humans' ? 'rgba(21,128,61,0.08)' : 'rgba(255,153,0,0.1)',
-          color: roleColor,
-        }}
-      >
-        {role !== 'Humans' && <CursorLogo size={10} tone="light" />}
-        {role}
-      </span>
-      <span className="text-[12px]">
-        <span className="font-semibold text-[#0F172A]">{act}.</span>{' '}
-        <span style={{ color: '#475569' }}>{text}</span>
-      </span>
-    </li>
   );
 }
 
@@ -422,44 +363,6 @@ function LedgerRow({
         </span>
       </div>
     </li>
-  );
-}
-
-function WhatHappensNext() {
-  return (
-    <aside className="flex flex-col gap-3 rounded-xl border bg-white p-5 shadow-sm" style={{ borderColor: 'rgba(17,24,39,0.08)' }}>
-      <div className="flex items-center gap-2">
-        <CursorLogo size={16} tone="light" />
-        <div className="text-sm font-semibold uppercase tracking-widest text-[#475569]">What happens next</div>
-      </div>
-      <p className="text-[12px] text-[#475569]">
-        Same Cursor Cloud Agent pod, same four human reviewers on the gates — now rolling across the
-        remaining 37 services in parallel waves. No new headcount, no new SOW.
-      </p>
-
-      <NextRow color="#4DD4FF" title="Wave 1 · Day 23"   detail="4 contexts in parallel · ~30 days" />
-      <NextRow color="#A78BFA" title="Wave 2 · Day 53"   detail="9 contexts across 3 agent pods · ~70 days" />
-      <NextRow color="#FBBF24" title="Wave 3 · Day 123"  detail="14 contexts · the long tail" />
-      <NextRow color="#EF4444" title="Wave 4 · Q4 2027"  detail="11 batch jobs · final stragglers" />
-
-      <div className="mt-2 rounded-lg border p-3" style={{ background: '#F0FDF4', borderColor: '#BBF7D0' }}>
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-[#15803D]">Projected finish</div>
-        <div className="mt-1 text-xl font-bold text-[#15803D]">Feb 15, 2028</div>
-        <div className="text-[12px] text-[#166534]">10 months before Oracle support expires.</div>
-      </div>
-    </aside>
-  );
-}
-
-function NextRow({ color, title, detail }: { color: string; title: string; detail: string }) {
-  return (
-    <div className="flex items-start gap-3 rounded-md border px-3 py-2" style={{ borderColor: '#E2E8F0' }}>
-      <span className="mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
-      <div className="flex-1">
-        <span className="text-[12px] font-semibold text-[#0F172A]">{title}</span>
-        <p className="text-[11px] text-[#475569]">{detail}</p>
-      </div>
-    </div>
   );
 }
 

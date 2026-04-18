@@ -57,7 +57,9 @@ function formatDollars(value: number): string {
 
 export function StakesHud({ currentAct, gatesPassed, arrRevealed, runCostRevealed }: StakesHudProps) {
   const [countdown, setCountdown] = useState<Countdown>(() => computeCountdown(JOURNEY_CONSTANTS.oracleContractEnd));
-  const [collapsed, setCollapsed] = useState(false);
+  // Default to the small pill so the HUD never sits on top of an approve-gate
+  // button. Users can expand it on demand, and it's always at least visible.
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => {
     const id = setInterval(() => {

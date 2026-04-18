@@ -46,19 +46,19 @@ export function StoryBeat({
 
   return (
     <div
-      className={`mb-6 flex flex-col gap-3 rounded-xl border p-4 md:flex-row md:items-start md:gap-4 md:p-5 ${className ?? ''}`}
+      className={`mb-4 flex flex-col gap-2.5 rounded-lg border px-3.5 py-3 md:flex-row md:items-center md:gap-4 md:px-4 ${className ?? ''}`}
       style={{
         background: isDark
-          ? 'linear-gradient(180deg, rgba(255,153,0,0.08) 0%, rgba(255,153,0,0.02) 100%)'
-          : 'linear-gradient(180deg, rgba(255,153,0,0.08) 0%, rgba(255,153,0,0.015) 100%)',
-        borderColor: isDark ? 'rgba(255,153,0,0.3)' : 'rgba(255,153,0,0.35)',
+          ? 'linear-gradient(180deg, rgba(255,153,0,0.07) 0%, rgba(255,153,0,0.02) 100%)'
+          : 'linear-gradient(180deg, rgba(255,153,0,0.07) 0%, rgba(255,153,0,0.015) 100%)',
+        borderColor: isDark ? 'rgba(255,153,0,0.25)' : 'rgba(255,153,0,0.32)',
         color: textColor,
       }}
     >
-      <div className="flex shrink-0 items-center gap-2 md:w-[172px] md:flex-col md:items-start">
-        <CursorLogo size={20} tone={isDark ? 'dark' : 'light'} />
+      <div className="flex shrink-0 items-center gap-2">
+        <CursorLogo size={18} tone={isDark ? 'dark' : 'light'} />
         <span
-          className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+          className="text-[10px] font-semibold uppercase tracking-[0.16em] whitespace-nowrap"
           style={{ color }}
         >
           {label}
@@ -67,58 +67,42 @@ export function StoryBeat({
 
       <div className="flex-1 min-w-0">
         <div
-          className="text-[14px] font-semibold leading-snug md:text-[15px]"
+          className="text-[13px] font-semibold leading-snug"
           style={{ color: textColor }}
         >
           {title}
         </div>
         <p
-          className="mt-1 text-[12.5px] leading-relaxed md:text-[13px]"
+          className="mt-0.5 text-[12px] leading-snug"
           style={{ color: mutedColor }}
         >
           {body}
         </p>
-
-        {(oldWay || newWay) && (
-          <div
-            className="mt-3 grid gap-2 text-[11px] md:grid-cols-2"
-            style={{ color: faintColor }}
-          >
-            {oldWay && (
-              <div
-                className="rounded-md border px-2.5 py-1.5"
-                style={{
-                  background: isDark ? 'rgba(15,23,42,0.35)' : 'rgba(15,23,42,0.04)',
-                  borderColor: isDark ? 'rgba(243,244,246,0.08)' : 'rgba(15,23,42,0.08)',
-                }}
-              >
-                <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.14em] opacity-70">
-                  Old way
-                </span>
-                <span style={{ color: isDark ? 'rgba(243,244,246,0.8)' : 'rgba(15,23,42,0.8)' }}>
-                  {oldWay}
-                </span>
-              </div>
-            )}
-            {newWay && (
-              <div
-                className="rounded-md border px-2.5 py-1.5"
-                style={{
-                  background: 'rgba(255,153,0,0.08)',
-                  borderColor: 'rgba(255,153,0,0.35)',
-                }}
-              >
-                <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: '#FF9900' }}>
-                  With Cursor
-                </span>
-                <span style={{ color: isDark ? '#FFD79A' : '#B45309', fontWeight: 600 }}>
-                  {newWay}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      {(oldWay || newWay) && (
+        <div
+          className="flex shrink-0 flex-col gap-1 text-[11px] md:w-[220px]"
+          style={{ color: faintColor }}
+        >
+          {oldWay && (
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[9px] font-semibold uppercase tracking-[0.12em] opacity-60">Before</span>
+              <span className="line-through" style={{ color: isDark ? 'rgba(243,244,246,0.6)' : 'rgba(15,23,42,0.6)' }}>
+                {oldWay}
+              </span>
+            </div>
+          )}
+          {newWay && (
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[9px] font-semibold uppercase tracking-[0.12em]" style={{ color: '#FF9900' }}>Cursor</span>
+              <span className="font-semibold" style={{ color: isDark ? '#FFC66D' : '#B45309' }}>
+                {newWay}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

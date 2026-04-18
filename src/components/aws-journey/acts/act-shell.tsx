@@ -41,11 +41,11 @@ export function ActShell({
         />
       )}
       {topRight && (
-        <div className="pointer-events-auto absolute right-6 top-[68px] z-20 md:right-8">
+        <div className="pointer-events-auto absolute right-6 top-[84px] z-20 md:right-10">
           {topRight}
         </div>
       )}
-      <div className={`relative mx-auto max-w-7xl px-6 pb-44 pt-8 md:px-10 ${contentClassName ?? ''}`}>
+      <div className={`relative mx-auto max-w-7xl px-6 pb-28 pt-10 md:px-10 md:pt-14 ${contentClassName ?? ''}`}>
         {children}
       </div>
     </section>
@@ -55,19 +55,19 @@ export function ActShell({
 export function ActHeader({ act, eyebrow }: { act: ActId; eyebrow?: string }) {
   const theme = ACT_THEMES[act];
   return (
-    <header className="mb-8 flex flex-wrap items-baseline justify-between gap-3">
-      <div>
+    <header className="mb-5 flex flex-wrap items-baseline justify-between gap-3">
+      <div className="max-w-3xl">
         <div
           className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em]"
           style={{ color: theme.primary }}
         >
           Act {act} · {theme.label}
         </div>
-        <h1 className="text-3xl font-bold md:text-4xl" style={{ color: theme.text }}>
+        <h1 className="text-2xl font-bold md:text-[28px]" style={{ color: theme.text }}>
           {theme.title}
         </h1>
         {eyebrow && (
-          <p className="mt-1 text-sm" style={{ color: theme.muted }}>
+          <p className="mt-1 text-[13px] leading-snug md:text-sm" style={{ color: theme.muted }}>
             {eyebrow}
           </p>
         )}

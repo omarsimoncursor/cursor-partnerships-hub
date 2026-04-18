@@ -5,7 +5,7 @@ import { ChapterStage } from '../chapter-stage';
 import { ACTS, type ActComponentProps } from '../story-types';
 import { BteqToDbtMorph } from '../bteq-to-dbt-morph';
 import { TimelineScrubber } from '../timeline-scrubber';
-import { EmailThread, type EmailMessage } from '../email-thread';
+import { ChatThread, type ChatMessage } from '../chat-thread';
 import { CursorValueCallout } from '../cursor-value-callout';
 import { FileCode2, GitBranch, Play, TestTube2, UserCircle2 } from 'lucide-react';
 
@@ -21,7 +21,7 @@ interface PhaseMeta {
   highlight: 'multiset' | 'qualify' | 'collect-stats' | 'date-math' | null;
   icon: React.ReactNode;
   accent: string;
-  thread: EmailMessage[];
+  thread: ChatMessage[];
 }
 
 const PHASES: PhaseMeta[] = [
@@ -44,27 +44,28 @@ const PHASES: PhaseMeta[] = [
     thread: [
       {
         from: 'cursor',
-        to: 'Principal Data Engineer',
-        time: 'Fri 10:14am',
-        subject: 'Plan for daily_revenue_rollup — ready for your review',
+        time: '10:14 AM',
         body: (
-          <p>
-            Proposed target: staging CTE replaces MULTISET VOLATILE, QUALIFY stays native, COLLECT
-            STATS drops out. 14 tests on grain, FX, top-100 rank. Verification: Cortex semantic
-            diff + 1% row-equivalence. No code written yet — ready for your eyes.
-          </p>
+          <>
+            <p>
+              Proposed plan for <span className="font-mono">daily_revenue_rollup</span>: staging
+              CTE replaces MULTISET VOLATILE, QUALIFY stays native, COLLECT STATS drops out. 14
+              tests on grain, FX, and top-100 rank. Verification: Cortex semantic diff + 1%
+              row-equivalence harness.
+            </p>
+            <p className="mt-1.5">No code written yet — ready for your review.</p>
+          </>
         ),
+        attachments: [{ label: 'plan.md', sub: '+126 lines · proposed' }],
       },
       {
         from: 'principal',
-        to: 'Cursor',
-        time: 'Fri 10:34am',
-        subject: 'Plan for daily_revenue_rollup — ready for your review',
+        time: '10:34 AM',
         body: (
           <p>
             Hold. Banker&apos;s rounding, not half-up — finance reconciles monthly against the
-            BTEQ. And the staging CTE with <span className="font-mono">ON COMMIT</span> reads odd;
-            if you need cross-step state use a transient.
+            BTEQ. And the staging CTE with <span className="font-mono">ON COMMIT</span> reads
+            odd; if you need cross-step state use a transient.
           </p>
         ),
       },
@@ -90,16 +91,17 @@ const PHASES: PhaseMeta[] = [
     thread: [
       {
         from: 'cursor',
-        to: 'Principal Data Engineer',
-        time: 'Fri 11:05am',
-        subject: 'Translation done — dbt diff attached',
+        time: '11:05 AM',
         body: (
           <p>
-            Translated. Diff is ~180 lines of dbt. Banker&apos;s-rounding macro added; transient
+            Translated. Diff is ~180 lines of dbt. Banker&apos;s-rounding macro added, transient
             staging table swapped in. Re-ran the 1% sample — Δ still zero.
           </p>
         ),
-        attachments: [{ label: 'fct_daily_revenue.sql' }, { label: 'diff-+180-−12.patch' }],
+        attachments: [
+          { label: 'fct_daily_revenue.sql', sub: 'new · 132 lines' },
+          { label: 'diff +180 −12', sub: 'patch' },
+        ],
       },
     ],
   },
@@ -122,9 +124,7 @@ const PHASES: PhaseMeta[] = [
     thread: [
       {
         from: 'principal',
-        to: 'Cursor',
-        time: 'Fri 11:47am',
-        subject: 'QUALIFY tie-break is wrong',
+        time: '11:47 AM',
         body: (
           <p>
             The QUALIFY ties break on <span className="font-mono">customer_id</span> in the
@@ -135,15 +135,14 @@ const PHASES: PhaseMeta[] = [
       },
       {
         from: 'cursor',
-        to: 'Principal Data Engineer',
-        time: 'Fri 12:03pm',
-        subject: 'QUALIFY tie-break is wrong',
+        time: '12:03 PM',
         body: (
           <p>
             Good catch. Adjusted the ORDER BY, re-ran on the 1% sample. Top-100 rank drift is
             still zero.
           </p>
         ),
+        attachments: [{ label: 'window-spec.diff', sub: '+1 −0' }],
       },
     ],
   },
@@ -169,15 +168,14 @@ const PHASES: PhaseMeta[] = [
     thread: [
       {
         from: 'cursor',
-        to: 'Principal Data Engineer',
-        time: 'Fri 12:14pm',
-        subject: 'dbt run · 12.8s · 0 errors',
+        time: '12:14 PM',
         body: (
           <p>
-            Snowflake XS WH. 12.8s wall-clock. One model, zero errors. Opening Snowsight so you
-            can eyeball the DAG. Running the 14 tests next.
+            Snowflake XS warehouse. 12.8s wall-clock. One model, zero errors. Opening Snowsight
+            so you can eyeball the DAG. Running the 14 tests next.
           </p>
         ),
+        attachments: [{ label: 'snowsight://fct_daily_revenue', sub: 'opened in browser' }],
       },
     ],
   },
@@ -201,23 +199,28 @@ const PHASES: PhaseMeta[] = [
     thread: [
       {
         from: 'cursor',
-        to: 'Principal Data Engineer; Senior Data Engineer',
-        time: 'Fri 12:38pm',
-        subject: 'Test failure · currency_code NULL on 4 rows',
+        time: '12:38 PM',
         body: (
-          <p>
-            Root cause: XOF (CFA franc) FX rate deprecated in 2023. Legacy BTEQ silently dropped
-            those rows. Proposing a seed (deprecated_currencies.csv) plus an audit table — not a
-            silent COALESCE. Finance should see those four rows, not lose them.
-          </p>
+          <>
+            <p>
+              Test <span className="font-mono text-[#F87171]">not_null_currency_code</span>{' '}
+              failed on 4 rows. Root cause: XOF (CFA franc) FX rate deprecated in 2023. Legacy
+              BTEQ silently dropped those rows.
+            </p>
+            <p className="mt-1.5">
+              Proposing a seed plus an audit table — not a silent COALESCE. Finance should see
+              those four rows, not lose them.
+            </p>
+          </>
         ),
-        attachments: [{ label: 'deprecated_currencies.csv' }, { label: 'exceptions/deprecated_fx.sql' }],
+        attachments: [
+          { label: 'deprecated_currencies.csv', sub: 'new seed' },
+          { label: 'exceptions/deprecated_fx.sql', sub: 'audit table' },
+        ],
       },
       {
         from: 'principal',
-        to: 'Cursor',
-        time: 'Fri 12:46pm',
-        subject: 'Test failure · currency_code NULL on 4 rows',
+        time: '12:46 PM',
         body: (
           <p>
             Exactly right. I&apos;d rather surface four rows in an exceptions table than lose
@@ -296,10 +299,9 @@ export function Act04FirstAsset({ onOpenArtifact }: ActComponentProps) {
         </div>
 
         <div className="flex flex-col gap-4 lg:sticky lg:top-24">
-          <EmailThread
+          <ChatThread
             key={`thread-${phase}`}
-            label={`Internal thread · phase ${phase + 1} of 5`}
-            tone="dark"
+            label={`#data-platform · phase ${phase + 1} of 5`}
             messages={meta.thread}
           />
 

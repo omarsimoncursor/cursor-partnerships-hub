@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect, useState } from 'react';
-import { Mail, Paperclip } from 'lucide-react';
+import { ChevronLeft, Inbox, Reply, Star } from 'lucide-react';
 import { CHARACTERS, type CharacterId } from './character-avatar';
 
 export interface EmailMessage {
@@ -9,6 +9,8 @@ export interface EmailMessage {
   from: CharacterId;
   /** Who they're writing to — a role title string (e.g. "VP Data", "Data Platform team"). */
   to: string;
+  /** Optional cc list, role-title strings. */
+  cc?: string[];
   /** Displayed timestamp (e.g. "Tue 9:42pm"). */
   time: string;
   /** Subject line. First message sets the thread subject; replies show "Re:" automatically. */
@@ -22,22 +24,43 @@ export interface EmailMessage {
 }
 
 interface EmailThreadProps {
-  /** Display label for the thread — e.g. "Internal thread · #data-platform". */
+  /** Display label for the thread — e.g. "Internal · Acme data platform". */
   label?: string;
   /** Ordered messages in the thread. */
   messages: EmailMessage[];
   /** Whether to play messages in sequentially (default true). */
   autoplay?: boolean;
-  /** Shown on dark themes the client is an always-legible dark Gmail-ish surface; on light themes a cream email card. */
+  /** "dark" renders Apple Mail dark mode; "light" renders the standard light client. */
   tone?: 'dark' | 'light';
   className?: string;
 }
 
+interface ThemeVars {
+  appBg: string;
+  toolbarBg: string;
+  paneBg: string;
+  divider: string;
+  dividerStrong: string;
+  text: string;
+  muted: string;
+  subjectText: string;
+  fromText: string;
+  link: string;
+  /** Highlighted top "thread" header (subject etc). */
+  threadBarBg: string;
+  /** Selected message background tint. */
+  selectedTint: string;
+}
+
 /**
- * Internal email thread — the story vehicle for the demo. We replaced chat
- * bubbles with emails so the story reads like a sequence of realistic internal
- * communications. Every message is attributed by role title (no personal
- * names) and types out one beat at a time when autoplay is on.
+ * Internal email thread, styled to look like Apple Mail. Apple Mail renders
+ * each message as a distinct card stacked vertically inside a single thread
+ * pane: sender name (bold) + grey email address, recipient line, right-aligned
+ * date, subject shown only once at the top, and a clean body.
+ *
+ * We use this for any thread that does NOT involve Cursor — Cursor agent
+ * exchanges always use ChatThread, because that's how teams actually talk to
+ * an in-IDE agent.
  */
 export function EmailThread({
   label,
@@ -57,153 +80,202 @@ export function EmailThread({
     return () => clearTimeout(t);
   }, [visibleCount, autoplay, messages]);
 
-  const rootSubject = messages[0]?.subject ?? '(no subject)';
-  const rendered = messages.slice(0, visibleCount);
-
-  const themeVars =
+  const theme: ThemeVars =
     tone === 'dark'
       ? {
-          bg: '#0D1524',
-          surface: '#111B2C',
-          surfaceAlt: '#0A1221',
-          border: 'rgba(255,255,255,0.08)',
-          borderStrong: 'rgba(255,255,255,0.14)',
-          text: '#E6EDF3',
-          muted: 'rgba(230,237,243,0.55)',
-          eyebrow: '#7DD3F5',
+          appBg: '#1C1C1E',
+          toolbarBg: 'rgba(28,28,30,0.92)',
+          paneBg: '#1C1C1E',
+          divider: 'rgba(255,255,255,0.07)',
+          dividerStrong: 'rgba(255,255,255,0.13)',
+          text: '#F5F5F7',
+          muted: 'rgba(235,235,245,0.55)',
+          subjectText: '#FFFFFF',
+          fromText: '#F5F5F7',
+          link: '#0A84FF',
+          threadBarBg: 'rgba(255,255,255,0.04)',
+          selectedTint: 'rgba(10,132,255,0.06)',
         }
       : {
-          bg: '#FFFFFF',
-          surface: '#FFFFFF',
-          surfaceAlt: '#F7F5EF',
-          border: 'rgba(17,24,39,0.10)',
-          borderStrong: 'rgba(17,24,39,0.18)',
-          text: '#1F2937',
-          muted: 'rgba(31,41,55,0.6)',
-          eyebrow: '#2563EB',
+          appBg: '#F6F4F1',
+          toolbarBg: '#F6F4F1',
+          paneBg: '#FFFFFF',
+          divider: 'rgba(60,60,67,0.10)',
+          dividerStrong: 'rgba(60,60,67,0.18)',
+          text: '#1D1D1F',
+          muted: 'rgba(60,60,67,0.6)',
+          subjectText: '#1D1D1F',
+          fromText: '#1D1D1F',
+          link: '#0A84FF',
+          threadBarBg: '#F2EFEA',
+          selectedTint: 'rgba(10,132,255,0.05)',
         };
+
+  const rootSubject = messages[0]?.subject ?? '(no subject)';
+  const rendered = messages.slice(0, visibleCount);
+  const nextMsg = visibleCount < messages.length ? messages[visibleCount] : null;
 
   return (
     <div
-      className={`rounded-xl border overflow-hidden shadow-[0_10px_40px_-20px_rgba(0,0,0,0.45)] ${className}`}
+      className={`overflow-hidden rounded-xl border ${className}`}
       style={{
-        background: themeVars.bg,
-        borderColor: themeVars.border,
-        color: themeVars.text,
+        background: theme.appBg,
+        borderColor: theme.dividerStrong,
+        color: theme.text,
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
+        boxShadow: '0 18px 50px -25px rgba(0,0,0,0.55)',
       }}
     >
-      <header
-        className="flex items-center gap-2.5 px-4 py-2.5 border-b"
-        style={{ borderColor: themeVars.border, background: themeVars.surfaceAlt }}
-      >
-        <Mail className="w-3.5 h-3.5" style={{ color: themeVars.eyebrow }} />
-        <p
-          className="text-[11px] font-mono uppercase tracking-[0.2em]"
-          style={{ color: themeVars.eyebrow }}
-        >
-          {label ?? 'Internal email thread'}
-        </p>
-        <span className="ml-auto text-[10.5px] font-mono" style={{ color: themeVars.muted }}>
-          {rendered.length} / {messages.length}
-        </span>
-      </header>
-
+      {/* Apple Mail toolbar */}
       <div
-        className="px-4 py-3 border-b font-semibold text-[14px]"
-        style={{ borderColor: themeVars.border, color: themeVars.text }}
+        className="flex items-center gap-2 px-3 py-2 border-b"
+        style={{ borderColor: theme.divider, background: theme.toolbarBg }}
       >
-        {rootSubject}
+        <span className="flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-full bg-[#FF5F57]" aria-hidden="true" />
+          <span className="h-3 w-3 rounded-full bg-[#FEBC2E]" aria-hidden="true" />
+          <span className="h-3 w-3 rounded-full bg-[#28C840]" aria-hidden="true" />
+        </span>
+        <ChevronLeft className="ml-2 h-3.5 w-3.5" style={{ color: theme.muted }} />
+        <Inbox className="h-3.5 w-3.5" style={{ color: theme.muted }} />
+        <span className="text-[11.5px]" style={{ color: theme.muted }}>
+          {label ?? 'Inbox · Acme Analytics'}
+        </span>
+        <span
+          className="ml-auto rounded-full px-2 py-0.5 text-[10.5px] font-mono"
+          style={{
+            background: tone === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+            color: theme.muted,
+          }}
+        >
+          {rendered.length} of {messages.length}
+        </span>
       </div>
 
-      <ol className="divide-y" style={{ borderColor: themeVars.border }}>
+      {/* Thread header (subject only) */}
+      <div
+        className="px-5 py-3 border-b"
+        style={{ background: theme.threadBarBg, borderColor: theme.divider }}
+      >
+        <div className="flex items-start gap-3">
+          <Star
+            className="mt-1 h-3.5 w-3.5"
+            style={{ color: tone === 'dark' ? 'rgba(255,255,255,0.35)' : 'rgba(60,60,67,0.4)' }}
+          />
+          <div className="min-w-0 flex-1">
+            <p
+              className="text-[16px] font-semibold leading-tight"
+              style={{ color: theme.subjectText }}
+            >
+              {rootSubject}
+            </p>
+            <p className="mt-0.5 text-[11.5px]" style={{ color: theme.muted }}>
+              {messages.length} {messages.length === 1 ? 'message' : 'messages'} · Acme
+              Analytics · Internal
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stack of messages */}
+      <ol style={{ background: theme.paneBg }}>
         {rendered.map((m, i) => {
-          const isReply = i > 0;
           const isNewest = i === rendered.length - 1 && autoplay;
           const meta = CHARACTERS[m.from];
           return (
             <li
               key={i}
-              className="px-4 py-3 email-enter"
+              className="px-5 py-4 email-enter"
               style={{
-                animationDelay: `${i * 30}ms`,
-                background: i % 2 === 0 ? themeVars.surface : themeVars.surfaceAlt,
+                animationDelay: `${i * 40}ms`,
+                borderBottom: i < rendered.length - 1 ? `1px solid ${theme.divider}` : 'none',
+                background: isNewest ? theme.selectedTint : 'transparent',
               }}
             >
               <div className="flex items-start gap-3">
                 <div
-                  className="mt-0.5 w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white"
+                  className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold text-white"
                   style={{
                     background: `linear-gradient(135deg, ${meta.accent}, ${meta.accent}aa)`,
-                    boxShadow: isNewest ? `0 0 0 2px ${meta.accent}40` : 'none',
                   }}
                   aria-hidden="true"
                 >
                   {meta.initials}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <span className="text-[12.5px] font-semibold" style={{ color: meta.accent }}>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span
+                      className="text-[14px] font-semibold leading-tight"
+                      style={{ color: theme.fromText }}
+                    >
                       {meta.name}
                     </span>
-                    <span className="text-[11px]" style={{ color: themeVars.muted }}>
+                    <span className="text-[12px]" style={{ color: theme.muted }}>
                       &lt;{roleHandle(meta.name)}&gt;
                     </span>
                     <span
-                      className="ml-auto text-[11px] font-mono"
-                      style={{ color: themeVars.muted }}
+                      className="ml-auto text-[11.5px]"
+                      style={{ color: theme.muted, fontVariantNumeric: 'tabular-nums' }}
                     >
                       {m.time}
                     </span>
                   </div>
-                  <div className="text-[11.5px] mt-0.5" style={{ color: themeVars.muted }}>
-                    to <span style={{ color: themeVars.text }}>{m.to}</span>
-                  </div>
-                  <div
-                    className="mt-1 text-[12.5px] font-semibold"
-                    style={{ color: themeVars.text }}
-                  >
-                    {isReply ? 'Re: ' : ''}
-                    {m.subject}
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[12px]" style={{ color: theme.muted }}>
+                    <span>To:</span>
+                    <span style={{ color: theme.text }}>{m.to}</span>
+                    {m.cc && m.cc.length > 0 && (
+                      <>
+                        <span>·</span>
+                        <span>Cc:</span>
+                        <span style={{ color: theme.text }}>{m.cc.join(', ')}</span>
+                      </>
+                    )}
                   </div>
                   {m.attachments && m.attachments.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
                       {m.attachments.map((a, j) => (
-                        <span
-                          key={j}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10.5px] font-mono"
-                          style={{
-                            background: `${meta.accent}15`,
-                            color: meta.accent,
-                            border: `1px solid ${meta.accent}30`,
-                          }}
-                        >
-                          <Paperclip className="w-3 h-3" />
-                          {a.label}
-                        </span>
+                        <Attachment key={j} label={a.label} tone={tone} />
                       ))}
                     </div>
                   )}
                   <div
-                    className="mt-2 text-[13.5px] leading-relaxed whitespace-pre-wrap"
-                    style={{ color: themeVars.text }}
+                    className="mt-3 text-[14px] leading-[1.55] whitespace-pre-wrap"
+                    style={{ color: theme.text }}
                   >
                     {m.body}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]"
+                      style={{
+                        color: theme.link,
+                        background:
+                          tone === 'dark' ? 'rgba(10,132,255,0.12)' : 'rgba(10,132,255,0.08)',
+                      }}
+                    >
+                      <Reply className="h-3 w-3" />
+                      Reply
+                    </button>
                   </div>
                 </div>
               </div>
             </li>
           );
         })}
-        {rendered.length < messages.length && autoplay && (
+        {nextMsg && autoplay && (
           <li
-            className="flex items-center gap-2 px-4 py-2.5 text-[11.5px] font-mono"
-            style={{ color: themeVars.muted }}
+            className="flex items-center gap-2 px-5 py-3 text-[11.5px]"
+            style={{ color: theme.muted }}
           >
             <span
-              className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
-              style={{ background: themeVars.eyebrow }}
+              className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
+              style={{ background: theme.link }}
             />
-            {CHARACTERS[messages[rendered.length].from].name.toLowerCase()} is typing…
+            <span style={{ fontFamily: 'inherit' }}>
+              {CHARACTERS[nextMsg.from].name} is composing a reply…
+            </span>
           </li>
         )}
       </ol>
@@ -224,6 +296,40 @@ export function EmailThread({
         }
       `}</style>
     </div>
+  );
+}
+
+function Attachment({ label, tone }: { label: string; tone: 'dark' | 'light' }) {
+  const ext = label.split('.').pop()?.toLowerCase() ?? '';
+  const palette: Record<string, { bg: string; fg: string }> = {
+    pdf: { bg: '#FF453A', fg: '#FFFFFF' },
+    csv: { bg: '#34C759', fg: '#FFFFFF' },
+    xlsx: { bg: '#34C759', fg: '#FFFFFF' },
+    sql: { bg: '#5E5CE6', fg: '#FFFFFF' },
+    patch: { bg: '#FF9F0A', fg: '#1D1D1F' },
+    pptx: { bg: '#FF9F0A', fg: '#1D1D1F' },
+  };
+  const p = palette[ext] ?? { bg: '#8E8E93', fg: '#FFFFFF' };
+
+  return (
+    <span
+      className="inline-flex items-center gap-2 rounded-md border px-2 py-1 text-[11px]"
+      style={{
+        background: tone === 'dark' ? 'rgba(255,255,255,0.04)' : '#F5F2EE',
+        borderColor: tone === 'dark' ? 'rgba(255,255,255,0.10)' : 'rgba(60,60,67,0.10)',
+        color: tone === 'dark' ? '#F5F5F7' : '#1D1D1F',
+      }}
+    >
+      <span
+        className="inline-flex h-5 w-7 items-center justify-center rounded-sm font-mono text-[9px] font-bold uppercase tracking-wider"
+        style={{ background: p.bg, color: p.fg }}
+      >
+        {ext || 'doc'}
+      </span>
+      <span className="truncate max-w-[200px]" title={label}>
+        {label}
+      </span>
+    </span>
   );
 }
 

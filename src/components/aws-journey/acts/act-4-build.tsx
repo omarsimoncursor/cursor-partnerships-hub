@@ -72,32 +72,33 @@ export function Act4Build({ onAdvance }: Act4Props) {
     return () => [t1, t2, t3, t4, t5, t6, t7].forEach(clearTimeout);
   }, [step]);
 
-  // Simulated test runner
+  // Simulated test runner — kicks off once when tests-running is entered
+  // and marches forward to a green 47/47. There is one intentional red
+  // flash at 22 to show the auto-patch loop; the runner MUST then advance
+  // past 22 so the scene can complete.
   useEffect(() => {
-    if (step !== 'tests-running' && step !== 'codex' && step !== 'patched' && step !== 'chen') return;
+    if (step !== 'tests-running') return;
     let cancelled = false;
     let passed = 0;
+    let sawFailureAt22 = false;
     const tick = async () => {
-      const runTest = () =>
-        new Promise<void>((resolve) => {
-          setTimeout(() => {
-            if (cancelled) return resolve();
-            if (passed === 22) {
-              setTestState({ passed, failing: true, total: 47 });
-              setTimeout(() => {
-                if (cancelled) return resolve();
-                setTestState({ passed, failing: false, total: 47 });
-                resolve();
-              }, 600);
-            } else {
-              passed += 1;
-              setTestState({ passed, failing: false, total: 47 });
-              resolve();
-            }
-          }, 140);
-        });
+      const sleep = (ms: number) =>
+        new Promise<void>((r) => setTimeout(r, ms));
       while (!cancelled && passed < 47) {
-        await runTest();
+        if (passed === 22 && !sawFailureAt22) {
+          sawFailureAt22 = true;
+          setTestState({ passed, failing: true, total: 47 });
+          await sleep(700);
+          if (cancelled) return;
+          setTestState({ passed, failing: false, total: 47 });
+          passed += 1;
+          await sleep(140);
+          continue;
+        }
+        await sleep(120);
+        if (cancelled) return;
+        passed += 1;
+        setTestState({ passed, failing: false, total: 47 });
       }
     };
     tick();
@@ -142,19 +143,21 @@ export function Act4Build({ onAdvance }: Act4Props) {
         newWay="9 agent-days + auto-patches"
       />
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_1fr_340px]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_340px]">
         {/* Left pane: Java EE source */}
-        <Pane
-          title="OrdersService.java"
-          subtitle="Legacy · WebSphere 8.5"
-          language="java"
-          lines={javaLines}
-          highlightBand={activeJavaBand ? { start: activeJavaBand.javaStartLine, end: activeJavaBand.javaEndLine, label: activeJavaBand.label } : null}
-          maxHeight={420}
-        />
+        <div className="min-w-0">
+          <Pane
+            title="OrdersService.java"
+            subtitle="Legacy · WebSphere 8.5"
+            language="java"
+            lines={javaLines}
+            highlightBand={activeJavaBand ? { start: activeJavaBand.javaStartLine, end: activeJavaBand.javaEndLine, label: activeJavaBand.label } : null}
+            maxHeight={420}
+          />
+        </div>
 
         {/* Middle pane: CDK being authored */}
-        <div className="relative">
+        <div className="relative min-w-0">
           <Pane
             title="orders-stack.ts"
             subtitle="Cursor · AWS CDK"
@@ -295,7 +298,7 @@ function Pane({
 
       <div
         ref={scrollRef}
-        className="relative flex-1 overflow-y-auto px-1 font-mono text-[12px] leading-[19px]"
+        className="relative flex-1 overflow-auto px-1 font-mono text-[12px] leading-[19px]"
         style={{ maxHeight: maxHeight ?? 520, color: '#E6EDF3' }}
       >
         {lines.map((line, i) => {

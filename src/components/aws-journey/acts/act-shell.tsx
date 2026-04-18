@@ -67,7 +67,7 @@ export function ActHeader({ act, eyebrow }: { act: ActId; eyebrow?: string }) {
           {theme.title}
         </h1>
         {eyebrow && (
-          <p className="mt-1 text-[13px] leading-snug md:text-sm" style={{ color: theme.muted }}>
+          <p className="mt-2 text-[14px] leading-relaxed md:text-[15px]" style={{ color: theme.muted }}>
             {eyebrow}
           </p>
         )}

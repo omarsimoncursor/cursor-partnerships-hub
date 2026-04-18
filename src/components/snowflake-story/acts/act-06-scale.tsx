@@ -10,7 +10,8 @@ import { TimelineScrubber } from '../timeline-scrubber';
 import { EmailThread } from '../email-thread';
 import { CursorValueCallout } from '../cursor-value-callout';
 import { CALENDAR, buildBricks } from '../story-data';
-import { Play, Pause, RotateCcw } from 'lucide-react';
+import { Disclosure } from '../disclosure';
+import { Mail, Play, Pause, RotateCcw } from 'lucide-react';
 
 export function Act06Scale(_: ActComponentProps) {
   const act = ACTS[5];
@@ -49,20 +50,24 @@ export function Act06Scale(_: ActComponentProps) {
 
   return (
     <ChapterStage act={act}>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-5">
-          <span className="text-[11px] font-mono uppercase tracking-[0.22em] text-[#7DD3F5]">
-            Month {String(month).padStart(2, '0')} · {block.assetsCompleted.toLocaleString()} of
-            911 modernized
-          </span>
-          <h2 className="text-[22px] md:text-[26px] font-semibold text-white leading-tight">
-            Pull back. Watch one Friday compound into a modernization.
-          </h2>
-          <p className="max-w-2xl text-[13.5px] text-white/70 leading-relaxed">
-            This is the same wall from Act 1 — but every square that lights up is a live
-            Snowflake workload earning credits. Cursor translates, the team reviews, the asset
-            ships. Drag the scrubber to watch the migration collapse from 4 years into 15 months.
-          </p>
+      <div className="mb-6 flex flex-wrap items-baseline gap-2">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#7DD3F5]">
+          Month {String(month).padStart(2, '0')}
+        </span>
+        <span className="text-white/35">·</span>
+        <span className="text-[13px] text-white/70">
+          <span className="text-white">{block.assetsCompleted.toLocaleString()}</span> of 911
+          modernized
+        </span>
+      </div>
+      <p className="mb-8 max-w-2xl text-[14px] leading-relaxed text-white/70">
+        This is the same wall from Act 1. Every square that lights up is a live Snowflake
+        workload earning credits. Drag the scrubber to watch four years collapse into fifteen
+        months.
+      </p>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start">
+        <div className="flex flex-col gap-4">
 
           <div className="rounded-2xl border border-white/10 bg-[#0A1221]/75 p-5">
             <AssetWall
@@ -124,45 +129,56 @@ export function Act06Scale(_: ActComponentProps) {
             <CalendarCollapse monthIndex={month} collapseRatio={collapseRatio} />
           </div>
 
-          <EmailThread
-            label="Internal thread · Month 03 update"
-            tone="dark"
-            messages={[
-              {
-                from: 'vp',
-                to: 'CFO; Board',
-                time: 'Month 03',
-                subject: 'Modernization status — 82 of 911 assets on Snowflake',
-                body: (
-                  <p>
-                    At the GSI pace we&apos;d still be in discovery. Three months in, 82 assets
-                    are in production on Snowflake, reviewer gates intact, and Cortex credits are
-                    flowing. We retire the GSI path formally at the Q1 board meeting.
-                  </p>
-                ),
-              },
-              {
-                from: 'reviewer',
-                to: 'Principal Data Engineer',
-                time: 'Month 09',
-                subject: 'Hit rate on the revenue-rollup template',
-                body: (
-                  <p>
-                    37 of the BTEQ rollups fell to the same template — most of them were a
-                    review each, not a rewrite. That&apos;s where the compounding comes from. We
-                    should write up the pattern for the next wave.
-                  </p>
-                ),
-              },
-            ]}
-          />
-
           <CursorValueCallout
             accent="#4C9AFF"
             label="Why the wall lights up so fast"
             headline="Cursor turns each shipped asset into leverage on the next."
-            body="The reviewer's taste, the banker's-rounding macro, the deprecated-FX audit — Cursor reuses every decision across the portfolio. Asset #1 is expensive. Asset #37 is almost free."
+            body="The reviewer&rsquo;s taste, the banker&rsquo;s-rounding macro, the deprecated-FX audit — Cursor reuses every decision across the portfolio. Asset #1 is expensive. Asset #37 is almost free."
           />
+
+          <Disclosure
+            label="Read check-in threads along the way"
+            meta="Month 03 + Month 09"
+            icon={<Mail className="h-3 w-3" />}
+            accent="#4C9AFF"
+          >
+            <div className="pt-1">
+              <EmailThread
+                label="Inbox · Acme · Leadership"
+                tone="dark"
+                messages={[
+                  {
+                    from: 'vp',
+                    to: 'CFO',
+                    cc: ['Board'],
+                    time: 'Month 03',
+                    subject: 'Modernization status — 82 of 911 assets on Snowflake',
+                    body: (
+                      <p>
+                        At the GSI pace we&apos;d still be in discovery. Three months in, 82
+                        assets are in production on Snowflake, reviewer gates intact, and Cortex
+                        credits are flowing. We retire the GSI path formally at the Q1 board
+                        meeting.
+                      </p>
+                    ),
+                  },
+                  {
+                    from: 'reviewer',
+                    to: 'Principal Data Engineer',
+                    time: 'Month 09',
+                    subject: 'Hit rate on the revenue-rollup template',
+                    body: (
+                      <p>
+                        37 of the BTEQ rollups fell to the same template — most of them were a
+                        review each, not a rewrite. That&apos;s where the compounding comes
+                        from. We should write up the pattern for the next wave.
+                      </p>
+                    ),
+                  },
+                ]}
+              />
+            </div>
+          </Disclosure>
         </div>
       </div>
     </ChapterStage>

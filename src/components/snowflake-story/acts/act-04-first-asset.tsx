@@ -7,6 +7,8 @@ import { BteqToDbtMorph } from '../bteq-to-dbt-morph';
 import { TimelineScrubber } from '../timeline-scrubber';
 import { ChatThread, type ChatMessage } from '../chat-thread';
 import { CursorValueCallout } from '../cursor-value-callout';
+import { Disclosure } from '../disclosure';
+import { ListChecks } from 'lucide-react';
 import { FileCode2, GitBranch, Play, TestTube2, UserCircle2 } from 'lucide-react';
 
 type Phase = 0 | 1 | 2 | 3 | 4;
@@ -246,11 +248,16 @@ export function Act04FirstAsset({ onOpenArtifact }: ActComponentProps) {
 
   return (
     <ChapterStage act={act}>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-5">
+      <p className="mb-6 max-w-2xl text-[14px] leading-relaxed text-white/70">
+        Friday afternoon. Cursor takes one asset end-to-end — plan, translate, run, test — and
+        pauses for the team at every step that requires taste.
+      </p>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start">
+        <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <span
-              className="inline-flex items-center gap-1.5 text-[10.5px] font-mono uppercase tracking-[0.2em] px-2 py-1 rounded-full border"
+              className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 font-mono text-[10.5px] uppercase tracking-[0.2em]"
               style={{
                 color: meta.accent,
                 borderColor: `${meta.accent}40`,
@@ -260,13 +267,12 @@ export function Act04FirstAsset({ onOpenArtifact }: ActComponentProps) {
               {meta.icon}
               Phase {meta.id + 1} · {meta.label}
             </span>
-            <span className="text-[11px] font-mono text-white/50">{meta.when}</span>
+            <span className="font-mono text-[11px] text-white/50">{meta.when}</span>
           </div>
 
-          <h2 className="text-[22px] md:text-[26px] font-semibold text-white leading-tight">
+          <h2 className="text-[20px] md:text-[24px] font-semibold leading-tight text-white">
             {meta.title}
           </h2>
-          <div className="max-w-2xl text-[13.5px] text-white/70 leading-relaxed">{meta.body}</div>
 
           <BteqToDbtMorph progress={meta.morphProgress} highlight={meta.highlight} />
 
@@ -276,7 +282,7 @@ export function Act04FirstAsset({ onOpenArtifact }: ActComponentProps) {
             onChange={(n) => setPhase(n as Phase)}
             stops={PHASES.map((p) => ({ value: p.id, label: p.label }))}
             topLabel={
-              <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-white/50">
+              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/50">
                 Drag to revisit any phase of the 4-hour build
               </p>
             }
@@ -285,13 +291,13 @@ export function Act04FirstAsset({ onOpenArtifact }: ActComponentProps) {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => onOpenArtifact('snowsight')}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#29B5E8] text-[#0A1419] font-semibold text-[12.5px] hover:bg-[#4FC3EE] transition-colors cursor-pointer shadow-[0_0_20px_rgba(41,181,232,0.35)]"
+              className="inline-flex items-center gap-2 rounded-full bg-[#29B5E8] px-4 py-2 text-[12.5px] font-semibold text-[#0A1419] shadow-[0_0_20px_rgba(41,181,232,0.35)] transition-colors hover:bg-[#4FC3EE] cursor-pointer"
             >
-              Open Snowsight · see the dbt run
+              Open Snowsight
             </button>
             <button
               onClick={() => onOpenArtifact('triage')}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/15 text-white/80 hover:text-white hover:bg-white/5 text-[12.5px] cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12.5px] text-white/80 hover:bg-white/5 hover:text-white cursor-pointer"
             >
               Read the triage report
             </button>
@@ -305,11 +311,20 @@ export function Act04FirstAsset({ onOpenArtifact }: ActComponentProps) {
             messages={meta.thread}
           />
 
-          <div className="rounded-2xl border border-white/10 bg-[#0A1221]/70 p-4">
-            <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-[#7DD3F5] mb-2">
-              Phase ledger
-            </p>
-            <ul className="space-y-1.5 text-[12.5px]">
+          <CursorValueCallout
+            accent="#29B5E8"
+            label="What only Cursor can do here"
+            headline="Cursor writes the migration. Your team still reviews every decision."
+            body="The reviewer sees the plan first. Every in-flight correction — rounding, tie-breaks, deprecated currencies — is absorbed and re-verified in minutes."
+          />
+
+          <Disclosure
+            label="See all five phases"
+            meta={`${phase + 1} of 5 · ${meta.when}`}
+            icon={<ListChecks className="h-3 w-3" />}
+            accent="#7DD3F5"
+          >
+            <ul className="space-y-1.5 pt-1 text-[12.5px]">
               {PHASES.map((p) => {
                 const done = p.id < phase;
                 const active = p.id === phase;
@@ -326,7 +341,7 @@ export function Act04FirstAsset({ onOpenArtifact }: ActComponentProps) {
                     }}
                   >
                     <span
-                      className="w-1.5 h-1.5 rounded-full"
+                      className="h-1.5 w-1.5 rounded-full"
                       style={{
                         background: active
                           ? p.accent
@@ -340,19 +355,12 @@ export function Act04FirstAsset({ onOpenArtifact }: ActComponentProps) {
                       {p.when}
                     </span>
                     <span className="flex-1">{p.label}</span>
-                    {done && <span className="text-[10.5px] text-[#4ADE80] font-mono">✓</span>}
+                    {done && <span className="font-mono text-[10.5px] text-[#4ADE80]">✓</span>}
                   </li>
                 );
               })}
             </ul>
-          </div>
-
-          <CursorValueCallout
-            accent="#29B5E8"
-            label="What only Cursor can do here"
-            headline="Cursor writes the migration. Your team still reviews every decision — before a single commit."
-            body="The reviewer sees the plan first. Every in-flight correction — rounding, tie-breaks, deprecated currencies — is absorbed and re-verified in minutes. The team keeps control of taste. Cursor absorbs the tedium."
-          />
+          </Disclosure>
         </div>
       </div>
     </ChapterStage>

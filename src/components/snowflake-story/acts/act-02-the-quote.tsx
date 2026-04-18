@@ -4,32 +4,56 @@ import { ChapterStage } from '../chapter-stage';
 import { ACTS, type ActComponentProps } from '../story-types';
 import { EmailThread } from '../email-thread';
 import { CursorValueCallout } from '../cursor-value-callout';
-import { AlertTriangle, FileWarning, PenTool } from 'lucide-react';
+import { Disclosure } from '../disclosure';
+import { AlertTriangle, DollarSign, FileWarning, Mail, PenTool } from 'lucide-react';
 
 export function Act02TheQuote(_: ActComponentProps) {
   const act = ACTS[1];
   return (
     <ChapterStage act={act}>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-5">
-          <h2 className="text-[22px] font-semibold leading-tight text-[#0F172A] md:text-[26px]">
-            The incumbent GSI has a 4-year path. The CFO won&apos;t sign it.
-          </h2>
-          <p className="max-w-2xl text-[13.5px] leading-relaxed text-[#475569]">
-            The proposal is predictable, expensive, and written in a way that makes the data team a
-            passenger on their own modernization. It&apos;s the kind of path every enterprise has
-            said yes to before — and the kind every CFO is now questioning.
-          </p>
+      <p className="mb-8 max-w-2xl text-[14px] leading-relaxed text-[#475569]">
+        The incumbent GSI has a 4-year path. The CFO won&rsquo;t sign it. The proposal makes the
+        data team a passenger on their own modernization.
+      </p>
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
+        <div className="flex flex-col gap-4">
           <GsiProposalCard />
 
-          <ParallelCostCard />
+          <Disclosure
+            label="See parallel licensing during the GSI plan"
+            meta="$6M / yr while nothing moves"
+            icon={<DollarSign className="h-3 w-3" />}
+            tone="light"
+            accent="#B91C1C"
+          >
+            <div className="pt-1">
+              <ParallelCostCard />
+            </div>
+          </Disclosure>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <EmailThread
-            label="Internal thread · Leadership"
+        <div className="flex flex-col gap-4 lg:sticky lg:top-24">
+          <CursorValueCallout
             tone="light"
+            accent="#2563EB"
+            label="Why the third option exists now"
+            headline="Cursor collapses the slowest parts of a migration without taking the keyboard."
+            body="Every hour the GSI bills to onboard, diagram, and hand-translate, Cursor does in minutes — supervised. Speed becomes a function of how fast the team wants to review."
+          />
+
+          <Disclosure
+            label="Read the leadership thread"
+            meta="3 messages · GSI → CFO → VP"
+            icon={<Mail className="h-3 w-3" />}
+            tone="light"
+            accent="#2563EB"
+            defaultOpen
+          >
+            <div className="pt-1">
+              <EmailThread
+                label="Inbox · Acme · Leadership"
+                tone="light"
             messages={[
               {
                 from: 'gsi',
@@ -94,15 +118,9 @@ export function Act02TheQuote(_: ActComponentProps) {
                 ),
               },
             ]}
-          />
-
-          <CursorValueCallout
-            tone="light"
-            accent="#2563EB"
-            label="Why the third option exists now"
-            headline="Cursor collapses the slowest parts of a migration — plan, translate, verify — without taking the keyboard from your team."
-            body="Every hour the GSI bills to onboard, diagram, and hand-translate is an hour Cursor does in minutes, supervised. Modernization speed becomes a function of how fast the team wants to review, not how fast an outside bench can ramp."
-          />
+              />
+            </div>
+          </Disclosure>
         </div>
       </div>
     </ChapterStage>

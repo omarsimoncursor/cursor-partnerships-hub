@@ -10,11 +10,10 @@ interface ChapterStageProps {
 }
 
 /**
- * Clean, themed shell modeled on the AWS journey demo. Each act gets a solid
- * (or subtly gradiented) background driven by `act.theme.bg`, a soft primary
- * radial glow, and a consistent header row with act number, title, and mood
- * label. No blurred photography — everything reads crisp for a non-technical
- * viewer, exactly like the AWS story.
+ * Clean, themed shell modeled on the AWS journey demo. The header is kept
+ * intentionally lean: a single eyebrow line (Act number · mood · duration),
+ * the act title, and a short subtitle. Everything denser is the job of the
+ * act content itself.
  */
 export function ChapterStage({ act, children, topRight }: ChapterStageProps) {
   const { theme } = act;
@@ -45,52 +44,38 @@ export function ChapterStage({ act, children, topRight }: ChapterStageProps) {
         </div>
       )}
 
-      <div className="relative mx-auto max-w-7xl px-6 pb-28 pt-8 md:px-10">
-        <header className="mb-8 flex flex-wrap items-baseline justify-between gap-3">
-          <div>
-            <div
-              className="mb-1 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em]"
-              style={{ color: theme.primary }}
-            >
-              <span>Act {act.number.toString().padStart(2, '0')}</span>
-              <span
-                className="inline-block h-px w-8 opacity-60"
-                style={{ background: theme.primary }}
-              />
-              {theme.moodLabel && (
+      <div className="relative mx-auto max-w-6xl px-6 pb-28 pt-8 md:px-10">
+        <header className="mb-10">
+          <div
+            className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em]"
+            style={{ color: theme.primary }}
+          >
+            <span>Act {act.number.toString().padStart(2, '0')}</span>
+            {theme.moodLabel && (
+              <>
+                <span style={{ color: theme.muted, opacity: 0.5 }}>·</span>
                 <span style={{ color: theme.muted, letterSpacing: '0.2em' }}>
                   {theme.moodLabel}
                 </span>
-              )}
-              <span
-                className="rounded-full border px-2 py-0.5 text-[10px] font-mono normal-case tracking-wide"
-                style={{
-                  borderColor: `${theme.primary}55`,
-                  color: theme.primary,
-                  background: `${theme.primary}12`,
-                }}
-              >
-                {act.duration}
-              </span>
-            </div>
-            <h1
-              className="text-3xl font-semibold leading-tight tracking-tight md:text-4xl"
-              style={{ color: theme.text }}
-            >
-              {act.title}
-            </h1>
-            <p className="mt-1.5 max-w-2xl text-sm md:text-base" style={{ color: theme.muted }}>
-              {act.subtitle}
-            </p>
-            {act.eyebrow && (
-              <p
-                className="mt-1 text-[12.5px] font-mono"
-                style={{ color: theme.muted, opacity: 0.85 }}
-              >
-                {act.eyebrow}
-              </p>
+              </>
             )}
+            <span style={{ color: theme.muted, opacity: 0.5 }}>·</span>
+            <span className="font-mono" style={{ color: theme.muted, letterSpacing: '0.12em' }}>
+              {act.duration}
+            </span>
           </div>
+          <h1
+            className="text-[28px] font-semibold leading-[1.1] tracking-tight md:text-[40px]"
+            style={{ color: theme.text }}
+          >
+            {act.title}
+          </h1>
+          <p
+            className="mt-2 max-w-2xl text-[14px] md:text-[15px] leading-snug"
+            style={{ color: theme.muted }}
+          >
+            {act.subtitle}
+          </p>
         </header>
         {children}
       </div>

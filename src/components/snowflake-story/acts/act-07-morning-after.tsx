@@ -4,7 +4,8 @@ import { ChapterStage } from '../chapter-stage';
 import { ACTS, type ActComponentProps } from '../story-types';
 import { CursorValueCallout } from '../cursor-value-callout';
 import { EmailThread } from '../email-thread';
-import { CheckCircle2, Moon, Power, Rocket, RotateCcw, Sparkles, Sunrise, TrendingUp } from 'lucide-react';
+import { Disclosure } from '../disclosure';
+import { CheckCircle2, Moon, Power, Rocket, RotateCcw, Sparkles, TrendingUp } from 'lucide-react';
 
 interface Act07Props extends ActComponentProps {
   onAdvance: () => void;
@@ -15,25 +16,25 @@ export function Act07MorningAfter({ onAdvance }: Act07Props) {
 
   return (
     <ChapterStage act={act}>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start">
-        <div className="flex flex-col gap-5">
-          <div className="flex items-center gap-3">
-            <Sunrise className="h-4 w-4 text-[#F59E0B]" />
-            <span className="text-[11px] font-mono uppercase tracking-[0.22em] text-[#F59E0B]">
-              15 months later · Monday 6:47am
-            </span>
-          </div>
-          <h2 className="text-[26px] md:text-[32px] font-semibold leading-tight text-[#0F172A]">
-            Teradata goes dark. The data team sleeps through the night.
-          </h2>
-
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start">
+        <div className="flex flex-col gap-4">
           <CalendarCard />
-          <TeradataShutdown />
+          <Disclosure
+            label="See the Teradata shutdown log"
+            meta="last process · 06:00 PT"
+            icon={<Power className="h-3 w-3" />}
+            tone="light"
+            accent="#B91C1C"
+          >
+            <div className="pt-1">
+              <TeradataShutdown />
+            </div>
+          </Disclosure>
         </div>
 
         <div className="flex flex-col gap-4 lg:sticky lg:top-24">
           <EmailThread
-            label="Internal thread · modernization close-out"
+            label="Inbox · Acme · close-out"
             tone="light"
             messages={[
               {

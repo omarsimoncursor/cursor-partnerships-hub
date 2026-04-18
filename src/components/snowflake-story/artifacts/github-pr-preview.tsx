@@ -135,13 +135,13 @@ function Body() {
       <div className="rounded border border-[#30363D] overflow-hidden">
         <table className="w-full text-[12px]">
           <tbody>
-            <TimingRow label="Opus triage · plan drafted" v="14m" agent />
-            <TimingRow label="Maya reviewed plan" v="20m" human />
-            <TimingRow label="Composer edit (dbt + Snowpark)" v="37m" agent />
+            <TimingRow label="Cursor triage · plan drafted" v="14m" agent />
+            <TimingRow label="Principal reviewed plan" v="20m" human />
+            <TimingRow label="Cursor edit (dbt + Snowpark)" v="37m" agent />
             <TimingRow label="Static + test (iteration 1)" v="12m" agent />
-            <TimingRow label="Jordan PR review · round 1" v="28m" human />
+            <TimingRow label="Senior Data Engineer review · round 1" v="28m" human />
             <TimingRow label="Patch (rounding + FX + transient)" v="28m" agent />
-            <TimingRow label="Jordan PR review · round 2" v="35m" human />
+            <TimingRow label="Senior Data Engineer review · round 2" v="35m" human />
             <TimingRow label="Patch (deprecated_currencies seed)" v="21m" agent />
             <TimingRow label="Cortex + row-equivalence verify" v="24m" agent />
             <TimingRow label="Final approval + queue for merge" v="24m" human />
@@ -211,7 +211,7 @@ function Checks() {
     { name: 'row-equivalence harness · Δ = 0', time: '0.6s' },
     { name: 'cortex semantic diff · no drift', time: '3.1s' },
     { name: 'tsc --noEmit (glue)', time: '1.1s' },
-    { name: 'reviewer-approved · Jordan Park', time: '—' },
+    { name: 'reviewer-approved · Senior Data Engineer', time: '—' },
   ];
   return (
     <div className="rounded-lg border border-[#30363D] bg-[#0D1117] mb-4 overflow-hidden">

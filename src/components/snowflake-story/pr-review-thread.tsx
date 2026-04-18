@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CharacterAvatar, type CharacterId } from './character-avatar';
+import { CharacterAvatar, CHARACTERS, type CharacterId } from './character-avatar';
 import { Check, MessageSquare, GitPullRequestArrow, Sparkles } from 'lucide-react';
 
 interface Comment {
@@ -31,7 +31,7 @@ const COMMENTS: Comment[] = [
     ),
   },
   {
-    author: 'jordan',
+    author: 'reviewer',
     kind: 'comment',
     time: 'T+2h 38m',
     title: 'Review · first pass',
@@ -87,7 +87,7 @@ const COMMENTS: Comment[] = [
     ),
   },
   {
-    author: 'jordan',
+    author: 'reviewer',
     kind: 'comment',
     time: 'T+3h 12m',
     title: 'dbt test failure',
@@ -116,7 +116,7 @@ const COMMENTS: Comment[] = [
     ),
   },
   {
-    author: 'jordan',
+    author: 'reviewer',
     kind: 'approval',
     time: 'T+3h 47m',
     title: 'Approved · queued for Friday change window',
@@ -179,7 +179,7 @@ export function PrReviewThread({ autoplay = true, onOpenPr, className = '' }: Pr
         {revealed < COMMENTS.length && (
           <div className="flex items-center gap-2 px-4 py-3 text-[11px] text-text-tertiary font-mono">
             <span className="w-1 h-1 rounded-full bg-[#29B5E8] animate-pulse" />
-            <span>{COMMENTS[revealed].author} is typing…</span>
+            <span>{CHARACTERS[COMMENTS[revealed].author].name.toLowerCase()} is typing…</span>
           </div>
         )}
       </div>
@@ -188,7 +188,7 @@ export function PrReviewThread({ autoplay = true, onOpenPr, className = '' }: Pr
         <footer className="border-t border-white/5 bg-[#0D1828] px-4 py-2.5 flex items-center gap-2">
           <Check className="w-4 h-4 text-[#4ADE80]" />
           <p className="text-[12px] text-[#4ADE80] font-medium">
-            All checks passed · 2 iteration cycles · approved by Jordan
+            All checks passed · 2 iteration cycles · approved by the Senior Data Engineer
           </p>
           <p className="ml-auto text-[10.5px] font-mono text-text-tertiary">
             total · 4h 03m wall · 2h 16m agent · 1h 47m review
@@ -208,13 +208,17 @@ function CommentCard({ comment, isLast }: { comment: Comment; isLast: boolean })
     approval: { label: 'approved', accent: '#4ADE80', icon: <Check className="w-3 h-3" /> },
   };
   const meta = kindMeta[comment.kind];
+  const authorMeta = CHARACTERS[comment.author];
   return (
     <li className={`relative flex gap-3 px-4 py-3 ${isLast ? '' : 'border-b border-white/5'}`}>
       <CharacterAvatar character={comment.author} size="sm" speaking={isLast} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-[11px] font-semibold text-text-primary">
-            {comment.title ?? 'left a comment'}
+            {authorMeta.name}
+          </span>
+          <span className="text-[10.5px] font-mono text-text-tertiary">
+            · {comment.title ?? 'commented'}
           </span>
           <span
             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono uppercase tracking-wider"

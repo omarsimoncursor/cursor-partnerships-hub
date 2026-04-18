@@ -7,21 +7,30 @@ export type ActId =
   | 'scale'
   | 'morning-after';
 
+export interface ActTheme {
+  /** Base page background (solid or gradient). */
+  bg: string;
+  /** Primary accent — drives eyebrows, active dots, buttons. */
+  primary: string;
+  /** Secondary accent for callouts. */
+  secondary: string;
+  /** Text / muted tokens for on-theme rendering. */
+  text: string;
+  muted: string;
+  /** Optional per-act mood label (e.g. "the problem"). */
+  moodLabel?: string;
+  /** If the background is light we flip nav/card treatments. */
+  tone: 'dark' | 'light';
+}
+
 export interface ActMeta {
   id: ActId;
   number: number;
   title: string;
   subtitle: string;
-  sceneImage: string;
-  /** Deep near-black that anchors the scene when the photo fails or blurs out. */
-  dominantColor: string;
-  /**
-   * Signature hue for this act — painted as a soft radial glow over the
-   * blurred scene image so each chapter has an unmistakable color mood
-   * (amber, crimson, cyan, purple, blue, gold) even after heavy blur.
-   */
-  moodColor: string;
+  eyebrow: string;
   duration: string;
+  theme: ActTheme;
 }
 
 export const ACTS: ActMeta[] = [
@@ -29,71 +38,120 @@ export const ACTS: ActMeta[] = [
     id: 'the-wall',
     number: 1,
     title: 'The Wall',
-    subtitle: 'Q2 revenue: 14 hours stale',
-    sceneImage: '/partnerships/snowflake/scenes/01-the-wall.webp',
-    dominantColor: '#0B1A2A',
-    moodColor: '#F5A623', // warm amber desk-lamp
+    subtitle: '911 legacy assets. One more failure before Q2 close.',
+    eyebrow: 'Tuesday 9:42pm · The data team has been here before',
     duration: '~75s',
+    theme: {
+      bg: '#0F1521',
+      primary: '#F59E0B',
+      secondary: '#29B5E8',
+      text: '#F3F4F6',
+      muted: 'rgba(243,244,246,0.6)',
+      moodLabel: 'the problem',
+      tone: 'dark',
+    },
   },
   {
     id: 'the-quote',
     number: 2,
     title: 'The Quote',
-    subtitle: '$18,000,000 · 4 years · rejected',
-    sceneImage: '/partnerships/snowflake/scenes/02-the-quote.webp',
-    dominantColor: '#111B24',
-    moodColor: '#C9372C', // cold crimson — the rejected quote
+    subtitle: '$18,000,000 · 4 years · the CFO says no',
+    eyebrow: 'Wednesday · the GSI proposal lands in the inbox',
     duration: '~60s',
+    theme: {
+      bg: '#FAF8F3',
+      primary: '#B91C1C',
+      secondary: '#29B5E8',
+      text: '#111827',
+      muted: 'rgba(17,24,39,0.6)',
+      moodLabel: 'the impasse',
+      tone: 'light',
+    },
   },
   {
     id: 'diagnosis',
     number: 3,
     title: 'Diagnosis',
-    subtitle: '63,180 LOC · indexed in 4 minutes',
-    sceneImage: '/partnerships/snowflake/scenes/03-diagnosis.webp',
-    dominantColor: '#0E1D2E',
-    moodColor: '#29B5E8', // Snowflake cyan — the agent lighting up the codebase
+    subtitle: '63,180 lines. Indexed in 4 minutes.',
+    eyebrow: 'Friday 8:04am · Cursor reads every legacy script',
     duration: '~90s',
+    theme: {
+      bg: '#0B1220',
+      primary: '#29B5E8',
+      secondary: '#7DD3F5',
+      text: '#E6EDF3',
+      muted: 'rgba(230,237,243,0.6)',
+      moodLabel: 'discovery',
+      tone: 'dark',
+    },
   },
   {
     id: 'first-asset',
     number: 4,
     title: 'First Asset',
-    subtitle: 'daily_revenue_rollup.bteq → fct_daily_revenue',
-    sceneImage: '/partnerships/snowflake/scenes/04-first-asset.webp',
-    dominantColor: '#0C1E31',
-    moodColor: '#7DD3F5', // electric cyan screen-glow
+    subtitle: 'daily_revenue_rollup → Snowflake · 4 hours · end-to-end',
+    eyebrow: 'Friday · the agent does the work, the team keeps control',
     duration: '~3m',
+    theme: {
+      bg: '#0D1117',
+      primary: '#29B5E8',
+      secondary: '#7EE787',
+      text: '#E6EDF3',
+      muted: 'rgba(230,237,243,0.55)',
+      moodLabel: 'the build',
+      tone: 'dark',
+    },
   },
   {
     id: 'proof-and-review',
     number: 5,
     title: 'Proof & Review',
-    subtitle: 'Cortex semantic diff · 0 row delta · Jordan approves',
-    sceneImage: '/partnerships/snowflake/scenes/05-proof-and-review.webp',
-    dominantColor: '#0B2030',
-    moodColor: '#8B5CF6', // purple dusk — review hour
+    subtitle: 'Zero row delta · Cortex no-drift · reviewer approves',
+    eyebrow: 'Friday 12:22pm · the review that makes it real',
     duration: '~2m',
+    theme: {
+      bg: '#060A12',
+      primary: '#A78BFA',
+      secondary: '#29B5E8',
+      text: '#F3F4F6',
+      muted: 'rgba(243,244,246,0.55)',
+      moodLabel: 'the proof',
+      tone: 'dark',
+    },
   },
   {
     id: 'scale',
     number: 6,
     title: 'Scale',
     subtitle: '911 assets · 15 months · $16M pulled-forward credits',
-    sceneImage: '/partnerships/snowflake/scenes/06-scale.webp',
-    dominantColor: '#0A1929',
-    moodColor: '#4C9AFF', // deep electric blue — the wall lighting up
+    eyebrow: 'Asset #1 was Friday. Watch the wall light up.',
     duration: '~3m',
+    theme: {
+      bg: '#05101C',
+      primary: '#4C9AFF',
+      secondary: '#29B5E8',
+      text: '#F3F4F6',
+      muted: 'rgba(243,244,246,0.6)',
+      moodLabel: 'compounding',
+      tone: 'dark',
+    },
   },
   {
     id: 'morning-after',
     number: 7,
     title: 'The Morning After',
-    subtitle: 'Maya sleeps through the night. Samira closes the expansion.',
-    sceneImage: '/partnerships/snowflake/scenes/07-morning-after.webp',
-    dominantColor: '#1B2335',
-    moodColor: '#FFB366', // sunrise gold
+    subtitle: 'Teradata goes dark. The data team sleeps through the night.',
+    eyebrow: '15 months later · Monday 6:47am',
     duration: '~60s',
+    theme: {
+      bg: 'linear-gradient(180deg, #FAFBFC 0%, #EEF2F6 100%)',
+      primary: '#29B5E8',
+      secondary: '#16A34A',
+      text: '#0F172A',
+      muted: 'rgba(15,23,42,0.6)',
+      moodLabel: 'the future',
+      tone: 'light',
+    },
   },
 ];
 

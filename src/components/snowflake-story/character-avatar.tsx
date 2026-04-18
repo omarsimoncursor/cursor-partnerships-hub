@@ -1,11 +1,20 @@
 'use client';
 
-export type CharacterId = 'maya' | 'jordan' | 'samira' | 'cursor' | 'cfo' | 'gsi';
+export type CharacterId =
+  | 'principal'
+  | 'reviewer'
+  | 'vp'
+  | 'cfo'
+  | 'cursor'
+  | 'gsi';
 
 export interface CharacterMeta {
   id: CharacterId;
+  /** Role title. We intentionally avoid personal names. */
   name: string;
   role: string;
+  /** One-word short label used for tight layouts. */
+  short: string;
   accent: string;
   glow: string;
   initials: string;
@@ -13,37 +22,41 @@ export interface CharacterMeta {
 }
 
 export const CHARACTERS: Record<CharacterId, CharacterMeta> = {
-  maya: {
-    id: 'maya',
-    name: 'Maya Alfaro',
-    role: 'Principal Data Engineer · Acme Analytics',
+  principal: {
+    id: 'principal',
+    name: 'Principal Data Engineer',
+    role: 'Data Platform · Acme Analytics',
+    short: 'Principal',
     accent: '#F59E0B',
     glow: 'rgba(245, 158, 11, 0.35)',
-    initials: 'MA',
+    initials: 'PE',
     pattern: 'a',
   },
-  jordan: {
-    id: 'jordan',
-    name: 'Jordan Park',
-    role: 'Senior Data Engineer · Reviewer',
+  reviewer: {
+    id: 'reviewer',
+    name: 'Senior Data Engineer',
+    role: 'Code Reviewer · Acme Analytics',
+    short: 'Reviewer',
     accent: '#A78BFA',
     glow: 'rgba(167, 139, 250, 0.35)',
-    initials: 'JP',
+    initials: 'SR',
     pattern: 'b',
   },
-  samira: {
-    id: 'samira',
-    name: 'Samira Chen',
-    role: 'Account Executive · Snowflake',
+  vp: {
+    id: 'vp',
+    name: 'VP Data & Analytics',
+    role: 'Leadership · Acme Analytics',
+    short: 'VP Data',
     accent: '#34D399',
     glow: 'rgba(52, 211, 153, 0.35)',
-    initials: 'SC',
+    initials: 'VP',
     pattern: 'c',
   },
   cursor: {
     id: 'cursor',
     name: 'Cursor',
     role: 'Autonomous engineering agent',
+    short: 'Cursor',
     accent: '#29B5E8',
     glow: 'rgba(41, 181, 232, 0.45)',
     initials: 'C',
@@ -51,20 +64,22 @@ export const CHARACTERS: Record<CharacterId, CharacterMeta> = {
   },
   cfo: {
     id: 'cfo',
-    name: 'Dana Whitaker',
-    role: 'CFO · Acme Analytics',
+    name: 'CFO',
+    role: 'Finance · Acme Analytics',
+    short: 'CFO',
     accent: '#F87171',
     glow: 'rgba(248, 113, 113, 0.35)',
-    initials: 'DW',
+    initials: 'CF',
     pattern: 'e',
   },
   gsi: {
     id: 'gsi',
-    name: 'Apex Global Services',
-    role: 'Incumbent GSI',
+    name: 'Incumbent GSI',
+    role: 'Systems Integrator',
+    short: 'GSI',
     accent: '#9CA3AF',
     glow: 'rgba(156, 163, 175, 0.3)',
-    initials: 'AX',
+    initials: 'GSI',
     pattern: 'f',
   },
 };

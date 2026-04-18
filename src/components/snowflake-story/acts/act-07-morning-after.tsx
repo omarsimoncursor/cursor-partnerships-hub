@@ -2,9 +2,9 @@
 
 import { ChapterStage } from '../chapter-stage';
 import { ACTS, type ActComponentProps } from '../story-types';
-import { AeEndcard } from '../ae-endcard';
-import { CharacterAvatar } from '../character-avatar';
-import { CheckCircle2, Circle, Moon, Power, Sunrise } from 'lucide-react';
+import { CursorValueCallout } from '../cursor-value-callout';
+import { EmailThread } from '../email-thread';
+import { CheckCircle2, Moon, Power, Rocket, RotateCcw, Sparkles, Sunrise, TrendingUp } from 'lucide-react';
 
 interface Act07Props extends ActComponentProps {
   onAdvance: () => void;
@@ -15,53 +15,117 @@ export function Act07MorningAfter({ onAdvance }: Act07Props) {
 
   return (
     <ChapterStage act={act}>
-      <div className="relative z-10 px-6 md:px-12 pb-32 pt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8 items-start">
-          <div className="flex flex-col gap-5">
-            <div className="flex items-center gap-3 mb-1">
-              <Sunrise className="w-4 h-4 text-[#F59E0B]" />
-              <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-[#F59E0B]">
-                15 months later · Monday 6:47am
-              </span>
-            </div>
-            <h2 className="text-[26px] md:text-[34px] font-semibold text-text-primary leading-tight">
-              Maya sleeps through the night. Samira closes the expansion.
-            </h2>
-
-            <MayaCalendar />
-            <TeradataShutdown />
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start">
+        <div className="flex flex-col gap-5">
+          <div className="flex items-center gap-3">
+            <Sunrise className="h-4 w-4 text-[#F59E0B]" />
+            <span className="text-[11px] font-mono uppercase tracking-[0.22em] text-[#F59E0B]">
+              15 months later · Monday 6:47am
+            </span>
           </div>
+          <h2 className="text-[26px] md:text-[32px] font-semibold leading-tight text-[#0F172A]">
+            Teradata goes dark. The data team sleeps through the night.
+          </h2>
 
-          <div className="lg:sticky lg:top-24">
-            <AeEndcard onRestart={onAdvance} />
-          </div>
+          <CalendarCard />
+          <TeradataShutdown />
+        </div>
+
+        <div className="flex flex-col gap-4 lg:sticky lg:top-24">
+          <EmailThread
+            label="Internal thread · modernization close-out"
+            tone="light"
+            messages={[
+              {
+                from: 'vp',
+                to: 'CFO; CEO; Board',
+                time: 'Monday 6:52am',
+                subject: 'Teradata decommissioned · portfolio on Snowflake',
+                body: (
+                  <>
+                    <p>
+                      Last Teradata process ran at 06:00 this morning. License is relinquished,
+                      renewal cancelled. 911 assets on Snowflake, all approved through our
+                      reviewer gates, all reconciled against the legacy source.
+                    </p>
+                    <p className="mt-2">
+                      Against the GSI baseline: 33 months earlier, ~$12M less out the door,
+                      ~$5.9M/yr in steady-state TCO swing. The data team kept the keyboard the
+                      whole way.
+                    </p>
+                  </>
+                ),
+                attachments: [{ label: 'close-out-memo.pdf' }, { label: 'portfolio-snapshot.xlsx' }],
+              },
+              {
+                from: 'principal',
+                to: 'VP Data & Analytics',
+                time: 'Monday 7:04am',
+                subject: 'Teradata decommissioned · portfolio on Snowflake',
+                body: (
+                  <>
+                    <p>
+                      First weekend on-call in three years without a page. I slept nine hours.
+                      That&apos;s the metric I&apos;m bringing to the retro.
+                    </p>
+                    <p className="mt-2">
+                      Next wave: Cortex-powered agents on the modernized marts. Cursor already
+                      has a draft plan — I&apos;ll review it Wednesday.
+                    </p>
+                  </>
+                ),
+              },
+            ]}
+          />
+
+          <CursorValueCallout
+            tone="light"
+            accent="#16A34A"
+            label="Why this story ends differently"
+            headline="Cursor turned a 4-year migration into a 15-month modernization — without outsourcing a line of taste."
+            body="Your team wrote the taste, Cursor wrote the code, your reviewer approved the merge. Snowflake credits started flowing in month one, not month forty. That's the shape of every modernization Cursor runs."
+            footer={
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <OutcomeStat icon={<TrendingUp className="h-3 w-3" />} label="Credits pulled forward" value="33 months" />
+                <OutcomeStat icon={<Rocket className="h-3 w-3" />} label="Migration finished in" value="15 months" />
+                <OutcomeStat icon={<Sparkles className="h-3 w-3" />} label="Cortex agents live" value="14" />
+              </div>
+            }
+          />
+
+          <button
+            onClick={onAdvance}
+            className="mx-auto inline-flex items-center gap-2 rounded-full border border-[#0F172A]/15 bg-white px-5 py-3 text-[13px] font-semibold text-[#0F172A] shadow-sm hover:bg-[#F1F5F9] cursor-pointer"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Play the story again
+          </button>
         </div>
       </div>
     </ChapterStage>
   );
 }
 
-function MayaCalendar() {
+function CalendarCard() {
   const events: Array<{ day: string; label: string; kind: 'sleep' | 'meeting' | 'clear' }> = [
     { day: 'Mon', label: '6:47 — coffee. Nothing paging.', kind: 'sleep' },
-    { day: 'Mon', label: '10:00 — 1:1 with Jordan · 30m', kind: 'meeting' },
+    { day: 'Mon', label: '10:00 — 1:1 with reviewer · 30m', kind: 'meeting' },
     { day: 'Tue', label: '(open)', kind: 'clear' },
-    { day: 'Wed', label: 'Cortex AI features working group', kind: 'meeting' },
+    { day: 'Wed', label: 'Cortex agents working group', kind: 'meeting' },
     { day: 'Thu', label: '(open — heads-down)', kind: 'clear' },
     { day: 'Fri', label: '14:00 — modernization retro', kind: 'meeting' },
   ];
   return (
-    <div className="rounded-xl border border-white/10 bg-[#0A1221]/80 backdrop-blur p-5">
+    <div className="rounded-2xl border border-[#0F172A]/10 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3 mb-4">
-        <CharacterAvatar character="maya" size="sm" />
         <div>
-          <p className="text-[12px] font-semibold text-text-primary">Maya&apos;s calendar</p>
-          <p className="text-[10.5px] font-mono text-text-tertiary">
-            No &ldquo;pipeline failure&rdquo; invites. No 2am pages. For the first time in 3 years.
+          <p className="text-[12px] font-semibold text-[#0F172A]">Data team · this week</p>
+          <p className="text-[10.5px] font-mono text-[#64748B]">
+            No &ldquo;pipeline failure&rdquo; invites. No 2am pages. First time in three years.
           </p>
         </div>
-        <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-mono text-[#4ADE80]">
-          <Moon className="w-3 h-3" /> slept 9 hours
+        <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-mono text-[#16A34A]">
+          <Moon className="w-3 h-3" /> on-call page count: 0
         </span>
       </div>
 
@@ -70,29 +134,32 @@ function MayaCalendar() {
           <CalendarRow key={i} {...e} />
         ))}
       </div>
-
-      <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[10.5px] font-mono">
-        <span className="text-text-tertiary">pages this week</span>
-        <span className="text-[#4ADE80]">0</span>
-      </div>
     </div>
   );
 }
 
-function CalendarRow({ day, label, kind }: { day: string; label: string; kind: 'sleep' | 'meeting' | 'clear' }) {
+function CalendarRow({
+  day,
+  label,
+  kind,
+}: {
+  day: string;
+  label: string;
+  kind: 'sleep' | 'meeting' | 'clear';
+}) {
   const palette = {
-    sleep: { color: '#7DD3F5', icon: <CheckCircle2 className="w-3 h-3" /> },
-    meeting: { color: '#A78BFA', icon: <Circle className="w-3 h-3" /> },
-    clear: { color: 'rgba(237,236,236,0.35)', icon: <Circle className="w-3 h-3" /> },
+    sleep: { color: '#16A34A' },
+    meeting: { color: '#2563EB' },
+    clear: { color: '#94A3B8' },
   }[kind];
   return (
     <>
-      <span className="text-[10.5px] font-mono uppercase tracking-wider text-text-tertiary pt-0.5">
+      <span className="text-[10.5px] font-mono uppercase tracking-wider text-[#64748B] pt-0.5">
         {day}
       </span>
       <span className="flex items-start gap-2" style={{ color: palette.color }}>
-        <span className="pt-0.5">{palette.icon}</span>
-        <span className="text-text-primary">{label}</span>
+        <CheckCircle2 className="h-3 w-3 mt-0.5" />
+        <span className="text-[#0F172A]">{label}</span>
       </span>
     </>
   );
@@ -100,24 +167,24 @@ function CalendarRow({ day, label, kind }: { day: string; label: string; kind: '
 
 function TeradataShutdown() {
   return (
-    <div className="rounded-xl border border-white/10 bg-gradient-to-br from-[#1A0E0E]/80 to-[#080A10]/90 backdrop-blur p-5">
+    <div className="rounded-2xl border border-[#F87171]/30 bg-gradient-to-br from-[#FEF2F2] to-white p-5 shadow-sm">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-8 h-8 rounded-md bg-[#F87171]/15 border border-[#F87171]/35 flex items-center justify-center">
-          <Power className="w-4 h-4 text-[#F87171]" />
+          <Power className="w-4 h-4 text-[#B91C1C]" />
         </div>
         <div>
-          <p className="text-[12px] font-semibold text-text-primary">Teradata console · acme-prod</p>
-          <p className="text-[10.5px] font-mono text-text-tertiary">
+          <p className="text-[12px] font-semibold text-[#0F172A]">Teradata console · acme-prod</p>
+          <p className="text-[10.5px] font-mono text-[#64748B]">
             Last process decommissioned 06:00 PT, Monday morning.
           </p>
         </div>
-        <span className="ml-auto text-[10.5px] font-mono text-[#F87171] uppercase tracking-wider">
+        <span className="ml-auto text-[10.5px] font-mono text-[#B91C1C] uppercase tracking-wider">
           dark
         </span>
       </div>
 
-      <div className="rounded-md border border-white/5 bg-[#05080F] font-mono text-[11.5px] p-3 text-text-tertiary space-y-0.5 leading-relaxed">
-        <p className="text-text-secondary">
+      <div className="rounded-md border border-[#0F172A]/10 bg-[#0F1521] text-white font-mono text-[11.5px] p-3 space-y-0.5 leading-relaxed">
+        <p>
           <span className="text-[#F87171]">[TD-PROD]</span> STOP SESSION * — 0 active sessions
         </p>
         <p>
@@ -131,37 +198,35 @@ function TeradataShutdown() {
         <p>
           <span className="text-[#F87171]">[TD-PROD]</span> License relinquished · renewal cancelled
         </p>
-        <p className="text-text-secondary pt-1">
+        <p className="pt-1">
           <span className="text-[#4ADE80]">[SNOWFLAKE]</span> Marketplace listing live ·
           customer-360 mart available to 3 partners
         </p>
         <p>
-          <span className="text-[#4ADE80]">[SNOWFLAKE]</span> Cortex-powered Agents in staging · 14
-          workflows using modernized marts
+          <span className="text-[#4ADE80]">[SNOWFLAKE]</span> Cortex agents in staging · 14
+          workflows on the modernized marts
         </p>
-      </div>
-
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <OutcomeStat label="Credits flowing" value="month 1" tone="success" />
-        <OutcomeStat label="TCO swing" value="−$5.9M/yr" tone="success" />
-        <OutcomeStat label="Teradata licenses" value="0" tone="muted" />
       </div>
     </div>
   );
 }
 
 function OutcomeStat({
-  label, value, tone,
-}: { label: string; value: string; tone: 'success' | 'muted' }) {
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="rounded-md border border-white/5 bg-white/[0.02] px-2 py-2">
-      <p className="text-[9.5px] font-mono uppercase tracking-wider text-text-tertiary">{label}</p>
-      <p
-        className="text-[14px] font-mono font-semibold"
-        style={{ color: tone === 'success' ? '#4ADE80' : 'rgba(237,236,236,0.55)' }}
-      >
-        {value}
-      </p>
+    <div className="rounded-md border border-[#0F172A]/10 bg-white px-2 py-2">
+      <div className="flex items-center justify-center gap-1 text-[9.5px] font-mono uppercase tracking-wider text-[#64748B]">
+        {icon}
+        {label}
+      </div>
+      <p className="text-[14px] font-mono font-semibold text-[#16A34A]">{value}</p>
     </div>
   );
 }

@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Activity, AlertTriangle, ShieldCheck, Terminal, TrendingUp } from 'lucide-react';
+import { Activity, AlertTriangle, Play, ShieldCheck, TrendingUp } from 'lucide-react';
 import { ActShell, ActHeader } from './act-shell';
 import { WeekBarWidget } from '../time/week-bar-widget';
 import { OverrideCard } from '../override-card';
 import { CursorLogo } from '../cursor-logo';
-import { AccelerationTile } from '../acceleration-tile';
 import { StoryBeat } from '../story-beat';
 import { ACT_TIMING } from '../data/script';
 
@@ -38,6 +37,7 @@ const INITIAL_METRICS: Metric = {
 };
 
 export function Act5Crucible({ onAdvance }: Act5Props) {
+  const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [metrics, setMetrics] = useState<Metric>(INITIAL_METRICS);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -45,6 +45,7 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
   const startRef = useRef<number>(0);
 
   useEffect(() => {
+    if (!running) return;
     startRef.current = performance.now();
     let raf = 0;
     const tick = () => {
@@ -75,22 +76,23 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [running]);
 
-  // Alert banner timing
   useEffect(() => {
+    if (!running) return;
     const show = setTimeout(() => setAlertVisible(true), SPIKE_START_MS + 200);
     const hide = setTimeout(() => setAlertVisible(false), SPIKE_START_MS + SPIKE_DURATION_MS + 1200);
     return () => {
       clearTimeout(show);
       clearTimeout(hide);
     };
-  }, []);
+  }, [running]);
 
   useEffect(() => {
+    if (!running) return;
     const t = setTimeout(() => setDavisVisible(true), DAVIS_SHOWN_AT_MS);
     return () => clearTimeout(t);
-  }, []);
+  }, [running]);
 
   const spiking = elapsed >= SPIKE_START_MS && elapsed < SPIKE_START_MS + SPIKE_DURATION_MS;
 
@@ -101,30 +103,20 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
     >
       <ActHeader
         act={5}
-        eyebrow="Before we put this in front of real customers, we stress-test it with synthetic traffic. A Cursor Cloud Agent runs the test, spots a problem the instant it appears, and proposes a fix."
+        eyebrow="Click 'Run load test' to fire 12,000 requests/sec at the new service in staging. Cursor will tail CloudWatch and flag any problem the moment it appears."
       />
 
       <StoryBeat
         tone="dark"
         agent="cloud"
-        title="What’s happening: Cursor is stress-testing the new service, catching a cold-start spike, and proposing the fix — all while the team watches."
-        body={
-          <>
-            This is <strong>staging</strong>, not production. A{' '}
-            <strong style={{ color: '#4DD4FF' }}>Cursor Cloud Agent</strong> wrote a 12,000-requests-per-second load test
-            overnight, is now firing it at the new service, and is tailing CloudWatch at the same time. When p99 latency
-            spikes (that red flash in a second), the agent correctly diagnoses it as a <em>Lambda cold-start</em> problem,
-            proposes the fix (provisioned concurrency on one function), and shows the cost delta —{' '}
-            <strong>$180/month</strong>. The FinOps lead, R. Davis, only has to answer one question: &ldquo;$180/month
-            vs $47k/hour of downtime risk — yes or no?&rdquo;
-          </>
-        }
-        oldWay="3 days to write a realistic load test · 3 more days for an engineer to diagnose the spike"
-        newWay="20 minutes to author the load test · 3 minutes to diagnose the spike and write the fix"
+        title="Cursor wrote the load test, runs it, and watches the metrics in real time."
+        body={<>When a cold-start spike appears, the agent diagnoses it and proposes a fix with a dollar number attached — so FinOps just answers yes or no.</>}
+        oldWay="3 days · 3 days"
+        newWay="20 min · 3 min"
       />
 
       {/* Top: 4 metric tiles */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
         <MetricTile
           label="p99 latency"
           value={metrics.p99}
@@ -138,26 +130,37 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
         <MetricTile label="Aurora ACU" value={metrics.acu} unit="" highlight="#4DD4FF" fixed={2} />
       </div>
 
-      {/* Middle row: dial + k6 terminal */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_420px]">
+      {/* Middle row: dial + side rail */}
+      <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_360px]">
         <div
-          className="relative flex flex-col items-center justify-center overflow-hidden rounded-xl border p-6"
+          className="relative flex flex-col items-center justify-center overflow-hidden rounded-xl border p-5"
           style={{
-            minHeight: 320,
+            minHeight: 280,
             background: 'radial-gradient(circle at center, rgba(77,212,255,0.08) 0%, transparent 70%)',
             borderColor: 'rgba(77,212,255,0.15)',
           }}
         >
-          <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#4DD4FF' }}>
-            <CursorLogo size={14} tone="dark" />
-            <span>Cursor Cloud Agent · Load driver</span>
+          <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#4DD4FF' }}>
+            <CursorLogo size={12} tone="dark" />
+            <span>Cursor · k6 load driver</span>
           </div>
           <TrafficDial rps={metrics.rps} spiking={spiking} />
-          <K6Terminal rps={metrics.rps} spiking={spiking} />
+
+          {!running && (
+            <button
+              type="button"
+              onClick={() => setRunning(true)}
+              className="mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-transform hover:-translate-y-0.5"
+              style={{ background: '#4DD4FF', color: '#060A12' }}
+            >
+              <Play className="h-4 w-4 fill-current" />
+              Run load test
+            </button>
+          )}
 
           {alertVisible && (
             <div
-              className="absolute left-4 right-4 top-4 rounded-lg border p-3 text-[12px] shadow-xl transition-all"
+              className="absolute left-3 right-3 top-3 rounded-lg border p-2.5 text-[12px] shadow-xl"
               style={{
                 background: 'rgba(17, 24, 39, 0.95)',
                 borderColor: '#EF4444',
@@ -165,17 +168,13 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
                 animation: 'crucibleAlertIn 300ms ease-out',
               }}
             >
-              <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#EF4444' }}>
-                <CursorLogo size={14} tone="dark" />
-                <AlertTriangle className="h-3.5 w-3.5" />
-                Cursor Cloud Agent · Cold-start spike detected
+              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: '#EF4444' }}>
+                <AlertTriangle className="h-3 w-3" />
+                Cursor · cold-start spike
               </div>
-              <p className="mb-1 text-[12px]">
-                {metrics.rps.toLocaleString()} rps, p99 <span className="font-bold">{(metrics.p99 / 1000).toFixed(2)}s</span>
-              </p>
-              <p className="text-[12px]" style={{ color: 'rgba(243,244,246,0.75)' }}>
-                Proposal: enable provisioned concurrency on <span className="font-mono">CreateOrderFn</span> (2 instances).
-                Impact: +<span className="font-semibold text-white">$180/mo</span>. p99 steady-state stays under 400ms.
+              <p className="text-[12px]" style={{ color: 'rgba(243,244,246,0.85)' }}>
+                p99 hit <strong className="text-white">{(metrics.p99 / 1000).toFixed(2)}s</strong>. Fix: provisioned concurrency on{' '}
+                <code className="font-mono text-[11px]">CreateOrderFn</code> · <strong className="text-white">+$180/mo</strong>.
               </p>
             </div>
           )}
@@ -188,22 +187,11 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
           `}</style>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <AccelerationTile taskId="load-test" tone="dark" variant="strip" />
-          {spiking && (
-            <AccelerationTile taskId="cold-start-fix" tone="dark" variant="strip" />
-          )}
-
+        <div className="flex flex-col gap-2.5">
           <OverrideCard speaker="davis" tone="approve" visible={davisVisible} darkMode>
-            <div className="space-y-2">
-              <p>
-                <span className="font-semibold">$180/mo against $47k/hr in downtime risk — approve.</span>
-              </p>
-              <p className="text-[12px] opacity-85">
-                Flagging <span className="font-mono">CreateOrderFn</span> in the Compute Optimizer dashboard so we
-                revisit post-hypercare.
-              </p>
-            </div>
+            <p className="text-[12.5px] leading-snug">
+              <strong>$180/mo vs $47k/hr in downtime risk — approve.</strong>
+            </p>
           </OverrideCard>
 
           <RunCostTile visible={davisVisible} />
@@ -212,11 +200,11 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
             type="button"
             onClick={onAdvance}
             disabled={!davisVisible}
-            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: '#FF9900', color: '#060A12' }}
           >
             <ShieldCheck className="h-4 w-4" />
-            Approve FinOps trade-off (gate 3/4)
+            Approve trade-off (gate 3/4)
             <span>→</span>
           </button>
         </div>
@@ -247,20 +235,20 @@ function MetricTile({
   const display = typeof value === 'number' && fixed !== undefined ? value.toFixed(fixed) : value.toLocaleString();
   return (
     <div
-      className="rounded-xl border p-3"
+      className="rounded-lg border px-3 py-2"
       style={{
         background: spiking ? 'rgba(239, 68, 68, 0.08)' : 'rgba(77, 212, 255, 0.04)',
         borderColor: spiking ? 'rgba(239, 68, 68, 0.45)' : 'rgba(77, 212, 255, 0.2)',
       }}
     >
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(243,244,246,0.55)' }}>
+      <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(243,244,246,0.55)' }}>
         {label}
       </div>
       <div className="flex items-baseline gap-1">
-        <span className={`text-2xl font-bold tabular-nums ${mono ? 'font-mono' : ''}`} style={{ color: highlight }}>
+        <span className={`text-xl font-bold tabular-nums ${mono ? 'font-mono' : ''}`} style={{ color: highlight }}>
           {display}
         </span>
-        {unit && <span className="text-sm" style={{ color: 'rgba(243,244,246,0.55)' }}>{unit}</span>}
+        {unit && <span className="text-[12px]" style={{ color: 'rgba(243,244,246,0.55)' }}>{unit}</span>}
       </div>
       {sparkline && (
         <Sparkline values={sparkline} color={highlight} max={1200} />
@@ -286,7 +274,7 @@ function Sparkline({ values, color, max }: { values: number[]; color: string; ma
 
 function TrafficDial({ rps, spiking }: { rps: number; spiking: boolean }) {
   const pct = Math.min(1, rps / 12_000);
-  const size = 180;
+  const size = 150;
   const stroke = 10;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -311,40 +299,12 @@ function TrafficDial({ rps, spiking }: { rps: number; spiking: boolean }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="font-mono text-3xl font-bold" style={{ color }}>
+        <div className="font-mono text-2xl font-bold" style={{ color }}>
           {rps.toLocaleString()}
         </div>
-        <div className="text-[10px] uppercase tracking-widest" style={{ color: 'rgba(243,244,246,0.55)' }}>
-          rps · target 12,000
+        <div className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(243,244,246,0.55)' }}>
+          rps · target 12k
         </div>
-      </div>
-    </div>
-  );
-}
-
-function K6Terminal({ rps, spiking }: { rps: number; spiking: boolean }) {
-  const reqDurationAvg = spiking ? 540 : 87;
-  const p95 = spiking ? 980 : 245;
-  const p99 = spiking ? 1140 : 342;
-
-  return (
-    <div
-      className="mt-4 w-full rounded-lg border p-3 font-mono text-[11px]"
-      style={{ background: '#010409', borderColor: 'rgba(126,231,135,0.15)', color: '#E6EDF3' }}
-    >
-      <div className="mb-1 flex items-center gap-2 text-[10px] opacity-70">
-        <Terminal className="h-3 w-3" /> k6 run · traffic ramp
-      </div>
-      <div style={{ color: '#7EE787' }}>
-        checks: <span className="font-bold">100.00%</span>
-      </div>
-      <div style={{ color: 'rgba(230,237,243,0.85)' }}>
-        http_req_duration: avg=<span className="font-bold">{reqDurationAvg}ms</span>,
-        p(95)=<span className="font-bold">{p95}ms</span>,
-        p(99)=<span className={spiking ? 'font-bold text-[#F87171]' : 'font-bold'}>{p99}ms</span>
-      </div>
-      <div style={{ color: 'rgba(230,237,243,0.75)' }}>
-        iterations: <span className="font-mono">{(rps * 60).toLocaleString()}</span> in 60s
       </div>
     </div>
   );

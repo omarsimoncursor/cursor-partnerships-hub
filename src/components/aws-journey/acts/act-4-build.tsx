@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ShieldCheck, Terminal, GitCommit, Check, X } from 'lucide-react';
+import { ShieldCheck, Terminal, GitCommit, Check } from 'lucide-react';
 import { ActShell, ActHeader } from './act-shell';
 import { CalendarWidget } from '../time/calendar-widget';
 import { OverrideCard } from '../override-card';
 import { CursorLogo } from '../cursor-logo';
-import { AccelerationTile } from '../acceleration-tile';
 import { StoryBeat } from '../story-beat';
 import { ACT_TIMING } from '../data/script';
 import { ORDERS_STACK_CDK, CODEX_PATCHES } from '../data/orders-stack';
@@ -17,7 +16,7 @@ interface Act4Props {
 }
 
 type Step =
-  | 'idle'
+  | 'awaiting-start'
   | 'typing'
   | 'tests-running'
   | 'codex'
@@ -39,14 +38,14 @@ const ACT4_TOTAL_TYPING_MS = 8500;
 
 export function Act4Build({ onAdvance }: Act4Props) {
   const [typedLines, setTypedLines] = useState(0);
-  const [step, setStep] = useState<Step>('idle');
+  const [step, setStep] = useState<Step>('awaiting-start');
   const [appliedPatches, setAppliedPatches] = useState<Set<number>>(new Set());
   const [codexVisible, setCodexVisible] = useState<Record<'iam' | 'vpc', boolean>>({ iam: false, vpc: false });
   const [testState, setTestState] = useState<{ passed: number; failing: boolean; total: number }>({ passed: 0, failing: false, total: 47 });
 
-  // Author-from-top progressive typing
+  // Author-from-top progressive typing — only starts after the user clicks.
   useEffect(() => {
-    setStep('typing');
+    if (step !== 'typing') return;
     const startAt = performance.now();
     let raf = 0;
     const tick = () => {
@@ -58,10 +57,11 @@ export function Act4Build({ onAdvance }: Act4Props) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [step]);
 
-  // Test-runner timeline
+  // Test-runner + Codex timeline — kicked off when the user runs the build.
   useEffect(() => {
+    if (step !== 'typing') return;
     const t1 = setTimeout(() => setStep('tests-running'), ACT_TIMING.act4TerminalStartMs);
     const t2 = setTimeout(() => setStep('codex'), ACT_TIMING.act4CodexCommentsMs);
     const t3 = setTimeout(() => setCodexVisible({ iam: true, vpc: false }), ACT_TIMING.act4CodexCommentsMs + 80);
@@ -70,7 +70,7 @@ export function Act4Build({ onAdvance }: Act4Props) {
     const t6 = setTimeout(() => setStep('patched'), ACT_TIMING.act4CodexCommentsMs + 2500);
     const t7 = setTimeout(() => setStep('chen'), ACT_TIMING.act4ChenApprovalMs);
     return () => [t1, t2, t3, t4, t5, t6, t7].forEach(clearTimeout);
-  }, []);
+  }, [step]);
 
   // Simulated test runner
   useEffect(() => {
@@ -130,55 +130,65 @@ export function Act4Build({ onAdvance }: Act4Props) {
     >
       <ActHeader
         act={4}
-        eyebrow="Watch a 20-year-old Java service get rewritten as modern AWS code — live — while a second agent patches the security issues before a human even opens the PR."
+        eyebrow="Click 'Start build' and watch a 20-year-old Java service get rewritten into AWS code, line by line — while a second agent patches the security issues before the human even sees the PR."
       />
 
       <StoryBeat
         tone="dark"
         agent="both"
-        title="What’s happening: Cursor is rewriting the legacy service into AWS code, line by line, on the right screen."
-        body={
-          <>
-            The left pane is the old <strong>Java monolith</strong>. The middle pane is being written <em>right now</em> by a{' '}
-            <strong style={{ color: '#FF9900' }}>Cursor Cloud Agent</strong> — reading the Java, producing AWS Lambda + CDK in TypeScript,
-            and running the test suite at the bottom as it goes. When the tests go red, the agent auto-patches and re-runs.
-            A second agent, <strong style={{ color: '#FBBF24' }}>Cursor Codex review</strong>, scans the output for security issues
-            (over-privileged IAM, missing VPC endpoints) and fixes them before M. Chen ever opens the pull request.
-            All she has to do is verify it matches policy.
-          </>
-        }
-        oldWay="12 weeks · a GSI pod hand-porting Java → TypeScript, plus a 2-day security review"
-        newWay="9 agent-days of coding + 12 minutes of Codex patches — the security review becomes a rubber stamp"
+        title="Two agents, working together: one writes the code, one reviews it."
+        body={<>The Cloud Agent rewrites Java → AWS Lambda + CDK while Codex catches IAM &amp; VPC issues. Tests run live. M. Chen just verifies policy.</>}
+        oldWay="12 weeks hand-porting"
+        newWay="9 agent-days + auto-patches"
       />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr_380px]">
+      <div className="grid gap-3 lg:grid-cols-[1fr_1fr_340px]">
         {/* Left pane: Java EE source */}
         <Pane
           title="OrdersService.java"
-          subtitle="Legacy · WebSphere 8.5 + Oracle 12c"
+          subtitle="Legacy · WebSphere 8.5"
           language="java"
           lines={javaLines}
           highlightBand={activeJavaBand ? { start: activeJavaBand.javaStartLine, end: activeJavaBand.javaEndLine, label: activeJavaBand.label } : null}
-          maxHeight={520}
+          maxHeight={420}
         />
 
         {/* Middle pane: CDK being authored */}
-        <Pane
-          title="orders-stack.ts"
-          subtitle="authored by Cursor Cloud Agent · AWS CDK"
-          language="ts"
-          lines={ORDERS_STACK_CDK.slice(0, typedLines)}
-          cursorLine={typedLines}
-          patchedLines={appliedPatches}
-          patchReplacements={Object.fromEntries(CODEX_PATCHES.map((p) => [p.line, p.replacementLine]))}
-          maxHeight={520}
-          authorTag
-        />
+        <div className="relative">
+          <Pane
+            title="orders-stack.ts"
+            subtitle="Cursor · AWS CDK"
+            language="ts"
+            lines={ORDERS_STACK_CDK.slice(0, typedLines)}
+            cursorLine={typedLines}
+            patchedLines={appliedPatches}
+            patchReplacements={Object.fromEntries(CODEX_PATCHES.map((p) => [p.line, p.replacementLine]))}
+            maxHeight={420}
+            authorTag
+          />
+          {step === 'awaiting-start' && (
+            <div
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg text-center"
+              style={{ background: 'rgba(13,17,23,0.92)', border: '1px solid rgba(126,231,135,0.15)' }}
+            >
+              <div className="max-w-[260px] text-[12.5px]" style={{ color: 'rgba(230,237,243,0.8)' }}>
+                Ready to rewrite <strong className="text-white">2,800 lines of Java</strong> into AWS Lambda + CDK.
+              </div>
+              <button
+                type="button"
+                onClick={() => setStep('typing')}
+                className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-transform hover:-translate-y-0.5"
+                style={{ background: '#FF9900', color: '#0D1117' }}
+              >
+                <CursorLogo size={14} tone="light" />
+                Start build
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Right column: codex + chen + terminal */}
-        <div className="flex flex-col gap-3">
-          <AccelerationTile taskId="java-to-cdk" tone="dark" variant="card" />
-
+        <div className="flex flex-col gap-2.5">
           <CodexCard
             patch={CODEX_PATCHES.find((p) => p.category === 'iam')!}
             visible={codexVisible.iam}
@@ -189,24 +199,17 @@ export function Act4Build({ onAdvance }: Act4Props) {
             visible={codexVisible.vpc}
             applied={appliedPatches.has(48)}
           />
-          <AccessAnalyzerTile visible={chenVisible} />
           <OverrideCard speaker="chen" tone="approve" visible={chenVisible} darkMode>
-            <div className="space-y-2">
-              <p>
-                Both Codex catches match our IAM baseline and VPC pattern
-                (<span className="font-mono">CIS AWS Foundations §3.1, §4.2</span>). Approved.
-              </p>
-              <p className="text-[12px] opacity-80">
-                Also running Access Analyzer on the staging deploy — expect 0 findings.
-              </p>
-            </div>
+            <p className="text-[12.5px] leading-snug">
+              Codex catches match our IAM + VPC baseline. <strong>Approved.</strong> Access Analyzer: 0 findings.
+            </p>
           </OverrideCard>
 
           <button
             type="button"
             onClick={onAdvance}
             disabled={!chenVisible}
-            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: '#FF9900', color: '#0D1117' }}
           >
             <ShieldCheck className="h-4 w-4" />
@@ -382,7 +385,7 @@ function SyntaxLine({ line, language }: { line: string; language: 'java' | 'ts' 
 function CodexCard({ patch, visible, applied }: { patch: { line: number; summary: string; detail: string; category: string }; visible: boolean; applied: boolean }) {
   return (
     <div
-      className="rounded-lg border p-3 text-[12px] transition-all duration-500"
+      className="rounded-lg border px-2.5 py-2 text-[12px] transition-all duration-500"
       style={{
         background: applied ? 'rgba(126, 231, 135, 0.06)' : 'rgba(234, 179, 8, 0.06)',
         borderColor: applied ? 'rgba(126, 231, 135, 0.3)' : 'rgba(234, 179, 8, 0.35)',
@@ -391,46 +394,12 @@ function CodexCard({ patch, visible, applied }: { patch: { line: number; summary
         transform: visible ? 'translateX(0)' : 'translateX(16px)',
       }}
     >
-      <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: applied ? '#7EE787' : '#FBBF24' }}>
+      <div className="mb-0.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: applied ? '#7EE787' : '#FBBF24' }}>
         <GitCommit className="h-3 w-3" />
-        Codex review · line {patch.line}
+        Codex · line {patch.line}
         {applied && <span className="ml-auto flex items-center gap-1 text-[10px]"><Check className="h-3 w-3" /> patched</span>}
       </div>
-      <div className="text-[12px] font-semibold">{patch.summary}</div>
-      <p className="mt-1 text-[11px] opacity-80">{patch.detail}</p>
-    </div>
-  );
-}
-
-function AccessAnalyzerTile({ visible }: { visible: boolean }) {
-  return (
-    <div
-      className="rounded-lg border p-3 transition-all duration-500"
-      style={{
-        background: 'rgba(126, 231, 135, 0.06)',
-        borderColor: 'rgba(126, 231, 135, 0.3)',
-        color: '#E6EDF3',
-        opacity: visible ? 1 : 0,
-      }}
-    >
-      <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#7EE787' }}>
-        <ShieldCheck className="h-3 w-3" />
-        IAM Access Analyzer · staging
-      </div>
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <Stat num="0" label="over-privileged" />
-        <Stat num="0" label="public" />
-        <Stat num="✓"  label="least-priv" good />
-      </div>
-    </div>
-  );
-}
-
-function Stat({ num, label, good }: { num: string; label: string; good?: boolean }) {
-  return (
-    <div>
-      <div className="text-lg font-bold tabular-nums" style={{ color: good ? '#7EE787' : '#E6EDF3' }}>{num}</div>
-      <div className="text-[9px] uppercase tracking-wider opacity-60">{label}</div>
+      <div className="text-[12px] font-semibold leading-snug">{patch.summary}</div>
     </div>
   );
 }
@@ -438,47 +407,33 @@ function Stat({ num, label, good }: { num: string; label: string; good?: boolean
 function TerminalStrip({ active, passed, total, failing }: { active: boolean; passed: number; total: number; failing: boolean }) {
   return (
     <div
-      className="mt-4 overflow-hidden rounded-lg border"
+      className="mt-3 overflow-hidden rounded-lg border"
       style={{ background: '#010409', borderColor: 'rgba(126,231,135,0.15)' }}
     >
-      <div className="flex items-center gap-2 border-b px-3 py-1.5 text-[11px] font-mono" style={{ background: '#161B22', borderColor: 'rgba(255,255,255,0.06)', color: '#8B949E' }}>
+      <div className="flex items-center gap-2 border-b px-3 py-1 text-[11px] font-mono" style={{ background: '#161B22', borderColor: 'rgba(255,255,255,0.06)', color: '#8B949E' }}>
         <Terminal className="h-3 w-3" />
-        <span>integration-tests · npm test</span>
+        <span>npm test · integration suite</span>
         <span className="ml-auto text-[10px] opacity-60">{active ? 'running' : 'idle'}</span>
+        {active && (
+          <span className="text-[10px]" style={{ color: failing ? '#F87171' : '#7EE787' }}>
+            {failing ? '⚠ retrying' : passed === total ? '✓ all green' : `${passed}/${total}`}
+          </span>
+        )}
       </div>
-      <div className="px-4 py-3 font-mono text-[11px] leading-5" style={{ color: '#E6EDF3' }}>
+      <div className="px-3 py-2 font-mono text-[11px]" style={{ color: '#E6EDF3' }}>
         {!active && <div className="opacity-50">$ _</div>}
         {active && (
           <>
-            <div style={{ color: '#7EE787' }}>
-              $ npm test -- --coverage
-            </div>
-            <div className="opacity-70">PASS  tests/handlers/create-order.test.ts</div>
-            <div className="opacity-70">PASS  tests/handlers/list-orders.test.ts</div>
-            <div className="opacity-70">PASS  tests/handlers/update-status.test.ts</div>
-            <div>
-              <span style={{ color: failing ? '#F87171' : '#7EE787' }}>
-                {failing ? '⚠ FAIL' : '✓ PASS'}
-              </span>{' '}
+            <ProgressBar passed={passed} total={total} failing={failing} />
+            <div className="mt-1.5 flex items-baseline justify-between text-[10.5px]">
               <span className="opacity-80">
-                {failing
-                  ? 'tests/handlers/cancel-order.test.ts  — retry #1 after patch'
-                  : passed > 22
-                  ? 'tests/handlers/cancel-order.test.ts  — patched & retried (green)'
-                  : 'integration suite progressing…'}
+                {passed === total
+                  ? '✓ 47 tests · coverage 94.7% · 11.4s'
+                  : failing
+                  ? 'cancel-order.test.ts — auto-patching & retrying'
+                  : `running… ${passed} passed, ${total - passed} pending`}
               </span>
             </div>
-            <div className="mt-1">
-              <span style={{ color: '#58A6FF' }}>Tests:</span>{' '}
-              <span style={{ color: '#7EE787' }}>{passed} passed</span>
-              <span className="opacity-60">, {failing ? '1 failing (auto-recovering)' : '0 failing'}, {total - passed} pending</span>
-            </div>
-            <ProgressBar passed={passed} total={total} failing={failing} />
-            {passed === total && (
-              <div className="mt-1" style={{ color: '#7EE787' }}>
-                ✓ All 47 tests passed · <span className="opacity-70">coverage 94.7% · duration 11.4s</span>
-              </div>
-            )}
           </>
         )}
       </div>
@@ -506,6 +461,3 @@ function ProgressBar({ passed, total, failing }: { passed: number; total: number
     </div>
   );
 }
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _X = X; // keep lucide-react import alive if we expand later

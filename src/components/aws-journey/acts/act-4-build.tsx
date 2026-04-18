@@ -39,13 +39,15 @@ const ACT4_TOTAL_TYPING_MS = 8500;
 export function Act4Build({ onAdvance }: Act4Props) {
   const [typedLines, setTypedLines] = useState(0);
   const [step, setStep] = useState<Step>('awaiting-start');
+  const [started, setStarted] = useState(false);
   const [appliedPatches, setAppliedPatches] = useState<Set<number>>(new Set());
   const [codexVisible, setCodexVisible] = useState<Record<'iam' | 'vpc', boolean>>({ iam: false, vpc: false });
   const [testState, setTestState] = useState<{ passed: number; failing: boolean; total: number }>({ passed: 0, failing: false, total: 47 });
 
   // Author-from-top progressive typing — only starts after the user clicks.
+  // Keyed on `started`, not `step`, so the raf keeps ticking as step changes.
   useEffect(() => {
-    if (step !== 'typing') return;
+    if (!started) return;
     const startAt = performance.now();
     let raf = 0;
     const tick = () => {
@@ -57,20 +59,26 @@ export function Act4Build({ onAdvance }: Act4Props) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [step]);
+  }, [started]);
 
-  // Test-runner + Codex timeline — kicked off when the user runs the build.
+  // Test-runner + Codex timeline — kicked off exactly once when the user
+  // runs the build. Keyed on `started` (a one-way latch) so the timers
+  // aren't cancelled every time `step` transitions; previously this effect
+  // depended on `step`, which meant the first setStep fired, cleanup ran,
+  // and t2..t7 got cleared — leaving the scene stuck at 'tests-running'.
   useEffect(() => {
-    if (step !== 'typing') return;
-    const t1 = setTimeout(() => setStep('tests-running'), ACT_TIMING.act4TerminalStartMs);
-    const t2 = setTimeout(() => setStep('codex'), ACT_TIMING.act4CodexCommentsMs);
-    const t3 = setTimeout(() => setCodexVisible({ iam: true, vpc: false }), ACT_TIMING.act4CodexCommentsMs + 80);
-    const t4 = setTimeout(() => setCodexVisible({ iam: true, vpc: true }), ACT_TIMING.act4CodexCommentsMs + 1100);
-    const t5 = setTimeout(() => setAppliedPatches(new Set([62, 48])), ACT_TIMING.act4CodexCommentsMs + 2300);
-    const t6 = setTimeout(() => setStep('patched'), ACT_TIMING.act4CodexCommentsMs + 2500);
-    const t7 = setTimeout(() => setStep('chen'), ACT_TIMING.act4ChenApprovalMs);
-    return () => [t1, t2, t3, t4, t5, t6, t7].forEach(clearTimeout);
-  }, [step]);
+    if (!started) return;
+    const timers: ReturnType<typeof setTimeout>[] = [
+      setTimeout(() => setStep('tests-running'), ACT_TIMING.act4TerminalStartMs),
+      setTimeout(() => setStep('codex'), ACT_TIMING.act4CodexCommentsMs),
+      setTimeout(() => setCodexVisible({ iam: true, vpc: false }), ACT_TIMING.act4CodexCommentsMs + 80),
+      setTimeout(() => setCodexVisible({ iam: true, vpc: true }), ACT_TIMING.act4CodexCommentsMs + 1100),
+      setTimeout(() => setAppliedPatches(new Set([62, 48])), ACT_TIMING.act4CodexCommentsMs + 2300),
+      setTimeout(() => setStep('patched'), ACT_TIMING.act4CodexCommentsMs + 2500),
+      setTimeout(() => setStep('chen'), ACT_TIMING.act4ChenApprovalMs),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [started]);
 
   // Simulated test runner — kicks off once when tests-running is entered
   // and marches forward to a green 47/47. There is one intentional red
@@ -179,7 +187,10 @@ export function Act4Build({ onAdvance }: Act4Props) {
               </div>
               <button
                 type="button"
-                onClick={() => setStep('typing')}
+                onClick={() => {
+                  setStep('typing');
+                  setStarted(true);
+                }}
                 className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-transform hover:-translate-y-0.5"
                 style={{ background: '#FF9900', color: '#0D1117' }}
               >

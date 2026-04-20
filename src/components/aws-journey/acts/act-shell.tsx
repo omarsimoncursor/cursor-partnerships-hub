@@ -41,11 +41,11 @@ export function ActShell({
         />
       )}
       {topRight && (
-        <div className="pointer-events-auto absolute right-6 top-[84px] z-20 md:right-10">
+        <div className="pointer-events-auto absolute right-6 top-[96px] z-20 md:right-10">
           {topRight}
         </div>
       )}
-      <div className={`relative mx-auto max-w-7xl px-6 pb-28 pt-10 md:px-10 md:pt-14 ${contentClassName ?? ''}`}>
+      <div className={`relative mx-auto max-w-7xl px-6 pb-28 pt-12 md:px-10 md:pt-16 ${contentClassName ?? ''}`}>
         {children}
       </div>
     </section>

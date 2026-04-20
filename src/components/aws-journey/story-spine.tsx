@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { ACT_ORDER, ACT_THEMES, type ActId } from './acts/act-theme';
 
 interface StorySpineProps {
@@ -19,16 +21,30 @@ export function StorySpine({ currentAct, unlockedActs, onJump }: StorySpineProps
       }}
       aria-label="Journey story spine"
     >
-      <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-white/70">
+      <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
+        {/* Left: back-to-AWS link + short brand. Always single-line. */}
+        <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+          <Link
+            href="/partnerships/aws"
+            className="inline-flex items-center gap-1 rounded text-white/55 transition-colors hover:text-white"
+            aria-label="Back to AWS partnership page"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            <span className="hidden sm:inline">AWS</span>
+          </Link>
+          <span className="h-3 w-px bg-white/15" aria-hidden />
           <span
-            className="inline-block h-2 w-2 rounded-full"
+            className="inline-block h-2 w-2 shrink-0 rounded-full"
             style={{ background: '#FF9900' }}
+            aria-hidden
           />
-          AWS × Cursor — Modernization journey
+          <span className="hidden md:inline">Modernization journey</span>
         </div>
 
-        <div className="relative flex flex-1 items-center justify-center gap-0 px-8">
+        {/* Center spine — dots only. The active act's label floats underneath
+            the spine bar so the user always knows where they are without
+            cramming 7 labels onto one row. */}
+        <div className="relative flex shrink-0 items-center justify-center gap-0">
           {ACT_ORDER.map((act, idx) => {
             const theme = ACT_THEMES[act];
             const isCurrent = act === currentAct;
@@ -49,7 +65,6 @@ export function StorySpine({ currentAct, unlockedActs, onJump }: StorySpineProps
               <div key={act} className="flex items-center">
                 <button
                   type="button"
-                  role="button"
                   tabIndex={0}
                   onClick={() => (isUnlocked ? onJump(act) : undefined)}
                   onKeyDown={(e) => {
@@ -59,9 +74,10 @@ export function StorySpine({ currentAct, unlockedActs, onJump }: StorySpineProps
                     }
                   }}
                   disabled={!isUnlocked}
-                  className="group relative flex flex-col items-center gap-1 px-2 transition-opacity"
+                  className="group relative flex h-8 w-7 items-center justify-center transition-opacity"
                   style={{ opacity: isUnlocked ? 1 : 0.45, cursor: isUnlocked ? 'pointer' : 'not-allowed' }}
-                  title={isUnlocked ? `Jump to ${theme.title}` : `${theme.title} (locked)`}
+                  title={isUnlocked ? `Jump to ${theme.label}` : `${theme.label} (locked)`}
+                  aria-label={`${isUnlocked ? 'Jump to' : 'Locked:'} Act ${act} — ${theme.label}`}
                 >
                   <span
                     className="inline-block rounded-full transition-all"
@@ -74,16 +90,10 @@ export function StorySpine({ currentAct, unlockedActs, onJump }: StorySpineProps
                       animation: isCurrent ? 'journeyPulse 2.2s ease-in-out infinite' : 'none',
                     }}
                   />
-                  <span
-                    className="hidden md:block text-[9px] font-semibold uppercase tracking-[0.14em]"
-                    style={{ color: isCurrent ? '#FF9900' : 'rgba(255,255,255,0.55)' }}
-                  >
-                    {theme.label}
-                  </span>
                 </button>
                 {idx < ACT_ORDER.length - 1 && (
                   <div
-                    className="h-px w-8 md:w-12"
+                    className="h-px w-4 md:w-8"
                     style={{
                       background:
                         isCompleted || isCurrent
@@ -97,9 +107,13 @@ export function StorySpine({ currentAct, unlockedActs, onJump }: StorySpineProps
           })}
         </div>
 
-        <div className="w-[260px] text-right text-[11px] uppercase tracking-widest text-white/50">
-          <span className="hidden md:inline">Act {currentAct} of 7 · </span>
-          <span style={{ color: '#FF9900' }}>{ACT_THEMES[currentAct].title}</span>
+        {/* Right: just the active label so the spine always has its caption,
+            even on narrow widths. Single-line, truncates if absurdly small. */}
+        <div className="flex min-w-0 shrink items-baseline justify-end gap-2 text-right text-[11px] uppercase tracking-[0.16em] text-white/55">
+          <span className="hidden md:inline">Act {currentAct}/7 ·</span>
+          <span className="truncate font-semibold" style={{ color: '#FF9900' }}>
+            {ACT_THEMES[currentAct].label}
+          </span>
         </div>
       </div>
 

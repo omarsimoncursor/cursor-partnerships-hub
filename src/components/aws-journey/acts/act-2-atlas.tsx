@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Clock, GitBranch, GitPullRequest, Layers, Play } from 'lucide-react';
+import {
+  AlertTriangle,
+  Clock,
+  GitBranch,
+  GitPullRequest,
+  Layers,
+  Layers3,
+  Plug,
+  Play,
+} from 'lucide-react';
 import { ActShell, ActHeader } from './act-shell';
 import { CursorLogo } from '../cursor-logo';
 import { StoryBeat } from '../story-beat';
@@ -17,6 +26,50 @@ type LaidOutNode = BoundedContext & { x: number; y: number };
 interface Act2Props {
   onAdvance: () => void;
 }
+
+/**
+ * The fleet of Cloud Agents the scan launches in parallel. Each agent owns a
+ * slice of the monolith and pulls live context through MCP — they're not
+ * waiting on a single sequential reader. This is the visible reason the scan
+ * takes 5 hours instead of 4 weeks.
+ *
+ * `pace` controls how quickly each agent finishes (1.0 = nominal). The fleet
+ * finishes at staggered times to make parallelism feel real instead of a
+ * single bar masquerading as six.
+ */
+const SCAN_AGENTS = [
+  { id: 'a-customer',   name: 'customer-domain',   loc:   470_000, color: '#FBBF24', pace: 1.30 },
+  { id: 'a-catalog',    name: 'catalog-domain',    loc:   540_000, color: '#34D399', pace: 1.15 },
+  { id: 'a-inventory',  name: 'inventory-domain',  loc:   780_000, color: '#4DD4FF', pace: 1.00 },
+  { id: 'a-billing',    name: 'billing-domain',    loc:   620_000, color: '#A78BFA', pace: 0.92 },
+  { id: 'a-batch',      name: 'batch-jobs',        loc:   590_000, color: '#F87171', pace: 0.85 },
+  { id: 'a-orders',     name: 'orders-domain',     loc: 1_200_000, color: '#FF9900', pace: 0.70 },
+] as const;
+
+/** Live data sources the fleet reads through the MCP marketplace. */
+const MCP_SOURCES = [
+  { name: 'AWS',     detail: 'Resource graph, IAM, VPC' },
+  { name: 'GitHub',  detail: 'Repos, PR history, owners' },
+  { name: 'Jira',    detail: 'Incidents, epics, OKRs' },
+  { name: 'Datadog', detail: 'p99, error rates, traces' },
+  { name: 'Sentry',  detail: 'Recurrence, blast radius' },
+  { name: 'Slack',   detail: 'On-call channel context' },
+] as const;
+
+/**
+ * Scene timing. Each phase contributes to the on-screen story; total run
+ * is ~12s so the viewer can read what's happening instead of watching a bar
+ * sprint to 100% in a second.
+ */
+const PHASE_MS = {
+  connecting: 4_000,  // sequential MCP handshake — chips light up one by one
+  scanning:   6_500,  // fleet reads in parallel; agents finish at staggered times
+  merging:    1_500,  // orchestrator stitches results before reveal
+} as const;
+
+const MCP_CONNECT_STAGGER = PHASE_MS.connecting / (MCP_SOURCES.length + 1);
+
+type ScanPhase = 'idle' | 'connecting' | 'scanning' | 'merging' | 'done';
 
 /**
  * Compute deterministic radial positions for the 38 contexts + 2 infra clusters.
@@ -79,44 +132,70 @@ function useGraphLayout() {
 export function Act2Atlas({ onAdvance }: Act2Props) {
   const { nodes, byId, domainEdges } = useGraphLayout();
   const [hovered, setHovered] = useState<LaidOutNode | null>(null);
-  const [scanState, setScanState] = useState<'idle' | 'scanning' | 'done'>('idle');
-  const [scanProgress, setScanProgress] = useState(0);
+  const [scanPhase, setScanPhase] = useState<ScanPhase>('idle');
+  /** Elapsed ms inside the current phase. Drives MCP staggers + agent bars. */
+  const [phaseElapsed, setPhaseElapsed] = useState(0);
 
   const violationIds = useMemo(() => new Set(BOUNDARY_VIOLATIONS.flat()), []);
 
+  // Drive the active phase's clock and advance to the next phase when done.
   useEffect(() => {
-    if (scanState !== 'scanning') return;
+    if (scanPhase === 'idle' || scanPhase === 'done') return;
+
+    const phaseDuration =
+      scanPhase === 'connecting'
+        ? PHASE_MS.connecting
+        : scanPhase === 'scanning'
+        ? PHASE_MS.scanning
+        : PHASE_MS.merging;
+
     const start = performance.now();
     let raf = 0;
     const tick = () => {
-      const t = (performance.now() - start) / 2200;
-      if (t >= 1) {
-        setScanProgress(1);
-        setScanState('done');
+      const elapsed = performance.now() - start;
+      if (elapsed >= phaseDuration) {
+        setPhaseElapsed(phaseDuration);
+        if (scanPhase === 'connecting') setScanPhase('scanning');
+        else if (scanPhase === 'scanning') setScanPhase('merging');
+        else if (scanPhase === 'merging') setScanPhase('done');
         return;
       }
-      setScanProgress(t);
+      setPhaseElapsed(elapsed);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [scanState]);
+  }, [scanPhase]);
 
-  const revealed = scanState === 'done';
+  const revealed = scanPhase === 'done';
+
+  /** How many MCP connectors have completed their handshake (0..N). */
+  const mcpConnected =
+    scanPhase === 'idle'
+      ? 0
+      : scanPhase === 'connecting'
+      ? Math.min(MCP_SOURCES.length, Math.floor(phaseElapsed / MCP_CONNECT_STAGGER))
+      : MCP_SOURCES.length;
+  const mcpInProgressIdx = scanPhase === 'connecting' ? mcpConnected : -1;
 
   return (
     <ActShell act={2}>
-      <ActHeader act={2} eyebrow="Step 1: ask the Cursor Cloud Agent to read the entire monolith. Click scan and watch it map 4.2 million lines of code." />
+      <ActHeader act={2} eyebrow="A fleet of Cursor Cloud Agents — plugged into your AWS, GitHub, Jira, Datadog, and Sentry through MCP — reads 4.2 million lines of Java in parallel. Click scan to start the swarm." />
 
       <StoryBeat
         tone="dark"
         agent="cloud"
-        title="A GSI sends three consultants for a month. Cursor does it overnight."
+        title="The GSI proposed sending three consultants for four to six weeks. Cursor sends six agents, in parallel, in one overnight shift."
         body={
-          <>The agent reads every file, maps service boundaries, flags dead code, and ranks each piece by risk and revenue — so the team walks in with one clear answer.</>
+          <>Each cloud agent owns a domain, reads your live AWS + GitHub + Jira through MCP, and reports back to the orchestrator — no screenshots, no exports, no all-hands interviews.</>
         }
-        oldWay="4 weeks of interviews"
-        newWay="5 hours, $0 in fees"
+        oldWay="3 consultants · 4–6 weeks"
+        newWay="6 agents · one overnight shift"
+      />
+
+      <McpConnectorStrip
+        connectedCount={mcpConnected}
+        inProgressIdx={mcpInProgressIdx}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr_280px]">
@@ -128,7 +207,7 @@ export function Act2Atlas({ onAdvance }: Act2Props) {
           <div className="flex items-center gap-2">
             <CursorLogo size={14} tone="dark" />
             <span className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#4DD4FF' }}>
-              Findings
+              Cursor Agent Findings
             </span>
           </div>
           <ul className="space-y-2.5" style={{ opacity: revealed ? 1 : 0.35, transition: 'opacity 350ms' }}>
@@ -148,43 +227,26 @@ export function Act2Atlas({ onAdvance }: Act2Props) {
             borderColor: 'rgba(77,212,255,0.15)',
           }}
         >
-          {scanState !== 'done' && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-center">
-              {scanState === 'idle' ? (
+          {scanPhase !== 'done' && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 px-6 text-center">
+              {scanPhase === 'idle' ? (
                 <>
-                  <div className="max-w-xs text-[12.5px]" style={{ color: 'rgba(229,231,235,0.7)' }}>
-                    Ready to scan <strong className="text-white">4,200,000 lines</strong> of Java.
-                    Click below to let Cursor Cloud Agent read the monolith.
+                  <div className="max-w-md text-[12.5px] leading-snug" style={{ color: 'rgba(229,231,235,0.75)' }}>
+                    Ready to launch <strong className="text-white">6 Cursor Cloud Agents</strong> in parallel — one per
+                    domain. Each agent reads your live systems through the MCP marketplace, no exports required.
                   </div>
                   <button
                     type="button"
-                    onClick={() => setScanState('scanning')}
+                    onClick={() => setScanPhase('connecting')}
                     className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-transform hover:-translate-y-0.5"
                     style={{ background: '#4DD4FF', color: '#0B1220' }}
                   >
                     <Play className="h-4 w-4 fill-current" />
-                    Run Cursor scan
+                    Launch agent fleet
                   </button>
                 </>
               ) : (
-                <>
-                  <div className="text-[11px] uppercase tracking-[0.2em]" style={{ color: '#4DD4FF' }}>
-                    Scanning · {Math.round(scanProgress * 4.2 * 1_000_000).toLocaleString()} LOC
-                  </div>
-                  <div
-                    className="h-1.5 w-64 overflow-hidden rounded-full"
-                    style={{ background: 'rgba(77,212,255,0.15)' }}
-                  >
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${scanProgress * 100}%`,
-                        background: 'linear-gradient(90deg, #4DD4FF 0%, #7EE787 100%)',
-                        transition: 'width 120ms linear',
-                      }}
-                    />
-                  </div>
-                </>
+                <FleetView phase={scanPhase} phaseElapsed={phaseElapsed} mcpConnected={mcpConnected} />
               )}
             </div>
           )}
@@ -338,7 +400,7 @@ export function Act2Atlas({ onAdvance }: Act2Props) {
           </div>
         </div>
 
-        {/* Right: Cursor's recommendation */}
+        {/* Right: Cursor's recommendation + how-it-was-done */}
         <aside
           className="flex h-fit flex-col gap-3 rounded-xl border p-4 transition-opacity duration-500"
           style={{
@@ -349,7 +411,7 @@ export function Act2Atlas({ onAdvance }: Act2Props) {
         >
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#FF9900' }}>
             <CursorLogo size={14} tone="dark" />
-            Cursor&rsquo;s pick
+            Cursor suggests
           </div>
 
           <div>
@@ -371,12 +433,267 @@ export function Act2Atlas({ onAdvance }: Act2Props) {
             style={{ background: '#FF9900', color: '#0B1220' }}
           >
             <GitPullRequest className="h-4 w-4" />
-            Start with OrdersService
+            Start migrating OrdersService
             <span>→</span>
           </button>
+
+          {revealed && <HowCursorDidIt />}
         </aside>
       </div>
     </ActShell>
+  );
+}
+
+/**
+ * Strip of MCP-marketplace data sources the Cloud Agents are reading from.
+ * Each chip lights up green sequentially as its handshake completes; once a
+ * connection is "connected," it stays green for the rest of the scene.
+ */
+function McpConnectorStrip({
+  connectedCount,
+  inProgressIdx,
+}: {
+  connectedCount: number;
+  inProgressIdx: number;
+}) {
+  return (
+    <div
+      className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2.5"
+      style={{
+        background: 'rgba(167, 139, 250, 0.05)',
+        borderColor: 'rgba(167, 139, 250, 0.2)',
+      }}
+    >
+      <span
+        className="flex shrink-0 items-center gap-2 pr-2 text-[10.5px] font-semibold uppercase tracking-[0.16em]"
+        style={{ color: '#A78BFA' }}
+      >
+        <Plug className="h-3.5 w-3.5" />
+        MCP marketplace
+      </span>
+      <span className="hidden text-[11px] sm:inline" style={{ color: 'rgba(243,244,246,0.6)' }}>
+        Connecting to live data sources…
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {MCP_SOURCES.map((s, i) => {
+          const isConnected = i < connectedCount;
+          const isPending = i === inProgressIdx;
+          // Three visual states:
+          //  - idle (gray)
+          //  - pending handshake (purple, pulsing dot)
+          //  - connected (green, solid dot, sticky)
+          let bg = 'rgba(255,255,255,0.03)';
+          let border = 'rgba(255,255,255,0.1)';
+          let text = 'rgba(243,244,246,0.6)';
+          let dot = 'rgba(255,255,255,0.25)';
+          let dotShadow = 'none';
+          let pulse = false;
+          if (isConnected) {
+            bg = 'rgba(52, 211, 153, 0.12)';
+            border = 'rgba(52, 211, 153, 0.5)';
+            text = '#A7F3D0';
+            dot = '#34D399';
+            dotShadow = '0 0 8px rgba(52,211,153,0.7)';
+          } else if (isPending) {
+            bg = 'rgba(167, 139, 250, 0.12)';
+            border = 'rgba(167, 139, 250, 0.5)';
+            text = '#E9D5FF';
+            dot = '#A78BFA';
+            dotShadow = '0 0 6px rgba(167,139,250,0.65)';
+            pulse = true;
+          }
+          return (
+            <span
+              key={s.name}
+              className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-mono"
+              style={{ background: bg, borderColor: border, color: text, transition: 'all 250ms' }}
+              title={`${s.name} — ${s.detail}`}
+            >
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full"
+                style={{
+                  background: dot,
+                  boxShadow: dotShadow,
+                  animation: pulse ? 'mcpPulse 0.9s ease-in-out infinite' : 'none',
+                }}
+              />
+              {s.name}
+              {isConnected && (
+                <span className="ml-0.5 text-[10px] font-semibold" aria-hidden>
+                  ✓
+                </span>
+              )}
+            </span>
+          );
+        })}
+      </div>
+      <style jsx>{`
+        @keyframes mcpPulse {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50%      { transform: scale(1.6); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/**
+ * Live "fleet" view shown during connecting / scanning / merging. The scene
+ * tells a three-phase story so the viewer can read what each Cursor capability
+ * is doing instead of watching a single bar sprint to 100%.
+ */
+function FleetView({
+  phase,
+  phaseElapsed,
+  mcpConnected,
+}: {
+  phase: ScanPhase;
+  phaseElapsed: number;
+  mcpConnected: number;
+}) {
+  const totalLoc = SCAN_AGENTS.reduce((a, b) => a + b.loc, 0);
+
+  // Per-agent progress derived from the scanning-phase clock with a per-agent
+  // pace, so the agents finish at distinct moments — not all at exactly 100%.
+  const agentProgress = SCAN_AGENTS.map((a) => {
+    if (phase === 'idle' || phase === 'connecting') return 0;
+    if (phase === 'merging' || phase === 'done') return 1;
+    const t = (phaseElapsed / PHASE_MS.scanning) * a.pace;
+    // Ease-out so each agent slows as it approaches done; feels less robotic.
+    const eased = 1 - Math.pow(1 - Math.min(1, t), 2);
+    return Math.max(0, Math.min(1, eased));
+  });
+
+  const finishedCount = agentProgress.filter((p) => p >= 1).length;
+  const totalRead =
+    phase === 'connecting'
+      ? 0
+      : phase === 'merging' || phase === 'done'
+      ? totalLoc
+      : SCAN_AGENTS.reduce((a, b, i) => a + b.loc * agentProgress[i], 0);
+
+  // Caption that explains what the user is currently watching.
+  const caption =
+    phase === 'connecting'
+      ? `Handshaking with ${MCP_SOURCES[Math.min(mcpConnected, MCP_SOURCES.length - 1)]?.name ?? '…'} — ${mcpConnected}/${MCP_SOURCES.length} connectors live`
+      : phase === 'scanning'
+      ? `${finishedCount}/${SCAN_AGENTS.length} agents complete · orchestrator buffering findings…`
+      : phase === 'merging'
+      ? 'Orchestrator merging 6 agents’ findings into one ranked recommendation…'
+      : '';
+
+  return (
+    <div className="w-full max-w-[480px]">
+      <div className="mb-2 flex items-baseline justify-between text-[11px] uppercase tracking-[0.16em]" style={{ color: '#4DD4FF' }}>
+        <span className="flex items-center gap-1.5">
+          <Layers3 className="h-3.5 w-3.5" />
+          Cloud Agent fleet · 6 in parallel
+        </span>
+        <span className="font-mono text-white">
+          {Math.round(totalRead).toLocaleString()} / {totalLoc.toLocaleString()} LOC
+        </span>
+      </div>
+
+      <div className="space-y-1.5">
+        {SCAN_AGENTS.map((a, i) => {
+          const p = agentProgress[i];
+          const isWaiting = phase === 'connecting';
+          const isDone = p >= 1;
+          return (
+            <div key={a.id} className="flex items-center gap-2">
+              <span
+                className="w-[120px] shrink-0 truncate text-left font-mono text-[10.5px]"
+                style={{ color: isWaiting ? 'rgba(243,244,246,0.4)' : a.color }}
+              >
+                {a.name}
+              </span>
+              <div
+                className="relative h-1.5 flex-1 overflow-hidden rounded-full"
+                style={{ background: 'rgba(255,255,255,0.06)' }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${p * 100}%`,
+                    background: a.color,
+                    transition: 'width 200ms linear',
+                    boxShadow: `0 0 6px ${a.color}55`,
+                  }}
+                />
+              </div>
+              <span
+                className="w-[44px] shrink-0 text-right font-mono text-[10px]"
+                style={{ color: isDone ? '#7EE787' : isWaiting ? 'rgba(243,244,246,0.35)' : 'rgba(243,244,246,0.6)' }}
+              >
+                {isWaiting ? 'idle' : isDone ? '✓ done' : `${Math.round(p * 100)}%`}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-2 min-h-[16px] text-[10.5px]" style={{ color: 'rgba(243,244,246,0.55)' }}>
+        {caption}
+      </div>
+
+      {/* Phase progress dots so the viewer can see the larger arc. */}
+      <div className="mt-3 flex items-center justify-center gap-1.5 text-[10px]" style={{ color: 'rgba(243,244,246,0.5)' }}>
+        <PhasePill label="Connect MCP" active={phase === 'connecting'} done={phase !== 'idle' && phase !== 'connecting'} />
+        <span aria-hidden>·</span>
+        <PhasePill label="Scan in parallel" active={phase === 'scanning'} done={phase === 'merging' || phase === 'done'} />
+        <span aria-hidden>·</span>
+        <PhasePill label="Merge findings" active={phase === 'merging'} done={phase === 'done'} />
+      </div>
+    </div>
+  );
+}
+
+function PhasePill({ label, active, done }: { label: string; active: boolean; done: boolean }) {
+  let color = 'rgba(243,244,246,0.4)';
+  if (active) color = '#4DD4FF';
+  else if (done) color = '#7EE787';
+  return (
+    <span
+      className="inline-flex items-center gap-1 font-mono uppercase tracking-[0.14em]"
+      style={{ color }}
+    >
+      <span
+        className="inline-block h-1.5 w-1.5 rounded-full"
+        style={{ background: color, boxShadow: active ? '0 0 6px ' + color : 'none' }}
+      />
+      {done ? `${label} ✓` : label}
+    </span>
+  );
+}
+
+/**
+ * Post-scan "how that was so fast" panel. Closes the loop between the speed
+ * and the specific Cursor capabilities that made it possible.
+ */
+function HowCursorDidIt() {
+  return (
+    <div
+      className="mt-2 flex flex-col gap-1.5 border-t pt-2.5 text-[11px] leading-snug"
+      style={{ borderColor: 'rgba(255,153,0,0.2)', color: 'rgba(229,231,235,0.78)' }}
+    >
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#FFC66D' }}>
+        How Cursor pulled this off
+      </div>
+      <ul className="space-y-1">
+        <li className="flex gap-1.5">
+          <Layers3 className="mt-[2px] h-3 w-3 shrink-0" style={{ color: '#4DD4FF' }} />
+          <span><strong className="text-white">Cloud Agent fleet</strong> · 6 agents, one per domain, launched and run in parallel using Cursor 3.</span>
+        </li>
+        <li className="flex gap-1.5">
+          <Plug className="mt-[2px] h-3 w-3 shrink-0" style={{ color: '#A78BFA' }} />
+          <span><strong className="text-white">MCP marketplace</strong> · live reads of AWS, GitHub, Jira, Datadog, Sentry — no exports.</span>
+        </li>
+        <li className="flex gap-1.5">
+          <CursorLogo size={12} tone="dark" />
+          <span><strong className="text-white">Orchestrator</strong> · stitches each agent&rsquo;s findings into one ranked recommendation.</span>
+        </li>
+      </ul>
+    </div>
   );
 }
 

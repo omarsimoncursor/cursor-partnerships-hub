@@ -12,7 +12,7 @@ interface Act3Props {
   onAdvance: () => void;
 }
 
-type Phase = 'loading' | 'plan-shown' | 'override' | 'absorbed';
+type Phase = 'loading' | 'plan-shown' | 'override' | 'absorbed' | 'park-approves';
 
 export function Act3Whiteboard({ onAdvance }: Act3Props) {
   const [phase, setPhase] = useState<Phase>('loading');
@@ -26,11 +26,14 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
     if (phase !== 'plan-shown') return;
     setPhase('override');
     setTimeout(() => setPhase('absorbed'), 1600);
+    // Park reads the updated plan, then signs off.
+    setTimeout(() => setPhase('park-approves'), 3800);
   };
 
-  const aiReplyVisible = phase === 'absorbed';
-  const overrideVisible = phase === 'override' || phase === 'absorbed';
-  const stickyMorphed = phase === 'absorbed';
+  const aiReplyVisible = phase === 'absorbed' || phase === 'park-approves';
+  const overrideVisible = phase === 'override' || phase === 'absorbed' || phase === 'park-approves';
+  const parkApproveVisible = phase === 'park-approves';
+  const stickyMorphed = phase === 'absorbed' || phase === 'park-approves';
 
   return (
     <ActShell
@@ -47,7 +50,7 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
     >
       <ActHeader
         act={3}
-        eyebrow="Cursor drafted a target AWS architecture in 45 minutes. Click 'Post for review' to send it to the architect — and watch what happens when she pushes back."
+        eyebrow="Cursor agents took the findings from the previous step and drafted a target AWS architecture in 45 minutes. Click 'Post for review' to send it to the architect — and watch the agents instantly adapt the plan to accommodate her feedback."
       />
 
       <StoryBeat
@@ -80,7 +83,7 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
           >
             <CursorLogo size={14} tone="light" />
             <span className="text-[11px] font-semibold text-[#14120B]">
-              Drafted by <span style={{ color: '#B45309' }}>Cursor</span>
+              Drafted by <span style={{ color: '#B45309' }}>Cursor Agents</span>
             </span>
             <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider text-amber-800">
               45 min
@@ -104,7 +107,7 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
               <div>
                 <span className="font-semibold">Cursor Cloud Agent</span>
                 <span className="ml-1 font-mono text-[10px] opacity-60">10:42 AM</span>
-                <p className="text-[12.5px] leading-snug">Posted target architecture and @-mentioned J. Park for review.</p>
+                <p className="text-[12.5px] leading-snug">Posted target architecture in Slack and @-mentioned J. Park for review.</p>
               </div>
             </div>
             {phase === 'plan-shown' && (
@@ -153,10 +156,24 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
             </div>
           </OverrideCard>
 
+          {/* J. Park's sign-off — unblocks the gate button */}
+          <OverrideCard
+            speaker="park"
+            tone="approve"
+            visible={parkApproveVisible}
+            delayMs={200}
+          >
+            <p className="text-[12.5px] leading-snug">
+              <span className="font-semibold">That&rsquo;s the change I wanted.</span> 14-day window plus the
+              parity-diff covers the batch-job edge case from 2023. <strong>Architecture approved</strong> — go ahead
+              and start the build.
+            </p>
+          </OverrideCard>
+
           <button
             type="button"
             onClick={onAdvance}
-            disabled={!aiReplyVisible}
+            disabled={!parkApproveVisible}
             className="mt-2 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: '#FF9900', color: '#111827' }}
           >

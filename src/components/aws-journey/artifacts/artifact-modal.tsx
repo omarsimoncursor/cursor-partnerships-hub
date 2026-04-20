@@ -6,18 +6,15 @@ import { X } from 'lucide-react';
 
 export function ArtifactModal({
   open,
-  title,
-  subtitle,
   onClose,
   children,
-  accent = '#FF9900',
+  ariaLabel,
 }: {
   open: boolean;
-  title: string;
-  subtitle?: string;
   onClose: () => void;
   children: ReactNode;
-  accent?: string;
+  /** Used for the dialog's accessible name. */
+  ariaLabel: string;
 }) {
   const [mounted, setMounted] = useState(false);
 
@@ -46,38 +43,33 @@ export function ArtifactModal({
    * trapped by a transformed ancestor (ActTransition applies a transform
    * that would otherwise turn `position: fixed` into a local containing
    * block and hide the modal behind the act content).
+   *
+   * Each artifact provides its own MacBook + browser chrome — the modal here
+   * is just a positioned scroll container plus a close affordance.
    */
   const node = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm md:p-8"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
+      aria-label={ariaLabel}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border bg-white shadow-2xl"
-        style={{ borderColor: 'rgba(17,24,39,0.12)' }}
+        className="relative my-auto w-full max-w-5xl"
       >
-        <header
-          className="flex items-center gap-3 border-b px-5 py-3"
-          style={{ background: '#F9FAFB', borderColor: 'rgba(17,24,39,0.08)' }}
+        {/* Close button — floats just outside the laptop frame */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute -top-3 right-0 z-10 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#0F172A] shadow-lg transition-transform hover:-translate-y-0.5 md:-right-3 md:-top-4"
+          aria-label="Close"
         >
-          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: accent }} />
-          <div className="flex-1">
-            <div className="text-sm font-semibold" style={{ color: '#111827' }}>{title}</div>
-            {subtitle && <div className="text-[11px]" style={{ color: '#6B7280' }}>{subtitle}</div>}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1.5 transition-colors hover:bg-black/5"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" style={{ color: '#374151' }} />
-          </button>
-        </header>
-        <div className="flex-1 overflow-y-auto">{children}</div>
+          <X className="h-3.5 w-3.5" />
+          <span>Close</span>
+        </button>
+        {children}
       </div>
     </div>
   );

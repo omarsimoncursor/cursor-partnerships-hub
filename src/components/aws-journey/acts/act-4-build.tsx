@@ -36,6 +36,18 @@ const JAVA_HIGHLIGHTS: Array<{ atLine: number; javaStartLine: number; javaEndLin
 
 const ACT4_TOTAL_TYPING_MS = 8500;
 
+/**
+ * Test-runner pacing. The timeline effect derives its Codex/patch/chen
+ * timings from these so the visuals stay in lock-step with the bar.
+ *
+ *   testStart → 22 ticks of RUNNER_TICK_MS → fail at #23 → wait
+ *   RUNNER_INVESTIGATION_MS for Codex → resume → 24 ticks of RUNNER_TICK_MS
+ *   to reach 47 / green.
+ */
+const RUNNER_TICK_MS = 110;
+const RUNNER_TESTS_BEFORE_FAIL = 22;
+const RUNNER_INVESTIGATION_MS = 5_500;
+
 export function Act4Build({ onAdvance }: Act4Props) {
   const [typedLines, setTypedLines] = useState(0);
   const [step, setStep] = useState<Step>('awaiting-start');
@@ -68,52 +80,85 @@ export function Act4Build({ onAdvance }: Act4Props) {
   // and t2..t7 got cleared — leaving the scene stuck at 'tests-running'.
   useEffect(() => {
     if (!started) return;
+    // Synced to the test runner below. Runner reaches test #23 and fails at
+    // ~testFailMs; Codex narrative starts ~600ms after that so the viewer
+    // can read the failure line, then patches land right when the runner is
+    // about to resume (resumeMs = testFailMs + RUNNER_INVESTIGATION_MS).
+    const testStartMs = ACT_TIMING.act4TerminalStartMs;     // tests appear
+    const testFailMs = testStartMs + RUNNER_TESTS_BEFORE_FAIL * RUNNER_TICK_MS; // ~9.4s
+    const codexAt = testFailMs + 600;                       // ~10s
+    const resumeAt = testFailMs + RUNNER_INVESTIGATION_MS;  // ~14.9s
+
     const timers: ReturnType<typeof setTimeout>[] = [
-      setTimeout(() => setStep('tests-running'), ACT_TIMING.act4TerminalStartMs),
-      setTimeout(() => setStep('codex'), ACT_TIMING.act4CodexCommentsMs),
-      setTimeout(() => setCodexVisible({ iam: true, vpc: false }), ACT_TIMING.act4CodexCommentsMs + 80),
-      setTimeout(() => setCodexVisible({ iam: true, vpc: true }), ACT_TIMING.act4CodexCommentsMs + 1100),
-      setTimeout(() => setAppliedPatches(new Set([62, 48])), ACT_TIMING.act4CodexCommentsMs + 2300),
-      setTimeout(() => setStep('patched'), ACT_TIMING.act4CodexCommentsMs + 2500),
-      setTimeout(() => setStep('chen'), ACT_TIMING.act4ChenApprovalMs),
+      setTimeout(() => setStep('tests-running'), testStartMs),
+      setTimeout(() => setStep('codex'), codexAt),
+      // Two patch cards slide in during the investigation window
+      setTimeout(() => setCodexVisible({ iam: true, vpc: false }), codexAt + 700),
+      setTimeout(() => setCodexVisible({ iam: true, vpc: true }), codexAt + 2000),
+      // Patches apply just before the runner unfreezes — viewer sees the
+      // green ✓ on the cards a beat before the terminal flips back to green.
+      setTimeout(() => setAppliedPatches(new Set([62, 48])), resumeAt - 500),
+      setTimeout(() => setStep('patched'), resumeAt - 200),
+      // Chen approves comfortably after the suite finishes (47/47 lands at
+      // resumeAt + ~2.7s from the runner below).
+      setTimeout(() => setStep('chen'), resumeAt + 3500),
     ];
     return () => timers.forEach(clearTimeout);
   }, [started]);
 
-  // Simulated test runner — kicks off once when tests-running is entered
-  // and marches forward to a green 47/47. There is one intentional red
-  // flash at 22 to show the auto-patch loop; the runner MUST then advance
-  // past 22 so the scene can complete.
+  // Simulated test runner — runs the full suite once when started flips.
+  // Around test 22 the run *halts* on a failing test; control hands to
+  // Codex, the patch cards slide in, the patches apply, and the runner
+  // resumes once `appliedPatches` is non-empty, finishing 47/47 green.
+  // Keyed on `started`, NOT on `step`, so the loop can't be cancelled
+  // mid-run by step transitions.
   useEffect(() => {
-    if (step !== 'tests-running') return;
+    if (!started) return;
     let cancelled = false;
     let passed = 0;
-    let sawFailureAt22 = false;
+    const sleep = (ms: number) =>
+      new Promise<void>((r) => setTimeout(r, ms));
+
     const tick = async () => {
-      const sleep = (ms: number) =>
-        new Promise<void>((r) => setTimeout(r, ms));
+      // Hold until the terminal is visible (step transitions to
+      // 'tests-running' at ACT_TIMING.act4TerminalStartMs). Otherwise the
+      // runner sprints ahead and the user sees the red failure phase the
+      // moment the terminal appears.
+      await sleep(ACT_TIMING.act4TerminalStartMs);
+      if (cancelled) return;
+      setTestState({ passed: 0, failing: false, total: 47 });
+
+      // Phase 1 — run forward until test #23 fails.
+      while (!cancelled && passed < RUNNER_TESTS_BEFORE_FAIL) {
+        await sleep(RUNNER_TICK_MS);
+        if (cancelled) return;
+        passed += 1;
+        setTestState({ passed, failing: false, total: 47 });
+      }
+      if (cancelled) return;
+      // Phase 2 — failing test #23, runner halts; Codex takes over visually.
+      setTestState({ passed, failing: true, total: 47 });
+      await sleep(RUNNER_INVESTIGATION_MS);
+      if (cancelled) return;
+      // Phase 3 — patch applied, retry the failing test, then march on green.
+      setTestState({ passed, failing: false, total: 47 });
+      await sleep(450);
+      if (cancelled) return;
+      passed += 1;
+      setTestState({ passed, failing: false, total: 47 });
       while (!cancelled && passed < 47) {
-        if (passed === 22 && !sawFailureAt22) {
-          sawFailureAt22 = true;
-          setTestState({ passed, failing: true, total: 47 });
-          await sleep(700);
-          if (cancelled) return;
-          setTestState({ passed, failing: false, total: 47 });
-          passed += 1;
-          await sleep(140);
-          continue;
-        }
-        await sleep(120);
+        await sleep(RUNNER_TICK_MS);
         if (cancelled) return;
         passed += 1;
         setTestState({ passed, failing: false, total: 47 });
       }
     };
+
     tick();
     return () => {
       cancelled = true;
     };
-  }, [step]);
+  }, [started]);
 
   const javaLines = useMemo(() => ORDERS_SERVICE_JAVA.split('\n'), []);
   const activeJavaBand = useMemo(() => {
@@ -139,7 +184,7 @@ export function Act4Build({ onAdvance }: Act4Props) {
     >
       <ActHeader
         act={4}
-        eyebrow="Click 'Start build' and watch a 20-year-old Java service get rewritten into AWS code, line by line — while a second agent patches the security issues before the human even sees the PR."
+        eyebrow="Click 'Start build' and watch Cursor rewrite a 20-year-old Java service into AWS code, line by line, while a second agent monitors and patches security issues before a human ever even sees the PR."
       />
 
       <StoryBeat
@@ -160,7 +205,7 @@ export function Act4Build({ onAdvance }: Act4Props) {
             language="java"
             lines={javaLines}
             highlightBand={activeJavaBand ? { start: activeJavaBand.javaStartLine, end: activeJavaBand.javaEndLine, label: activeJavaBand.label } : null}
-            maxHeight={420}
+            maxHeight={560}
           />
         </div>
 
@@ -174,7 +219,7 @@ export function Act4Build({ onAdvance }: Act4Props) {
             cursorLine={typedLines}
             patchedLines={appliedPatches}
             patchReplacements={Object.fromEntries(CODEX_PATCHES.map((p) => [p.line, p.replacementLine]))}
-            maxHeight={420}
+            maxHeight={560}
             authorTag
           />
           {step === 'awaiting-start' && (
@@ -239,6 +284,7 @@ export function Act4Build({ onAdvance }: Act4Props) {
         passed={testState.passed}
         total={testState.total}
         failing={testState.failing}
+        step={step}
       />
     </ActShell>
   );
@@ -290,18 +336,18 @@ function Pane({
       style={{ background: '#0D1117', borderColor: 'rgba(126,231,135,0.15)' }}
     >
       <div
-        className="flex items-center gap-2 border-b px-3 py-2 text-[11px] font-mono"
+        className="flex min-w-0 items-center gap-2 border-b px-3 py-2 text-[11px] font-mono"
         style={{ background: '#161B22', borderColor: 'rgba(255,255,255,0.08)', color: '#E6EDF3' }}
       >
         {authorTag ? (
           <CursorLogo size={14} tone="dark" />
         ) : (
-          <span className={`inline-block h-2 w-2 rounded-full ${language === 'java' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+          <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${language === 'java' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
         )}
-        <span className="font-semibold">{title}</span>
-        <span className="opacity-50">· {subtitle}</span>
+        <span className="shrink-0 truncate font-semibold">{title}</span>
+        <span className="hidden truncate opacity-50 md:inline">· {subtitle}</span>
         {highlightBand && (
-          <span className="ml-auto rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-amber-300">
+          <span className="ml-auto shrink-0 truncate rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-amber-300" title={highlightBand.label}>
             {highlightBand.label}
           </span>
         )}
@@ -418,36 +464,108 @@ function CodexCard({ patch, visible, applied }: { patch: { line: number; summary
   );
 }
 
-function TerminalStrip({ active, passed, total, failing }: { active: boolean; passed: number; total: number; failing: boolean }) {
+function TerminalStrip({
+  active,
+  passed,
+  total,
+  failing,
+  step,
+}: {
+  active: boolean;
+  passed: number;
+  total: number;
+  failing: boolean;
+  step: Step;
+}) {
+  // The failing-test banner stays up while Codex is working, not just for the
+  // brief "failing=true" flash. We're failing if the runner reported a fail
+  // OR we're in any of the Codex / patched intermediate states.
+  const inIncident = failing || step === 'codex';
+  const recovered = step === 'patched' || step === 'chen';
+  const allGreen = passed === total && passed > 0;
+
+  let headerStatus: { label: string; color: string };
+  if (allGreen) headerStatus = { label: '✓ 47/47 green', color: '#7EE787' };
+  else if (inIncident) headerStatus = { label: '⚠ test failure · Codex investigating', color: '#F87171' };
+  else if (recovered) headerStatus = { label: '✓ patch applied · re-running', color: '#7EE787' };
+  else headerStatus = { label: `${passed}/${total}`, color: '#7EE787' };
+
   return (
     <div
       className="mt-3 overflow-hidden rounded-lg border"
-      style={{ background: '#010409', borderColor: 'rgba(126,231,135,0.15)' }}
+      style={{
+        background: '#010409',
+        borderColor: inIncident ? 'rgba(248,113,113,0.45)' : 'rgba(126,231,135,0.15)',
+        transition: 'border-color 250ms',
+      }}
     >
-      <div className="flex items-center gap-2 border-b px-3 py-1 text-[11px] font-mono" style={{ background: '#161B22', borderColor: 'rgba(255,255,255,0.06)', color: '#8B949E' }}>
+      <div
+        className="flex items-center gap-2 border-b px-3 py-1 text-[11px] font-mono"
+        style={{
+          background: inIncident ? 'rgba(127, 29, 29, 0.45)' : '#161B22',
+          borderColor: 'rgba(255,255,255,0.06)',
+          color: '#8B949E',
+        }}
+      >
         <Terminal className="h-3 w-3" />
         <span>npm test · integration suite</span>
-        <span className="ml-auto text-[10px] opacity-60">{active ? 'running' : 'idle'}</span>
-        {active && (
-          <span className="text-[10px]" style={{ color: failing ? '#F87171' : '#7EE787' }}>
-            {failing ? '⚠ retrying' : passed === total ? '✓ all green' : `${passed}/${total}`}
-          </span>
-        )}
+        <span className="ml-auto font-semibold" style={{ color: headerStatus.color }}>
+          {headerStatus.label}
+        </span>
       </div>
+
       <div className="px-3 py-2 font-mono text-[11px]" style={{ color: '#E6EDF3' }}>
         {!active && <div className="opacity-50">$ _</div>}
         {active && (
           <>
-            <ProgressBar passed={passed} total={total} failing={failing} />
-            <div className="mt-1.5 flex items-baseline justify-between text-[10.5px]">
-              <span className="opacity-80">
-                {passed === total
-                  ? '✓ 47 tests · coverage 94.7% · 11.4s'
-                  : failing
-                  ? 'cancel-order.test.ts — auto-patching & retrying'
-                  : `running… ${passed} passed, ${total - passed} pending`}
-              </span>
-            </div>
+            <ProgressBar passed={passed} total={total} failing={failing || inIncident} />
+
+            {/* Default running line */}
+            {!inIncident && !recovered && !allGreen && (
+              <div className="mt-1.5 text-[10.5px] opacity-80">
+                running… {passed} passed, {total - passed} pending
+              </div>
+            )}
+
+            {/* Failing-test banner — sticky while Codex investigates */}
+            {inIncident && (
+              <div className="mt-2 space-y-1 rounded-md border px-2.5 py-2" style={{ borderColor: 'rgba(248,113,113,0.5)', background: 'rgba(127,29,29,0.25)' }}>
+                <div className="flex items-center gap-1.5 text-[10.5px] font-semibold" style={{ color: '#FCA5A5' }}>
+                  <span>✗ FAIL</span>
+                  <span className="opacity-80">tests/handlers/cancel-order.test.ts</span>
+                  <span className="ml-auto text-[10px] opacity-70">test #23 of 47</span>
+                </div>
+                <div className="pl-3 text-[10.5px]" style={{ color: 'rgba(252,165,165,0.85)' }}>
+                  AccessDeniedException: User &ldquo;OrdersFnRole&rdquo; is not authorized to perform{' '}
+                  <span className="font-semibold">dynamodb:PutItem</span> on resource{' '}
+                  <span className="font-semibold">Orders</span>
+                </div>
+                <div className="border-t pt-1.5 text-[10.5px]" style={{ borderColor: 'rgba(248,113,113,0.25)', color: '#FBBF24' }}>
+                  <span className="mr-1.5 inline-flex items-center gap-1 font-semibold uppercase tracking-[0.12em]">
+                    <CursorLogo size={10} tone="dark" /> Codex
+                  </span>
+                  <span>investigating IAM scope on <span className="font-mono">orders-stack.ts:62</span>…</span>
+                </div>
+              </div>
+            )}
+
+            {/* Recovered banner — patch applied, re-running */}
+            {recovered && !allGreen && (
+              <div className="mt-2 rounded-md border px-2.5 py-1.5 text-[10.5px]" style={{ borderColor: 'rgba(126,231,135,0.35)', background: 'rgba(34,197,94,0.08)', color: '#A7F3D0' }}>
+                <span className="mr-1.5 inline-flex items-center gap-1 font-semibold uppercase tracking-[0.12em]" style={{ color: '#7EE787' }}>
+                  <Check className="h-3 w-3" /> Codex patch applied
+                </span>
+                Scoped <span className="font-mono">dynamodb:*</span> → <span className="font-mono">dynamodb:PutItem</span> on resource{' '}
+                <span className="font-mono">Orders</span>. Re-running suite…
+              </div>
+            )}
+
+            {/* All green */}
+            {allGreen && (
+              <div className="mt-1.5 text-[10.5px]" style={{ color: '#7EE787' }}>
+                ✓ 47 tests passed · coverage 94.7% · 11.4s · 1 issue auto-patched by Codex
+              </div>
+            )}
           </>
         )}
       </div>

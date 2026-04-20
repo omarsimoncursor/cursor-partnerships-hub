@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Activity, AlertTriangle, Play, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Activity, AlertTriangle, FileText, Play, Send, ShieldCheck, TrendingUp } from 'lucide-react';
 import { ActShell, ActHeader } from './act-shell';
 import { WeekBarWidget } from '../time/week-bar-widget';
 import { OverrideCard } from '../override-card';
@@ -41,6 +41,8 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
   const [elapsed, setElapsed] = useState(0);
   const [metrics, setMetrics] = useState<Metric>(INITIAL_METRICS);
   const [alertVisible, setAlertVisible] = useState(false);
+  const [briefVisible, setBriefVisible] = useState(false);
+  const [briefSent, setBriefSent] = useState(false);
   const [davisVisible, setDavisVisible] = useState(false);
   const startRef = useRef<number>(0);
 
@@ -88,10 +90,23 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
     };
   }, [running]);
 
+  // Once the spike clears, Cursor compiles a FinOps brief, then "sends" it to
+  // R. Davis on Slack, then Davis's approval lands as a reply to that brief —
+  // so the human sign-off feels like a response to something concrete rather
+  // than a bolt out of the blue.
   useEffect(() => {
     if (!running) return;
-    const t = setTimeout(() => setDavisVisible(true), DAVIS_SHOWN_AT_MS);
-    return () => clearTimeout(t);
+    const briefAppearAt = SPIKE_START_MS + SPIKE_DURATION_MS + 600;
+    const briefSentAt = briefAppearAt + 2200;
+    const davisAt = Math.max(DAVIS_SHOWN_AT_MS, briefSentAt + 1400);
+    const t1 = setTimeout(() => setBriefVisible(true), briefAppearAt);
+    const t2 = setTimeout(() => setBriefSent(true), briefSentAt);
+    const t3 = setTimeout(() => setDavisVisible(true), davisAt);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
   }, [running]);
 
   const spiking = elapsed >= SPIKE_START_MS && elapsed < SPIKE_START_MS + SPIKE_DURATION_MS;
@@ -188,9 +203,13 @@ export function Act5Crucible({ onAdvance }: Act5Props) {
         </div>
 
         <div className="flex flex-col gap-2.5">
+          {/* Cursor compiles + sends the FinOps brief that R. Davis will react to. */}
+          <FinOpsBrief visible={briefVisible} sent={briefSent} />
+
           <OverrideCard speaker="davis" tone="approve" visible={davisVisible} darkMode>
             <p className="text-[12.5px] leading-snug">
-              <strong>$180/mo vs $47k/hr in downtime risk — approve.</strong>
+              Read Cursor&rsquo;s brief. <strong>$180/mo vs $47k/hr in downtime risk — approved.</strong> Flag{' '}
+              <span className="font-mono">CreateOrderFn</span> in the Compute Optimizer dashboard so we revisit post-hypercare.
             </p>
           </OverrideCard>
 
@@ -331,6 +350,74 @@ function RunCostTile({ visible }: { visible: boolean }) {
       </div>
       <div className="mt-2 flex items-center gap-1 text-[10px] opacity-70">
         <Activity className="h-3 w-3" /> vs monolith run-rate $70k/mo allocated
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The brief Cursor compiles after the cold-start spike clears. It bundles the
+ * failing metric, the proposed fix, the cost math, and the dollar comparison —
+ * then "sends" itself to the FinOps lead via Slack. R. Davis's approval card
+ * lands a beat after the `sent` flag flips.
+ */
+function FinOpsBrief({ visible, sent }: { visible: boolean; sent: boolean }) {
+  return (
+    <div
+      className="rounded-lg border p-3 transition-all duration-500"
+      style={{
+        background: 'rgba(255, 153, 0, 0.05)',
+        borderColor: sent ? 'rgba(126, 231, 135, 0.45)' : 'rgba(255, 153, 0, 0.4)',
+        color: '#F3F4F6',
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(8px)',
+      }}
+    >
+      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: sent ? '#7EE787' : '#FF9900' }}>
+        <CursorLogo size={12} tone="dark" />
+        <FileText className="h-3 w-3" />
+        FinOps brief · auto-compiled
+      </div>
+
+      <div className="text-[12.5px] font-semibold leading-snug">
+        Cold-start spike on <code className="font-mono text-[11.5px]">CreateOrderFn</code>
+      </div>
+
+      <dl className="mt-1.5 space-y-0.5 text-[11.5px]" style={{ color: 'rgba(243,244,246,0.85)' }}>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-[10px] uppercase tracking-wider opacity-70">Observed</dt>
+          <dd>p99 <span className="font-mono font-semibold text-[#FCA5A5]">1.14s</span> at 12k rps (target &lt; 400ms)</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-[10px] uppercase tracking-wider opacity-70">Proposed fix</dt>
+          <dd>Provisioned concurrency · 2 instances</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-[10px] uppercase tracking-wider opacity-70">Cost impact</dt>
+          <dd className="font-mono"><span style={{ color: '#FBBF24' }}>+$180/mo</span></dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-[10px] uppercase tracking-wider opacity-70">Downtime risk avoided</dt>
+          <dd className="font-mono"><span style={{ color: '#7EE787' }}>$47k/hr</span></dd>
+        </div>
+      </dl>
+
+      <div
+        className="mt-2 flex items-center gap-1.5 border-t pt-1.5 text-[10.5px]"
+        style={{ borderColor: 'rgba(255,255,255,0.08)', color: sent ? '#A7F3D0' : 'rgba(243,244,246,0.65)' }}
+      >
+        <Send className="h-3 w-3" />
+        {sent ? (
+          <>
+            <span>Sent to <span className="font-semibold">R. Davis</span> via</span>{' '}
+            <code className="font-mono">#finops-approvals</code>
+            <span className="ml-auto opacity-75">awaiting reply…</span>
+          </>
+        ) : (
+          <>
+            <span>Compiling brief from CloudWatch + AWS Cost Explorer (MCP)…</span>
+          </>
+        )}
       </div>
     </div>
   );

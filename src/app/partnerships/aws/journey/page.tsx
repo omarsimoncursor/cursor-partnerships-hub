@@ -1,9 +1,6 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
-
 import { StorySpine } from '@/components/aws-journey/story-spine';
 import { StakesHud } from '@/components/aws-journey/stakes-hud';
 import { ActTransition } from '@/components/aws-journey/act-transition';
@@ -71,14 +68,6 @@ export default function AwsJourneyPage() {
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden">
-      {/* Tiny "back" link above the spine — sits on the left of the 52px header */}
-      <Link
-        href="/partnerships/aws"
-        className="fixed left-4 top-[14px] z-50 inline-flex items-center gap-1 text-[11px] uppercase tracking-widest text-white/60 hover:text-white"
-      >
-        <ArrowLeft className="h-3 w-3" /> AWS
-      </Link>
-
       <StorySpine currentAct={currentAct} unlockedActs={unlockedActs} onJump={jumpTo} />
 
       <main>

@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ShieldCheck, Terminal, GitCommit, Check, X } from 'lucide-react';
+import { ShieldCheck, Terminal, GitCommit, Check } from 'lucide-react';
 import { ActShell, ActHeader } from './act-shell';
 import { CalendarWidget } from '../time/calendar-widget';
 import { OverrideCard } from '../override-card';
 import { CursorLogo } from '../cursor-logo';
-import { AccelerationTile } from '../acceleration-tile';
+import { StoryBeat } from '../story-beat';
 import { ACT_TIMING } from '../data/script';
 import { ORDERS_STACK_CDK, CODEX_PATCHES } from '../data/orders-stack';
 import { ORDERS_SERVICE_JAVA } from '../data/orders-java-source';
@@ -16,7 +16,7 @@ interface Act4Props {
 }
 
 type Step =
-  | 'idle'
+  | 'awaiting-start'
   | 'typing'
   | 'tests-running'
   | 'codex'
@@ -36,16 +36,30 @@ const JAVA_HIGHLIGHTS: Array<{ atLine: number; javaStartLine: number; javaEndLin
 
 const ACT4_TOTAL_TYPING_MS = 8500;
 
+/**
+ * Test-runner pacing. The timeline effect derives its Codex/patch/chen
+ * timings from these so the visuals stay in lock-step with the bar.
+ *
+ *   testStart → 22 ticks of RUNNER_TICK_MS → fail at #23 → wait
+ *   RUNNER_INVESTIGATION_MS for Codex → resume → 24 ticks of RUNNER_TICK_MS
+ *   to reach 47 / green.
+ */
+const RUNNER_TICK_MS = 110;
+const RUNNER_TESTS_BEFORE_FAIL = 22;
+const RUNNER_INVESTIGATION_MS = 5_500;
+
 export function Act4Build({ onAdvance }: Act4Props) {
   const [typedLines, setTypedLines] = useState(0);
-  const [step, setStep] = useState<Step>('idle');
+  const [step, setStep] = useState<Step>('awaiting-start');
+  const [started, setStarted] = useState(false);
   const [appliedPatches, setAppliedPatches] = useState<Set<number>>(new Set());
   const [codexVisible, setCodexVisible] = useState<Record<'iam' | 'vpc', boolean>>({ iam: false, vpc: false });
   const [testState, setTestState] = useState<{ passed: number; failing: boolean; total: number }>({ passed: 0, failing: false, total: 47 });
 
-  // Author-from-top progressive typing
+  // Author-from-top progressive typing — only starts after the user clicks.
+  // Keyed on `started`, not `step`, so the raf keeps ticking as step changes.
   useEffect(() => {
-    setStep('typing');
+    if (!started) return;
     const startAt = performance.now();
     let raf = 0;
     const tick = () => {
@@ -57,53 +71,94 @@ export function Act4Build({ onAdvance }: Act4Props) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [started]);
 
-  // Test-runner timeline
+  // Test-runner + Codex timeline — kicked off exactly once when the user
+  // runs the build. Keyed on `started` (a one-way latch) so the timers
+  // aren't cancelled every time `step` transitions; previously this effect
+  // depended on `step`, which meant the first setStep fired, cleanup ran,
+  // and t2..t7 got cleared — leaving the scene stuck at 'tests-running'.
   useEffect(() => {
-    const t1 = setTimeout(() => setStep('tests-running'), ACT_TIMING.act4TerminalStartMs);
-    const t2 = setTimeout(() => setStep('codex'), ACT_TIMING.act4CodexCommentsMs);
-    const t3 = setTimeout(() => setCodexVisible({ iam: true, vpc: false }), ACT_TIMING.act4CodexCommentsMs + 80);
-    const t4 = setTimeout(() => setCodexVisible({ iam: true, vpc: true }), ACT_TIMING.act4CodexCommentsMs + 1100);
-    const t5 = setTimeout(() => setAppliedPatches(new Set([62, 48])), ACT_TIMING.act4CodexCommentsMs + 2300);
-    const t6 = setTimeout(() => setStep('patched'), ACT_TIMING.act4CodexCommentsMs + 2500);
-    const t7 = setTimeout(() => setStep('chen'), ACT_TIMING.act4ChenApprovalMs);
-    return () => [t1, t2, t3, t4, t5, t6, t7].forEach(clearTimeout);
-  }, []);
+    if (!started) return;
+    // Synced to the test runner below. Runner reaches test #23 and fails at
+    // ~testFailMs; Codex narrative starts ~600ms after that so the viewer
+    // can read the failure line, then patches land right when the runner is
+    // about to resume (resumeMs = testFailMs + RUNNER_INVESTIGATION_MS).
+    const testStartMs = ACT_TIMING.act4TerminalStartMs;     // tests appear
+    const testFailMs = testStartMs + RUNNER_TESTS_BEFORE_FAIL * RUNNER_TICK_MS; // ~9.4s
+    const codexAt = testFailMs + 600;                       // ~10s
+    const resumeAt = testFailMs + RUNNER_INVESTIGATION_MS;  // ~14.9s
 
-  // Simulated test runner
+    const timers: ReturnType<typeof setTimeout>[] = [
+      setTimeout(() => setStep('tests-running'), testStartMs),
+      setTimeout(() => setStep('codex'), codexAt),
+      // Two patch cards slide in during the investigation window
+      setTimeout(() => setCodexVisible({ iam: true, vpc: false }), codexAt + 700),
+      setTimeout(() => setCodexVisible({ iam: true, vpc: true }), codexAt + 2000),
+      // Patches apply just before the runner unfreezes — viewer sees the
+      // green ✓ on the cards a beat before the terminal flips back to green.
+      setTimeout(() => setAppliedPatches(new Set([62, 48])), resumeAt - 500),
+      setTimeout(() => setStep('patched'), resumeAt - 200),
+      // Chen approves comfortably after the suite finishes (47/47 lands at
+      // resumeAt + ~2.7s from the runner below).
+      setTimeout(() => setStep('chen'), resumeAt + 3500),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [started]);
+
+  // Simulated test runner — runs the full suite once when started flips.
+  // Around test 22 the run *halts* on a failing test; control hands to
+  // Codex, the patch cards slide in, the patches apply, and the runner
+  // resumes once `appliedPatches` is non-empty, finishing 47/47 green.
+  // Keyed on `started`, NOT on `step`, so the loop can't be cancelled
+  // mid-run by step transitions.
   useEffect(() => {
-    if (step !== 'tests-running' && step !== 'codex' && step !== 'patched' && step !== 'chen') return;
+    if (!started) return;
     let cancelled = false;
     let passed = 0;
+    const sleep = (ms: number) =>
+      new Promise<void>((r) => setTimeout(r, ms));
+
     const tick = async () => {
-      const runTest = () =>
-        new Promise<void>((resolve) => {
-          setTimeout(() => {
-            if (cancelled) return resolve();
-            if (passed === 22) {
-              setTestState({ passed, failing: true, total: 47 });
-              setTimeout(() => {
-                if (cancelled) return resolve();
-                setTestState({ passed, failing: false, total: 47 });
-                resolve();
-              }, 600);
-            } else {
-              passed += 1;
-              setTestState({ passed, failing: false, total: 47 });
-              resolve();
-            }
-          }, 140);
-        });
+      // Hold until the terminal is visible (step transitions to
+      // 'tests-running' at ACT_TIMING.act4TerminalStartMs). Otherwise the
+      // runner sprints ahead and the user sees the red failure phase the
+      // moment the terminal appears.
+      await sleep(ACT_TIMING.act4TerminalStartMs);
+      if (cancelled) return;
+      setTestState({ passed: 0, failing: false, total: 47 });
+
+      // Phase 1 — run forward until test #23 fails.
+      while (!cancelled && passed < RUNNER_TESTS_BEFORE_FAIL) {
+        await sleep(RUNNER_TICK_MS);
+        if (cancelled) return;
+        passed += 1;
+        setTestState({ passed, failing: false, total: 47 });
+      }
+      if (cancelled) return;
+      // Phase 2 — failing test #23, runner halts; Codex takes over visually.
+      setTestState({ passed, failing: true, total: 47 });
+      await sleep(RUNNER_INVESTIGATION_MS);
+      if (cancelled) return;
+      // Phase 3 — patch applied, retry the failing test, then march on green.
+      setTestState({ passed, failing: false, total: 47 });
+      await sleep(450);
+      if (cancelled) return;
+      passed += 1;
+      setTestState({ passed, failing: false, total: 47 });
       while (!cancelled && passed < 47) {
-        await runTest();
+        await sleep(RUNNER_TICK_MS);
+        if (cancelled) return;
+        passed += 1;
+        setTestState({ passed, failing: false, total: 47 });
       }
     };
+
     tick();
     return () => {
       cancelled = true;
     };
-  }, [step]);
+  }, [started]);
 
   const javaLines = useMemo(() => ORDERS_SERVICE_JAVA.split('\n'), []);
   const activeJavaBand = useMemo(() => {
@@ -129,37 +184,70 @@ export function Act4Build({ onAdvance }: Act4Props) {
     >
       <ActHeader
         act={4}
-        eyebrow="Cursor Cloud Agent transforms 2.8k LOC of Java EE into TypeScript + AWS CDK. Codex auto-patches security. M. Chen approves."
+        eyebrow="Click 'Start build' and watch Cursor rewrite a 20-year-old Java service into AWS code, line by line, while a second agent monitors and patches security issues before a human ever even sees the PR."
       />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr_380px]">
+      <StoryBeat
+        tone="dark"
+        agent="both"
+        title="Two agents, working together: one writes the code, one reviews it."
+        body={<>The Cloud Agent rewrites Java → AWS Lambda + CDK while Codex catches IAM &amp; VPC issues. Tests run live. M. Chen just verifies policy.</>}
+        oldWay="12 weeks hand-porting"
+        newWay="9 agent-days + auto-patches"
+      />
+
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_340px]">
         {/* Left pane: Java EE source */}
-        <Pane
-          title="OrdersService.java"
-          subtitle="Legacy · WebSphere 8.5 + Oracle 12c"
-          language="java"
-          lines={javaLines}
-          highlightBand={activeJavaBand ? { start: activeJavaBand.javaStartLine, end: activeJavaBand.javaEndLine, label: activeJavaBand.label } : null}
-          maxHeight={520}
-        />
+        <div className="min-w-0">
+          <Pane
+            title="OrdersService.java"
+            subtitle="Legacy · WebSphere 8.5"
+            language="java"
+            lines={javaLines}
+            highlightBand={activeJavaBand ? { start: activeJavaBand.javaStartLine, end: activeJavaBand.javaEndLine, label: activeJavaBand.label } : null}
+            maxHeight={560}
+          />
+        </div>
 
         {/* Middle pane: CDK being authored */}
-        <Pane
-          title="orders-stack.ts"
-          subtitle="authored by Cursor Cloud Agent · AWS CDK"
-          language="ts"
-          lines={ORDERS_STACK_CDK.slice(0, typedLines)}
-          cursorLine={typedLines}
-          patchedLines={appliedPatches}
-          patchReplacements={Object.fromEntries(CODEX_PATCHES.map((p) => [p.line, p.replacementLine]))}
-          maxHeight={520}
-          authorTag
-        />
+        <div className="relative min-w-0">
+          <Pane
+            title="orders-stack.ts"
+            subtitle="Cursor · AWS CDK"
+            language="ts"
+            lines={ORDERS_STACK_CDK.slice(0, typedLines)}
+            cursorLine={typedLines}
+            patchedLines={appliedPatches}
+            patchReplacements={Object.fromEntries(CODEX_PATCHES.map((p) => [p.line, p.replacementLine]))}
+            maxHeight={560}
+            authorTag
+          />
+          {step === 'awaiting-start' && (
+            <div
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg text-center"
+              style={{ background: 'rgba(13,17,23,0.92)', border: '1px solid rgba(126,231,135,0.15)' }}
+            >
+              <div className="max-w-[260px] text-[12.5px]" style={{ color: 'rgba(230,237,243,0.8)' }}>
+                Ready to rewrite <strong className="text-white">2,800 lines of Java</strong> into AWS Lambda + CDK.
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setStep('typing');
+                  setStarted(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-transform hover:-translate-y-0.5"
+                style={{ background: '#FF9900', color: '#0D1117' }}
+              >
+                <CursorLogo size={14} tone="light" />
+                Start build
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Right column: codex + chen + terminal */}
-        <div className="flex flex-col gap-3">
-          <AccelerationTile taskId="java-to-cdk" tone="dark" variant="card" />
-
+        <div className="flex flex-col gap-2.5">
           <CodexCard
             patch={CODEX_PATCHES.find((p) => p.category === 'iam')!}
             visible={codexVisible.iam}
@@ -170,24 +258,17 @@ export function Act4Build({ onAdvance }: Act4Props) {
             visible={codexVisible.vpc}
             applied={appliedPatches.has(48)}
           />
-          <AccessAnalyzerTile visible={chenVisible} />
           <OverrideCard speaker="chen" tone="approve" visible={chenVisible} darkMode>
-            <div className="space-y-2">
-              <p>
-                Both Codex catches match our IAM baseline and VPC pattern
-                (<span className="font-mono">CIS AWS Foundations §3.1, §4.2</span>). Approved.
-              </p>
-              <p className="text-[12px] opacity-80">
-                Also running Access Analyzer on the staging deploy — expect 0 findings.
-              </p>
-            </div>
+            <p className="text-[12.5px] leading-snug">
+              Codex catches match our IAM + VPC baseline. <strong>Approved.</strong> Access Analyzer: 0 findings.
+            </p>
           </OverrideCard>
 
           <button
             type="button"
             onClick={onAdvance}
             disabled={!chenVisible}
-            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: '#FF9900', color: '#0D1117' }}
           >
             <ShieldCheck className="h-4 w-4" />
@@ -203,6 +284,7 @@ export function Act4Build({ onAdvance }: Act4Props) {
         passed={testState.passed}
         total={testState.total}
         failing={testState.failing}
+        step={step}
       />
     </ActShell>
   );
@@ -254,18 +336,18 @@ function Pane({
       style={{ background: '#0D1117', borderColor: 'rgba(126,231,135,0.15)' }}
     >
       <div
-        className="flex items-center gap-2 border-b px-3 py-2 text-[11px] font-mono"
+        className="flex min-w-0 items-center gap-2 border-b px-3 py-2 text-[11px] font-mono"
         style={{ background: '#161B22', borderColor: 'rgba(255,255,255,0.08)', color: '#E6EDF3' }}
       >
         {authorTag ? (
           <CursorLogo size={14} tone="dark" />
         ) : (
-          <span className={`inline-block h-2 w-2 rounded-full ${language === 'java' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+          <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${language === 'java' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
         )}
-        <span className="font-semibold">{title}</span>
-        <span className="opacity-50">· {subtitle}</span>
+        <span className="shrink-0 truncate font-semibold">{title}</span>
+        <span className="hidden truncate opacity-50 md:inline">· {subtitle}</span>
         {highlightBand && (
-          <span className="ml-auto rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-amber-300">
+          <span className="ml-auto shrink-0 truncate rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-amber-300" title={highlightBand.label}>
             {highlightBand.label}
           </span>
         )}
@@ -273,7 +355,7 @@ function Pane({
 
       <div
         ref={scrollRef}
-        className="relative flex-1 overflow-y-auto px-1 font-mono text-[12px] leading-[19px]"
+        className="relative flex-1 overflow-auto px-1 font-mono text-[12px] leading-[19px]"
         style={{ maxHeight: maxHeight ?? 520, color: '#E6EDF3' }}
       >
         {lines.map((line, i) => {
@@ -363,7 +445,7 @@ function SyntaxLine({ line, language }: { line: string; language: 'java' | 'ts' 
 function CodexCard({ patch, visible, applied }: { patch: { line: number; summary: string; detail: string; category: string }; visible: boolean; applied: boolean }) {
   return (
     <div
-      className="rounded-lg border p-3 text-[12px] transition-all duration-500"
+      className="rounded-lg border px-2.5 py-2 text-[12px] transition-all duration-500"
       style={{
         background: applied ? 'rgba(126, 231, 135, 0.06)' : 'rgba(234, 179, 8, 0.06)',
         borderColor: applied ? 'rgba(126, 231, 135, 0.3)' : 'rgba(234, 179, 8, 0.35)',
@@ -372,92 +454,116 @@ function CodexCard({ patch, visible, applied }: { patch: { line: number; summary
         transform: visible ? 'translateX(0)' : 'translateX(16px)',
       }}
     >
-      <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: applied ? '#7EE787' : '#FBBF24' }}>
+      <div className="mb-0.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: applied ? '#7EE787' : '#FBBF24' }}>
         <GitCommit className="h-3 w-3" />
-        Codex review · line {patch.line}
+        Codex · line {patch.line}
         {applied && <span className="ml-auto flex items-center gap-1 text-[10px]"><Check className="h-3 w-3" /> patched</span>}
       </div>
-      <div className="text-[12px] font-semibold">{patch.summary}</div>
-      <p className="mt-1 text-[11px] opacity-80">{patch.detail}</p>
+      <div className="text-[12px] font-semibold leading-snug">{patch.summary}</div>
     </div>
   );
 }
 
-function AccessAnalyzerTile({ visible }: { visible: boolean }) {
+function TerminalStrip({
+  active,
+  passed,
+  total,
+  failing,
+  step,
+}: {
+  active: boolean;
+  passed: number;
+  total: number;
+  failing: boolean;
+  step: Step;
+}) {
+  // The failing-test banner stays up while Codex is working, not just for the
+  // brief "failing=true" flash. We're failing if the runner reported a fail
+  // OR we're in any of the Codex / patched intermediate states.
+  const inIncident = failing || step === 'codex';
+  const recovered = step === 'patched' || step === 'chen';
+  const allGreen = passed === total && passed > 0;
+
+  let headerStatus: { label: string; color: string };
+  if (allGreen) headerStatus = { label: '✓ 47/47 green', color: '#7EE787' };
+  else if (inIncident) headerStatus = { label: '⚠ test failure · Codex investigating', color: '#F87171' };
+  else if (recovered) headerStatus = { label: '✓ patch applied · re-running', color: '#7EE787' };
+  else headerStatus = { label: `${passed}/${total}`, color: '#7EE787' };
+
   return (
     <div
-      className="rounded-lg border p-3 transition-all duration-500"
+      className="mt-3 overflow-hidden rounded-lg border"
       style={{
-        background: 'rgba(126, 231, 135, 0.06)',
-        borderColor: 'rgba(126, 231, 135, 0.3)',
-        color: '#E6EDF3',
-        opacity: visible ? 1 : 0,
+        background: '#010409',
+        borderColor: inIncident ? 'rgba(248,113,113,0.45)' : 'rgba(126,231,135,0.15)',
+        transition: 'border-color 250ms',
       }}
     >
-      <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#7EE787' }}>
-        <ShieldCheck className="h-3 w-3" />
-        IAM Access Analyzer · staging
-      </div>
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <Stat num="0" label="over-privileged" />
-        <Stat num="0" label="public" />
-        <Stat num="✓"  label="least-priv" good />
-      </div>
-    </div>
-  );
-}
-
-function Stat({ num, label, good }: { num: string; label: string; good?: boolean }) {
-  return (
-    <div>
-      <div className="text-lg font-bold tabular-nums" style={{ color: good ? '#7EE787' : '#E6EDF3' }}>{num}</div>
-      <div className="text-[9px] uppercase tracking-wider opacity-60">{label}</div>
-    </div>
-  );
-}
-
-function TerminalStrip({ active, passed, total, failing }: { active: boolean; passed: number; total: number; failing: boolean }) {
-  return (
-    <div
-      className="mt-4 overflow-hidden rounded-lg border"
-      style={{ background: '#010409', borderColor: 'rgba(126,231,135,0.15)' }}
-    >
-      <div className="flex items-center gap-2 border-b px-3 py-1.5 text-[11px] font-mono" style={{ background: '#161B22', borderColor: 'rgba(255,255,255,0.06)', color: '#8B949E' }}>
+      <div
+        className="flex items-center gap-2 border-b px-3 py-1 text-[11px] font-mono"
+        style={{
+          background: inIncident ? 'rgba(127, 29, 29, 0.45)' : '#161B22',
+          borderColor: 'rgba(255,255,255,0.06)',
+          color: '#8B949E',
+        }}
+      >
         <Terminal className="h-3 w-3" />
-        <span>integration-tests · npm test</span>
-        <span className="ml-auto text-[10px] opacity-60">{active ? 'running' : 'idle'}</span>
+        <span>npm test · integration suite</span>
+        <span className="ml-auto font-semibold" style={{ color: headerStatus.color }}>
+          {headerStatus.label}
+        </span>
       </div>
-      <div className="px-4 py-3 font-mono text-[11px] leading-5" style={{ color: '#E6EDF3' }}>
+
+      <div className="px-3 py-2 font-mono text-[11px]" style={{ color: '#E6EDF3' }}>
         {!active && <div className="opacity-50">$ _</div>}
         {active && (
           <>
-            <div style={{ color: '#7EE787' }}>
-              $ npm test -- --coverage
-            </div>
-            <div className="opacity-70">PASS  tests/handlers/create-order.test.ts</div>
-            <div className="opacity-70">PASS  tests/handlers/list-orders.test.ts</div>
-            <div className="opacity-70">PASS  tests/handlers/update-status.test.ts</div>
-            <div>
-              <span style={{ color: failing ? '#F87171' : '#7EE787' }}>
-                {failing ? '⚠ FAIL' : '✓ PASS'}
-              </span>{' '}
-              <span className="opacity-80">
-                {failing
-                  ? 'tests/handlers/cancel-order.test.ts  — retry #1 after patch'
-                  : passed > 22
-                  ? 'tests/handlers/cancel-order.test.ts  — patched & retried (green)'
-                  : 'integration suite progressing…'}
-              </span>
-            </div>
-            <div className="mt-1">
-              <span style={{ color: '#58A6FF' }}>Tests:</span>{' '}
-              <span style={{ color: '#7EE787' }}>{passed} passed</span>
-              <span className="opacity-60">, {failing ? '1 failing (auto-recovering)' : '0 failing'}, {total - passed} pending</span>
-            </div>
-            <ProgressBar passed={passed} total={total} failing={failing} />
-            {passed === total && (
-              <div className="mt-1" style={{ color: '#7EE787' }}>
-                ✓ All 47 tests passed · <span className="opacity-70">coverage 94.7% · duration 11.4s</span>
+            <ProgressBar passed={passed} total={total} failing={failing || inIncident} />
+
+            {/* Default running line */}
+            {!inIncident && !recovered && !allGreen && (
+              <div className="mt-1.5 text-[10.5px] opacity-80">
+                running… {passed} passed, {total - passed} pending
+              </div>
+            )}
+
+            {/* Failing-test banner — sticky while Codex investigates */}
+            {inIncident && (
+              <div className="mt-2 space-y-1 rounded-md border px-2.5 py-2" style={{ borderColor: 'rgba(248,113,113,0.5)', background: 'rgba(127,29,29,0.25)' }}>
+                <div className="flex items-center gap-1.5 text-[10.5px] font-semibold" style={{ color: '#FCA5A5' }}>
+                  <span>✗ FAIL</span>
+                  <span className="opacity-80">tests/handlers/cancel-order.test.ts</span>
+                  <span className="ml-auto text-[10px] opacity-70">test #23 of 47</span>
+                </div>
+                <div className="pl-3 text-[10.5px]" style={{ color: 'rgba(252,165,165,0.85)' }}>
+                  AccessDeniedException: User &ldquo;OrdersFnRole&rdquo; is not authorized to perform{' '}
+                  <span className="font-semibold">dynamodb:PutItem</span> on resource{' '}
+                  <span className="font-semibold">Orders</span>
+                </div>
+                <div className="border-t pt-1.5 text-[10.5px]" style={{ borderColor: 'rgba(248,113,113,0.25)', color: '#FBBF24' }}>
+                  <span className="mr-1.5 inline-flex items-center gap-1 font-semibold uppercase tracking-[0.12em]">
+                    <CursorLogo size={10} tone="dark" /> Codex
+                  </span>
+                  <span>investigating IAM scope on <span className="font-mono">orders-stack.ts:62</span>…</span>
+                </div>
+              </div>
+            )}
+
+            {/* Recovered banner — patch applied, re-running */}
+            {recovered && !allGreen && (
+              <div className="mt-2 rounded-md border px-2.5 py-1.5 text-[10.5px]" style={{ borderColor: 'rgba(126,231,135,0.35)', background: 'rgba(34,197,94,0.08)', color: '#A7F3D0' }}>
+                <span className="mr-1.5 inline-flex items-center gap-1 font-semibold uppercase tracking-[0.12em]" style={{ color: '#7EE787' }}>
+                  <Check className="h-3 w-3" /> Codex patch applied
+                </span>
+                Scoped <span className="font-mono">dynamodb:*</span> → <span className="font-mono">dynamodb:PutItem</span> on resource{' '}
+                <span className="font-mono">Orders</span>. Re-running suite…
+              </div>
+            )}
+
+            {/* All green */}
+            {allGreen && (
+              <div className="mt-1.5 text-[10.5px]" style={{ color: '#7EE787' }}>
+                ✓ 47 tests passed · coverage 94.7% · 11.4s · 1 issue auto-patched by Codex
               </div>
             )}
           </>
@@ -487,6 +593,3 @@ function ProgressBar({ passed, total, failing }: { passed: number; total: number
     </div>
   );
 }
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _X = X; // keep lucide-react import alive if we expand later

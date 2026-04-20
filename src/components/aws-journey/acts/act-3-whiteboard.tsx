@@ -6,32 +6,34 @@ import { ActShell, ActHeader } from './act-shell';
 import { OverrideCard } from '../override-card';
 import { CalendarWidget } from '../time/calendar-widget';
 import { CursorLogo } from '../cursor-logo';
-import { AccelerationTile } from '../acceleration-tile';
-import { ACT_TIMING } from '../data/script';
+import { StoryBeat } from '../story-beat';
 
 interface Act3Props {
   onAdvance: () => void;
 }
 
-type Phase = 'loading' | 'plan-shown' | 'override' | 'absorbed';
+type Phase = 'loading' | 'plan-shown' | 'override' | 'absorbed' | 'park-approves';
 
 export function Act3Whiteboard({ onAdvance }: Act3Props) {
   const [phase, setPhase] = useState<Phase>('loading');
 
   useEffect(() => {
     const t1 = setTimeout(() => setPhase('plan-shown'), 400);
-    const t2 = setTimeout(() => setPhase('override'), ACT_TIMING.act3OverrideDelayMs + 400);
-    const t3 = setTimeout(() => setPhase('absorbed'), ACT_TIMING.act3AiReplyDelayMs + 400);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
+    return () => clearTimeout(t1);
   }, []);
 
-  const aiReplyVisible = phase === 'absorbed';
-  const overrideVisible = phase === 'override' || phase === 'absorbed';
-  const stickyMorphed = phase === 'absorbed';
+  const postForReview = () => {
+    if (phase !== 'plan-shown') return;
+    setPhase('override');
+    setTimeout(() => setPhase('absorbed'), 1600);
+    // Park reads the updated plan, then signs off.
+    setTimeout(() => setPhase('park-approves'), 3800);
+  };
+
+  const aiReplyVisible = phase === 'absorbed' || phase === 'park-approves';
+  const overrideVisible = phase === 'override' || phase === 'absorbed' || phase === 'park-approves';
+  const parkApproveVisible = phase === 'park-approves';
+  const stickyMorphed = phase === 'absorbed' || phase === 'park-approves';
 
   return (
     <ActShell
@@ -48,15 +50,24 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
     >
       <ActHeader
         act={3}
-        eyebrow="Cursor Cloud Agent drafts the target architecture in 45 minutes. The architect pushes back. The agent absorbs the correction."
+        eyebrow="Cursor agents took the findings from the previous step and drafted a target AWS architecture in 45 minutes. Click 'Post for review' to send it to the architect — and watch the agents instantly adapt the plan to accommodate her feedback."
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
+      <StoryBeat
+        tone="light"
+        agent="cloud"
+        title="One sketch. One Slack thread. The plan rewrites itself."
+        body={<>The agent absorbs a senior architect&rsquo;s pushback, re-grounded in a real 2023 post-mortem — no rework cycle.</>}
+        oldWay="5 days of whiteboard sessions"
+        newWay="45-min draft, 6-min rewrite"
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
         {/* Whiteboard surface */}
         <div
           className="relative overflow-hidden rounded-xl border shadow-inner"
           style={{
-            minHeight: 560,
+            minHeight: 460,
             background: `
               repeating-linear-gradient(0deg, rgba(17,24,39,0.05) 0 1px, transparent 1px 28px),
               repeating-linear-gradient(90deg, rgba(17,24,39,0.05) 0 1px, transparent 1px 28px),
@@ -70,9 +81,9 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
             className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-md border bg-white/90 px-2.5 py-1.5 shadow-sm"
             style={{ borderColor: 'rgba(17,24,39,0.1)' }}
           >
-            <CursorLogo size={16} tone="light" />
+            <CursorLogo size={14} tone="light" />
             <span className="text-[11px] font-semibold text-[#14120B]">
-              Drafted by <span style={{ color: '#B45309' }}>Cursor Cloud Agent</span>
+              Drafted by <span style={{ color: '#B45309' }}>Cursor Agents</span>
             </span>
             <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider text-amber-800">
               45 min
@@ -83,25 +94,33 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
         </div>
 
         {/* Right column: conversation */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <div
-            className="rounded-xl border bg-white p-4"
+            className="rounded-xl border bg-white p-3"
             style={{ borderColor: 'rgba(17,24,39,0.1)' }}
           >
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: '#6B7280' }}>
-              #orders-modernization · slack review thread
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#6B7280' }}>
+              #orders-modernization · Slack
             </div>
-            <div className="flex items-start gap-2 text-[13px]" style={{ color: '#1F2937' }}>
-              <CursorLogo size={18} tone="light" className="mt-0.5 shrink-0" />
+            <div className="flex items-start gap-2 text-[12.5px]" style={{ color: '#1F2937' }}>
+              <CursorLogo size={16} tone="light" className="mt-0.5 shrink-0" />
               <div>
                 <span className="font-semibold">Cursor Cloud Agent</span>
-                <span className="ml-1 font-mono text-[11px] opacity-60">APP · 10:42 AM</span>
-                <p>Posted initial target architecture and @-mentioned J. Park for review.</p>
+                <span className="ml-1 font-mono text-[10px] opacity-60">10:42 AM</span>
+                <p className="text-[12.5px] leading-snug">Posted target architecture in Slack and @-mentioned J. Park for review.</p>
               </div>
             </div>
+            {phase === 'plan-shown' && (
+              <button
+                type="button"
+                onClick={postForReview}
+                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold transition-transform hover:-translate-y-0.5"
+                style={{ background: '#2563EB', color: 'white' }}
+              >
+                Post for review →
+              </button>
+            )}
           </div>
-
-          <AccelerationTile taskId="target-arch" tone="light" variant="strip" />
 
           {/* J. Park override */}
           <OverrideCard
@@ -109,18 +128,11 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
             tone="override"
             visible={overrideVisible}
           >
-            <div className="space-y-2">
-              <p>
-                Push back on the 7-day dual-write window. Last cutover (InventoryService, 2023) we rolled back on
-                day 9 because a batch job only ran on the 1st and 15th of the month — didn’t surface until after
-                we’d cut over.
-              </p>
-              <p>
-                <strong>14-day minimum</strong>, and I want an automated parity diff that fails the cutover if
-                drift &gt; 0.01%.
-              </p>
-              <p className="text-[12px] opacity-70">Ask Raj if you need the 2023 post-mortem.</p>
-            </div>
+            <p className="text-[12.5px] leading-snug">
+              Push back on the <strong>7-day dual-write</strong>. We rolled back InventoryService in 2023 because a
+              monthly batch job didn&rsquo;t surface until day 9. Make it <strong>14 days minimum</strong>, plus a
+              parity-diff that fails the cutover if drift &gt; 0.01%.
+            </p>
           </OverrideCard>
 
           {/* AI reply */}
@@ -130,41 +142,38 @@ export function Act3Whiteboard({ onAdvance }: Act3Props) {
             visible={aiReplyVisible}
             delayMs={200}
           >
-            <div className="space-y-2">
-              <p>
-                <span className="font-semibold">Updating plan.</span> Extending dual-write to 14 days and adding
-                a parity-diff Lambda that runs every 15 minutes against both DBs; cutover workflow will
-                fail-closed on drift &gt; 0.01%.
+            <div className="space-y-1.5">
+              <p className="text-[12.5px] leading-snug">
+                <span className="font-semibold">Plan updated.</span> Dual-write extended to 14 days, parity-diff
+                Lambda added (fail-closed @ 0.01% drift).
               </p>
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-700">
-                <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] text-slate-700">
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                   <CheckCircle2 className="h-3 w-3" /> Grounded in
-                </div>
-                <code className="font-mono text-[11px]">
-                  github.com/acme/inventory-postmortem-2023-09
-                </code>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="rounded bg-slate-50 px-2 py-1.5">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Cost impact</div>
-                  <div className="font-semibold text-slate-900">+$12/mo</div>
-                </div>
-                <div className="rounded bg-slate-50 px-2 py-1.5">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Schedule</div>
-                  <div className="font-semibold text-slate-900">+7 cal days</div>
-                </div>
+                </span>{' '}
+                <code className="font-mono text-[10.5px]">acme/inventory-postmortem-2023-09</code>
               </div>
             </div>
           </OverrideCard>
 
-          {aiReplyVisible && (
-            <AccelerationTile taskId="override-absorb" tone="light" variant="chip" />
-          )}
+          {/* J. Park's sign-off — unblocks the gate button */}
+          <OverrideCard
+            speaker="park"
+            tone="approve"
+            visible={parkApproveVisible}
+            delayMs={200}
+          >
+            <p className="text-[12.5px] leading-snug">
+              <span className="font-semibold">That&rsquo;s the change I wanted.</span> 14-day window plus the
+              parity-diff covers the batch-job edge case from 2023. <strong>Architecture approved</strong> — go ahead
+              and start the build.
+            </p>
+          </OverrideCard>
 
           <button
             type="button"
             onClick={onAdvance}
-            disabled={!aiReplyVisible}
+            disabled={!parkApproveVisible}
             className="mt-2 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: '#FF9900', color: '#111827' }}
           >

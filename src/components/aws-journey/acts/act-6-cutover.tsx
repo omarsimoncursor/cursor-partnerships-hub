@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Check, Pause, Play, ShieldCheck } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, ShieldCheck } from 'lucide-react';
 import { ActShell, ActHeader } from './act-shell';
 import { WeekBarWidget } from '../time/week-bar-widget';
 import { OverrideCard } from '../override-card';
 import { CursorLogo } from '../cursor-logo';
-import { AccelerationTile } from '../acceleration-tile';
+import { StoryBeat } from '../story-beat';
 import { CUTOVER_RUNBOOK } from '../data/runbook';
-import { ACT_TIMING } from '../data/script';
 
 interface Act6Props {
   onAdvance: () => void;
@@ -20,36 +19,21 @@ const DAY_BY_STEP: Record<CanaryStep, number> = { 0: 17, 1: 18, 10: 19, 50: 20, 
 
 export function Act6Cutover({ onAdvance }: Act6Props) {
   const [stepIdx, setStepIdx] = useState(0);
-  const [auto, setAuto] = useState(true);
   const [kimBeforeVisible, setKimBeforeVisible] = useState(false);
   const [kimAfterVisible, setKimAfterVisible] = useState(false);
-  const timerRef = useRef<number | null>(null);
 
   const current = STEPS[stepIdx];
   const currentDay = DAY_BY_STEP[current];
 
   useEffect(() => {
-    const t = setTimeout(() => setKimBeforeVisible(true), ACT_TIMING.act6KimBeforeMs);
+    const t = setTimeout(() => setKimBeforeVisible(true), 600);
     return () => clearTimeout(t);
   }, []);
 
-  // Auto-advance canary every 3s while `auto` is true
-  useEffect(() => {
-    if (!auto) return;
-    if (stepIdx >= STEPS.length - 1) return;
-    if (!kimBeforeVisible) return;
-    timerRef.current = window.setTimeout(() => {
-      setStepIdx((i) => Math.min(STEPS.length - 1, i + 1));
-    }, 3000);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [auto, stepIdx, kimBeforeVisible]);
-
-  // Kim's "complete" message appears when we reach 100%
+  // Kim's "complete" message appears once the user reaches 100%
   useEffect(() => {
     if (current === 100) {
-      const t = setTimeout(() => setKimAfterVisible(true), 800);
+      const t = setTimeout(() => setKimAfterVisible(true), 700);
       return () => clearTimeout(t);
     }
     return;
@@ -72,23 +56,29 @@ export function Act6Cutover({ onAdvance }: Act6Props) {
     >
       <ActHeader
         act={6}
-        eyebrow="Cursor Cloud Agent wrote the runbook, orchestrates the canary, and tails CloudWatch. S. Kim holds the rollback lever."
+        eyebrow="The riskiest moment of the project: moving real customer traffic from the monolith to the new AWS service. Click 'Next canary step' to ratchet 1% → 10% → 50% → 100%."
       />
 
-      <div className="grid gap-4 lg:grid-cols-[280px_1fr_280px]">
+      <StoryBeat
+        tone="dark"
+        agent="cloud"
+        title="Cursor wrote the runbook, drives the canary, and watches every metric — so the on-call engineer just holds the rollback lever."
+        body={<>If any SLO trips, the agent rolls back automatically. This used to be the thing that kept people up at night.</>}
+        oldWay="4-day runbook · all-hands war room"
+        newWay="30-min runbook · live SLO watchdog"
+      />
+
+      <div className="grid gap-3 lg:grid-cols-[240px_1fr_240px]">
         {/* Left: runbook */}
         <div
-          className="flex flex-col gap-3 rounded-xl border p-4"
+          className="flex flex-col gap-2.5 rounded-xl border p-3.5"
           style={{ background: 'rgba(16, 185, 129, 0.05)', borderColor: 'rgba(16, 185, 129, 0.2)' }}
         >
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#10B981' }}>
-            <CursorLogo size={14} tone="dark" />
-            <span>Cursor Cloud Agent · Runbook</span>
+            <CursorLogo size={12} tone="dark" />
+            <span>Cursor · Runbook</span>
           </div>
-          <div className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(243,244,246,0.55)' }}>
-            12 checks · authored overnight
-          </div>
-          <ol className="mb-1 space-y-2">
+          <ol className="space-y-1.5">
             {CUTOVER_RUNBOOK.map((item) => {
               const unlocked = current >= item.unlockAt;
               return (
@@ -98,13 +88,13 @@ export function Act6Cutover({ onAdvance }: Act6Props) {
                   style={{ opacity: unlocked ? 1 : 0.35 }}
                 >
                   <span
-                    className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border"
+                    className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border"
                     style={{
                       background: unlocked ? '#10B981' : 'transparent',
                       borderColor: unlocked ? '#10B981' : 'rgba(249,250,251,0.3)',
                     }}
                   >
-                    {unlocked && <Check className="h-3 w-3 text-[#030712]" strokeWidth={3} />}
+                    {unlocked && <Check className="h-2.5 w-2.5 text-[#030712]" strokeWidth={3} />}
                   </span>
                   <span className="flex-1 leading-snug" style={{ color: unlocked ? '#F9FAFB' : 'rgba(249,250,251,0.5)', textDecoration: unlocked ? 'line-through' : undefined }}>
                     {item.label}
@@ -113,36 +103,31 @@ export function Act6Cutover({ onAdvance }: Act6Props) {
               );
             })}
           </ol>
-
-          <AccelerationTile taskId="runbook" tone="dark" variant="chip" />
         </div>
 
         {/* Center: traffic dial */}
         <div
-          className="relative flex flex-col items-center justify-center overflow-hidden rounded-xl border p-6"
+          className="relative flex flex-col items-center justify-center overflow-hidden rounded-xl border p-5"
           style={{
-            minHeight: 400,
+            minHeight: 320,
             background: 'radial-gradient(circle at center, rgba(255,153,0,0.05) 0%, transparent 70%)',
             borderColor: 'rgba(255,153,0,0.2)',
           }}
         >
-          <div className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#FF9900' }}>
-            <CursorLogo size={14} tone="dark" />
-            <span>Cursor Cloud Agent · Canary orchestrator</span>
-          </div>
-          <div className="mb-3 -mt-2 text-[10px] uppercase tracking-wider" style={{ color: 'rgba(243,244,246,0.55)' }}>
-            Production traffic · monolith → Lambda
+          <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#FF9900' }}>
+            <CursorLogo size={12} tone="dark" />
+            <span>Production traffic · monolith → Lambda</span>
           </div>
 
           <CutoverDial percent={current} complete={cutoverComplete} />
 
-          <div className="mt-4 flex items-center gap-2">
+          <div className="mt-3 flex items-center gap-1.5">
             {STEPS.map((s, i) => (
               <div key={s} className="flex items-center">
                 <button
                   type="button"
-                  onClick={() => { setAuto(false); setStepIdx(i); }}
-                  className="relative flex h-7 w-12 items-center justify-center rounded-full text-[10px] font-mono font-bold transition-all"
+                  onClick={() => setStepIdx(i)}
+                  className="relative flex h-6 w-11 items-center justify-center rounded-full text-[10px] font-mono font-bold transition-all"
                   style={{
                     background: i === stepIdx ? '#FF9900' : i < stepIdx ? 'rgba(16,185,129,0.25)' : 'rgba(249,250,251,0.08)',
                     color: i === stepIdx ? '#030712' : i < stepIdx ? '#10B981' : 'rgba(249,250,251,0.55)',
@@ -151,73 +136,44 @@ export function Act6Cutover({ onAdvance }: Act6Props) {
                   {s}%
                 </button>
                 {i < STEPS.length - 1 && (
-                  <div
-                    className="h-px w-3"
-                    style={{ background: i < stepIdx ? '#10B981' : 'rgba(249,250,251,0.1)' }}
-                  />
+                  <div className="h-px w-2.5" style={{ background: i < stepIdx ? '#10B981' : 'rgba(249,250,251,0.1)' }} />
                 )}
               </div>
             ))}
           </div>
 
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setAuto((a) => !a)}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold"
-              style={{
-                background: auto ? 'rgba(255,153,0,0.15)' : 'transparent',
-                borderColor: 'rgba(255,153,0,0.4)',
-                color: '#FF9900',
-              }}
-            >
-              {auto ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-              {auto ? 'Auto-advancing' : 'Paused'}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setAuto(false); setStepIdx((i) => Math.min(STEPS.length - 1, i + 1)); }}
-              disabled={stepIdx >= STEPS.length - 1}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/80 transition-colors hover:bg-white/10 disabled:opacity-30"
-            >
-              Next canary step →
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setStepIdx((i) => Math.min(STEPS.length - 1, i + 1))}
+            disabled={stepIdx >= STEPS.length - 1}
+            className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold transition-transform hover:-translate-y-0.5 disabled:opacity-30"
+            style={{ background: '#FF9900', color: '#030712' }}
+          >
+            {stepIdx === 0 ? 'Begin canary →' : stepIdx >= STEPS.length - 1 ? 'Cutover complete' : 'Next canary step →'}
+          </button>
         </div>
 
         {/* Right: cloudwatch + Kim */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2.5">
           <CloudWatchTile current={current} />
 
-          <AccelerationTile taskId="live-watch" tone="dark" variant="chip" />
-
           <OverrideCard speaker="kim" tone="approve" visible={kimBeforeVisible && !kimAfterVisible} darkMode>
-            <div className="space-y-2">
-              <p>
-                <span className="font-semibold">Runbook clean. Parity report green for 14 straight days.</span>
-              </p>
-              <p className="text-[12px] opacity-85">
-                Go for 1% canary. I’ll hold the rollback lever until we’re past 50% and the monolith path is cold.
-              </p>
-            </div>
+            <p className="text-[12.5px] leading-snug">
+              <strong>Parity green for 14 days.</strong> Go for 1% canary — I&rsquo;ll hold the rollback lever.
+            </p>
           </OverrideCard>
 
           <OverrideCard speaker="kim" tone="approve" visible={kimAfterVisible} darkMode>
-            <div className="space-y-2">
-              <p>
-                <span className="font-semibold">Cutover complete.</span> Monolith OrdersService cold since 14:02 UTC.
-              </p>
-              <p className="text-[12px] opacity-85">
-                Hyper-care closes in 48h. Standing down the rollback lever.
-              </p>
-            </div>
+            <p className="text-[12.5px] leading-snug">
+              <strong>Cutover complete.</strong> Monolith cold at 14:02 UTC.
+            </p>
           </OverrideCard>
 
           <button
             type="button"
             onClick={onAdvance}
             disabled={!cutoverComplete}
-            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: '#FF9900', color: '#030712' }}
           >
             <ShieldCheck className="h-4 w-4" />
@@ -231,8 +187,8 @@ export function Act6Cutover({ onAdvance }: Act6Props) {
 }
 
 function CutoverDial({ percent, complete }: { percent: CanaryStep; complete: boolean }) {
-  const size = 240;
-  const stroke = 14;
+  const size = 180;
+  const stroke = 12;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const dash = (percent / 100) * c;
@@ -255,9 +211,9 @@ function CutoverDial({ percent, complete }: { percent: CanaryStep; complete: boo
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="font-mono text-6xl font-bold" style={{ color: complete ? '#10B981' : '#FF9900' }}>
+        <div className="font-mono text-5xl font-bold" style={{ color: complete ? '#10B981' : '#FF9900' }}>
           {percent}
-          <span className="text-3xl">%</span>
+          <span className="text-2xl">%</span>
         </div>
         <div className="mt-1 text-[10px] uppercase tracking-widest" style={{ color: 'rgba(249,250,251,0.55)' }}>
           {complete ? 'cutover complete' : percent === 0 ? 'pre-cutover' : 'canary live'}

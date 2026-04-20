@@ -26,7 +26,7 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
     <ActShell act={7}>
       <ActHeader
         act={7}
-        eyebrow="Cursor Cloud Agents turned a 14-month modernization into a 22-day one — with every gate still approved by a named human."
+        eyebrow="Cursor Cloud Agents completed a 14-month modernization project in just 22 days, with humans in the loop at every key approval gate."
       />
 
       {/* The close */}
@@ -43,7 +43,7 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
               </span>
             </div>
             <h2 className="text-2xl font-bold leading-tight text-[#0F172A] md:text-[28px]">
-              14 months of work, done in 22 days — because Cursor did the work.
+              OrdersService is live on AWS — and Cursor agents did the majority of the work.
             </h2>
             <p className="mt-1.5 text-[13.5px]" style={{ color: '#475569' }}>
               <strong>{Math.round(AI_TOTALS.baselineHours / 8)} person-days</strong> of senior-engineer work completed in{' '}
@@ -63,8 +63,8 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
             10 mo ahead
           </span>
           <span>
-            Full 38-service portfolio finishes <strong>10 months before</strong> Oracle support ends.
-            The GSI plan would finish <strong>30 months late</strong>.
+            Full 38-service portfolio completed <strong>10 months before</strong> Oracle support ends.
+            The GSI&rsquo;s proposed plan would have finished <strong>30 months late</strong>.
           </span>
         </div>
       </section>
@@ -143,39 +143,31 @@ export function Act7Portfolio({ onReplay }: Act7Props) {
         </button>
       </section>
 
-      {/* Modals */}
+      {/* Modals — each artifact provides its own MacBook + browser chrome */}
       <ArtifactModal
         open={openArtifact === 'console'}
-        title="AWS Console · orders-prod"
-        subtitle="us-east-1 · acme-prod account"
-        accent="#FF9900"
+        ariaLabel="AWS Console · orders-prod"
         onClose={() => setOpenArtifact(null)}
       >
         <AwsConsoleArtifact />
       </ArtifactModal>
       <ArtifactModal
         open={openArtifact === 'triage'}
-        title="Modernization triage · OrdersService"
-        subtitle="Target-state plan v1.2"
-        accent="#16A34A"
+        ariaLabel="Modernization triage report"
         onClose={() => setOpenArtifact(null)}
       >
         <TriageReportArtifact />
       </ArtifactModal>
       <ArtifactModal
         open={openArtifact === 'jira'}
-        title="ORDERS-4201"
-        subtitle="Jira · Epic · Done"
-        accent="#2563EB"
+        ariaLabel="Jira · ORDERS-4201"
         onClose={() => setOpenArtifact(null)}
       >
         <JiraTicketArtifact />
       </ArtifactModal>
       <ArtifactModal
         open={openArtifact === 'pr'}
-        title="PR #247 · acme/orders-modernization"
-        subtitle="Merged · 47 tests green"
-        accent="#8250DF"
+        ariaLabel="GitHub · acme/orders-modernization PR #247"
         onClose={() => setOpenArtifact(null)}
       >
         <GitHubPrArtifact />

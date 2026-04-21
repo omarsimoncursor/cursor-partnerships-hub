@@ -45,33 +45,25 @@ export function ChapterStage({ act, children, topRight }: ChapterStageProps) {
       )}
 
       <div className="relative mx-auto max-w-6xl px-6 pb-28 pt-8 md:px-10">
-        <header className="mb-10">
+        <header className="mb-8">
           <div
-            className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em]"
+            className="mb-1.5 flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.22em]"
             style={{ color: theme.primary }}
           >
-            <span>Act {act.number.toString().padStart(2, '0')}</span>
-            {theme.moodLabel && (
-              <>
-                <span style={{ color: theme.muted, opacity: 0.5 }}>·</span>
-                <span style={{ color: theme.muted, letterSpacing: '0.2em' }}>
-                  {theme.moodLabel}
-                </span>
-              </>
-            )}
+            <span>Act {act.number.toString().padStart(2, '0')} of 07</span>
             <span style={{ color: theme.muted, opacity: 0.5 }}>·</span>
             <span className="font-mono" style={{ color: theme.muted, letterSpacing: '0.12em' }}>
               {act.duration}
             </span>
           </div>
           <h1
-            className="text-[28px] font-semibold leading-[1.1] tracking-tight md:text-[40px]"
+            className="text-[24px] font-semibold leading-[1.15] tracking-tight md:text-[32px]"
             style={{ color: theme.text }}
           >
             {act.title}
           </h1>
           <p
-            className="mt-2 max-w-2xl text-[14px] md:text-[15px] leading-snug"
+            className="mt-1.5 max-w-2xl text-[13.5px] md:text-[14px] leading-snug"
             style={{ color: theme.muted }}
           >
             {act.subtitle}

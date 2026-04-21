@@ -38,9 +38,9 @@ export const ACTS: ActMeta[] = [
     id: 'the-wall',
     number: 1,
     title: 'The Wall',
-    subtitle: '911 legacy assets. One more failure before Q2 close.',
+    subtitle: 'Meet the problem.',
     eyebrow: 'Tuesday 9:42pm · The data team has been here before',
-    duration: '~75s',
+    duration: '~1 min',
     theme: {
       bg: '#0F1521',
       primary: '#F59E0B',
@@ -55,9 +55,9 @@ export const ACTS: ActMeta[] = [
     id: 'the-quote',
     number: 2,
     title: 'The Quote',
-    subtitle: '$18,000,000 · 4 years · the CFO says no',
+    subtitle: 'See the path the team is trying to avoid.',
     eyebrow: 'Wednesday · the GSI proposal lands in the inbox',
-    duration: '~60s',
+    duration: '~1 min',
     theme: {
       bg: '#FAF8F3',
       primary: '#B91C1C',
@@ -71,10 +71,10 @@ export const ACTS: ActMeta[] = [
   {
     id: 'diagnosis',
     number: 3,
-    title: 'Diagnosis',
-    subtitle: '63,180 lines. Indexed in 4 minutes.',
-    eyebrow: 'Friday 8:04am · Cursor reads every legacy script',
-    duration: '~90s',
+    title: 'Cursor reads the codebase',
+    subtitle: 'Send Cursor in. See what it finds.',
+    eyebrow: 'Friday 8:04am · the team kicks off the pilot',
+    duration: '~2 min',
     theme: {
       bg: '#0B1220',
       primary: '#29B5E8',
@@ -88,10 +88,10 @@ export const ACTS: ActMeta[] = [
   {
     id: 'first-asset',
     number: 4,
-    title: 'First Asset',
-    subtitle: 'daily_revenue_rollup → Snowflake · 4 hours · end-to-end',
+    title: 'Cursor migrates the first asset',
+    subtitle: 'Five steps. Click each one to actuate Cursor.',
     eyebrow: 'Friday · the agent does the work, the team keeps control',
-    duration: '~3m',
+    duration: '~3 min',
     theme: {
       bg: '#0D1117',
       primary: '#29B5E8',
@@ -105,10 +105,10 @@ export const ACTS: ActMeta[] = [
   {
     id: 'proof-and-review',
     number: 5,
-    title: 'Proof & Review',
-    subtitle: 'Zero row delta · Cortex no-drift · reviewer approves',
+    title: 'Prove it, then ship it',
+    subtitle: 'Verify the new model matches the old. Then ask the reviewer.',
     eyebrow: 'Friday 12:22pm · the review that makes it real',
-    duration: '~2m',
+    duration: '~2 min',
     theme: {
       bg: '#060A12',
       primary: '#A78BFA',
@@ -122,10 +122,10 @@ export const ACTS: ActMeta[] = [
   {
     id: 'scale',
     number: 6,
-    title: 'Scale',
-    subtitle: '911 assets · 15 months · $16M pulled-forward credits',
-    eyebrow: 'Asset #1 was Friday. Watch the wall light up.',
-    duration: '~3m',
+    title: 'Now do that 910 more times',
+    subtitle: 'Press play. Watch fifteen months go by.',
+    eyebrow: 'Asset #1 was Friday. Cursor is back on Monday.',
+    duration: '~2 min',
     theme: {
       bg: '#05101C',
       primary: '#4C9AFF',
@@ -139,10 +139,10 @@ export const ACTS: ActMeta[] = [
   {
     id: 'morning-after',
     number: 7,
-    title: 'The Morning After',
+    title: 'The morning after',
     subtitle: 'Teradata goes dark. The data team sleeps through the night.',
     eyebrow: '15 months later · Monday 6:47am',
-    duration: '~60s',
+    duration: '~1 min',
     theme: {
       bg: 'linear-gradient(180deg, #FAFBFC 0%, #EEF2F6 100%)',
       primary: '#29B5E8',

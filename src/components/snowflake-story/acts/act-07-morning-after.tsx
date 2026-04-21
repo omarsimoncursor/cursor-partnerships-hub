@@ -1,136 +1,223 @@
 'use client';
 
+import { useState } from 'react';
 import { ChapterStage } from '../chapter-stage';
 import { ACTS, type ActComponentProps } from '../story-types';
 import { CursorValueCallout } from '../cursor-value-callout';
-import { EmailThread } from '../email-thread';
-import { Disclosure } from '../disclosure';
-import { CheckCircle2, Moon, Power, Rocket, RotateCcw, Sparkles, TrendingUp } from 'lucide-react';
+import { StoryStep } from '../story-step';
+import { StepActuator } from '../step-actuator';
+import { StepResult } from '../step-result';
+import { CheckCircle2, Moon, Power, RotateCcw } from 'lucide-react';
 
 interface Act07Props extends ActComponentProps {
   onAdvance: () => void;
 }
 
+type Beat = 'idle' | 'shutdown' | 'sleep' | 'final';
+
 export function Act07MorningAfter({ onAdvance }: Act07Props) {
   const act = ACTS[6];
+  const [beat, setBeat] = useState<Beat>('idle');
+
+  if (beat === 'idle') {
+    return (
+      <ChapterStage act={act}>
+        <StoryStep
+          tone="light"
+          accent="#16A34A"
+          step="The result · 1 of 3"
+          setting="15 months later · Monday 6:47am"
+          question={
+            <>
+              The portfolio is on Snowflake. Teradata is decommissioned. The data team had a quiet
+              weekend.
+            </>
+          }
+          actuator={
+            <StepActuator
+              tone="light"
+              accent="#16A34A"
+              status="idle"
+              runLabel="Read the close-out memo"
+              runSub="One Monday-morning summary, then the shutdown log."
+              onRun={() => setBeat('shutdown')}
+            />
+          }
+          rail={
+            <CursorValueCallout
+              tone="light"
+              accent="#16A34A"
+              headline="Cursor closed a 4-year migration in 15 months — without outsourcing taste."
+              body="Your team wrote the standards, Cursor wrote the code, your reviewer approved every merge."
+            />
+          }
+        >
+          <div className="rounded-2xl border border-[#0F172A]/10 bg-white p-6 shadow-sm">
+            <p className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-[#16A34A]">
+              Email · Monday 6:52am
+            </p>
+            <p className="mt-2 text-[16px] font-semibold text-[#0F172A]">
+              Teradata decommissioned · 911 assets live on Snowflake
+            </p>
+            <p className="mt-3 text-[13px] text-[#475569]">
+              From: <strong className="text-[#0F172A]">VP Data &amp; Analytics</strong> · To: CFO,
+              CEO, Board
+            </p>
+            <div className="mt-3 space-y-2 text-[14px] leading-relaxed text-[#0F172A]">
+              <p>
+                Last Teradata process ran at 06:00 this morning. License relinquished, renewal
+                cancelled. 911 assets on Snowflake, all approved through our reviewer gates, all
+                reconciled against the legacy source.
+              </p>
+              <p>
+                Against the GSI baseline: <strong>33 months earlier</strong>,{' '}
+                <strong>~$12M less out the door</strong>,{' '}
+                <strong>~$5.9M / yr in steady-state savings</strong>. The data team kept the
+                keyboard the whole way.
+              </p>
+            </div>
+          </div>
+        </StoryStep>
+      </ChapterStage>
+    );
+  }
+
+  if (beat === 'shutdown') {
+    return (
+      <ChapterStage act={act}>
+        <StoryStep
+          tone="light"
+          accent="#B91C1C"
+          step="The result · 2 of 3"
+          setting="06:00 PT, Monday morning"
+          question={
+            <>
+              The last Teradata process ran at <span className="text-[#B91C1C]">06:00 PT</span>.
+              The legacy stack is dark.
+            </>
+          }
+          actuator={
+            <StepActuator
+              tone="light"
+              accent="#B91C1C"
+              status="done"
+              doneLabel="Teradata is dark"
+              continueLabel="Continue · how the data team&rsquo;s week looks now"
+              onContinue={() => setBeat('sleep')}
+            />
+          }
+          rail={
+            <CursorValueCallout
+              tone="light"
+              accent="#B91C1C"
+              headline="Decommissioning is the real proof of a migration."
+              body="A migration nobody dares to turn the legacy stack off after isn&rsquo;t a migration. This one is."
+            />
+          }
+        >
+          <TeradataShutdown />
+        </StoryStep>
+      </ChapterStage>
+    );
+  }
+
+  if (beat === 'sleep') {
+    return (
+      <ChapterStage act={act}>
+        <StoryStep
+          tone="light"
+          accent="#16A34A"
+          step="The result · 3 of 3"
+          setting="The data team&rsquo;s calendar this week"
+          question={<>For the first time in three years: zero pages over the weekend.</>}
+          actuator={
+            <StepActuator
+              tone="light"
+              accent="#16A34A"
+              status="done"
+              doneLabel="No incidents to attend to"
+              continueLabel="Continue · the final tally"
+              onContinue={() => setBeat('final')}
+            />
+          }
+          rail={
+            <CursorValueCallout
+              tone="light"
+              accent="#16A34A"
+              headline="The team&rsquo;s upside isn&rsquo;t just delivered code."
+              body="It&rsquo;s the on-call shift that doesn&rsquo;t page, the heads-down day that stays heads-down, the retro that&rsquo;s about new work instead of old fires."
+            />
+          }
+        >
+          <CalendarCard />
+        </StoryStep>
+      </ChapterStage>
+    );
+  }
 
   return (
     <ChapterStage act={act}>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start">
-        <div className="flex flex-col gap-4">
-          <CalendarCard />
-          <Disclosure
-            label="See the Teradata shutdown log"
-            meta="last process · 06:00 PT"
-            icon={<Power className="h-3 w-3" />}
-            tone="light"
-            accent="#B91C1C"
-          >
-            <div className="pt-1">
-              <TeradataShutdown />
-            </div>
-          </Disclosure>
-        </div>
-
-        <div className="flex flex-col gap-4 lg:sticky lg:top-24">
-          <EmailThread
-            label="Inbox · Acme · close-out"
-            tone="light"
-            messages={[
-              {
-                from: 'vp',
-                to: 'CFO; CEO; Board',
-                time: 'Monday 6:52am',
-                subject: 'Teradata decommissioned · portfolio on Snowflake',
-                body: (
-                  <>
-                    <p>
-                      Last Teradata process ran at 06:00 this morning. License is relinquished,
-                      renewal cancelled. 911 assets on Snowflake, all approved through our
-                      reviewer gates, all reconciled against the legacy source.
-                    </p>
-                    <p className="mt-2">
-                      Against the GSI baseline: 33 months earlier, ~$12M less out the door,
-                      ~$5.9M/yr in steady-state TCO swing. The data team kept the keyboard the
-                      whole way.
-                    </p>
-                  </>
-                ),
-                attachments: [{ label: 'close-out-memo.pdf' }, { label: 'portfolio-snapshot.xlsx' }],
-              },
-              {
-                from: 'principal',
-                to: 'VP Data & Analytics',
-                time: 'Monday 7:04am',
-                subject: 'Teradata decommissioned · portfolio on Snowflake',
-                body: (
-                  <>
-                    <p>
-                      First weekend on-call in three years without a page. I slept nine hours.
-                      That&apos;s the metric I&apos;m bringing to the retro.
-                    </p>
-                    <p className="mt-2">
-                      Next wave: Cortex-powered agents on the modernized marts. Cursor already
-                      has a draft plan — I&apos;ll review it Wednesday.
-                    </p>
-                  </>
-                ),
-              },
-            ]}
-          />
-
-          <CursorValueCallout
+      <StoryStep
+        tone="light"
+        accent="#16A34A"
+        step="The result · final"
+        setting="Compared to the GSI&rsquo;s 4-year, $18M proposal"
+        question={<>This is what the team brought to the board meeting.</>}
+        result={
+          <StepResult
             tone="light"
             accent="#16A34A"
-            label="Why this story ends differently"
-            headline="Cursor turned a 4-year migration into a 15-month modernization — without outsourcing a line of taste."
-            body="Your team wrote the taste, Cursor wrote the code, your reviewer approved the merge. Snowflake credits started flowing in month one, not month forty. That's the shape of every modernization Cursor runs."
-            footer={
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <OutcomeStat icon={<TrendingUp className="h-3 w-3" />} label="Credits pulled forward" value="33 months" />
-                <OutcomeStat icon={<Rocket className="h-3 w-3" />} label="Migration finished in" value="15 months" />
-                <OutcomeStat icon={<Sparkles className="h-3 w-3" />} label="Cortex agents live" value="14" />
-              </div>
-            }
+            headline="A 4-year, $18M migration delivered in 15 months — with the data team on the keyboard the whole way."
+            stats={[
+              { label: 'Time vs GSI', value: '15 mo', hint: 'vs 48 months' },
+              { label: 'Pulled-forward credits', value: '~$16M', hint: '33 months earlier' },
+              { label: 'Steady-state savings', value: '$5.9M / yr', hint: 'TCO swing' },
+              { label: 'Reviewer approval', value: '100%', hint: 'every merge' },
+            ]}
+            continueLabel="Replay the story from the start"
+            onContinue={onAdvance}
           />
-
+        }
+        rail={
           <button
             onClick={onAdvance}
-            className="mx-auto inline-flex items-center gap-2 rounded-full border border-[#0F172A]/15 bg-white px-5 py-3 text-[13px] font-semibold text-[#0F172A] shadow-sm hover:bg-[#F1F5F9] cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-[#0F172A]/15 bg-white px-5 py-3 text-[13px] font-semibold text-[#0F172A] shadow-sm hover:bg-[#F1F5F9] cursor-pointer"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Play the story again
           </button>
-        </div>
-      </div>
+        }
+      >
+        <div />
+      </StoryStep>
     </ChapterStage>
   );
 }
 
 function CalendarCard() {
-  const events: Array<{ day: string; label: string; kind: 'sleep' | 'meeting' | 'clear' }> = [
-    { day: 'Mon', label: '6:47 — coffee. Nothing paging.', kind: 'sleep' },
-    { day: 'Mon', label: '10:00 — 1:1 with reviewer · 30m', kind: 'meeting' },
-    { day: 'Tue', label: '(open)', kind: 'clear' },
-    { day: 'Wed', label: 'Cortex agents working group', kind: 'meeting' },
-    { day: 'Thu', label: '(open — heads-down)', kind: 'clear' },
-    { day: 'Fri', label: '14:00 — modernization retro', kind: 'meeting' },
+  const events: Array<{ day: string; label: string; tone: 'sleep' | 'meeting' | 'clear' }> = [
+    { day: 'Mon', label: '6:47 — coffee. Nothing paging.', tone: 'sleep' },
+    { day: 'Mon', label: '10:00 — 1:1 with reviewer · 30m', tone: 'meeting' },
+    { day: 'Tue', label: '(open)', tone: 'clear' },
+    { day: 'Wed', label: 'Cortex agents working group', tone: 'meeting' },
+    { day: 'Thu', label: '(open — heads-down)', tone: 'clear' },
+    { day: 'Fri', label: '14:00 — modernization retro', tone: 'meeting' },
   ];
   return (
-    <div className="rounded-2xl border border-[#0F172A]/10 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-3 mb-4">
+    <div className="rounded-2xl border border-[#0F172A]/10 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center gap-3">
         <div>
           <p className="text-[12px] font-semibold text-[#0F172A]">Data team · this week</p>
-          <p className="text-[10.5px] font-mono text-[#64748B]">
-            No &ldquo;pipeline failure&rdquo; invites. No 2am pages. First time in three years.
+          <p className="font-mono text-[10.5px] text-[#64748B]">
+            No &ldquo;pipeline failure&rdquo; invites. No 2am pages.
           </p>
         </div>
-        <span className="ml-auto flex items-center gap-1.5 text-[10.5px] font-mono text-[#16A34A]">
-          <Moon className="w-3 h-3" /> on-call page count: 0
+        <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10.5px] text-[#16A34A]">
+          <Moon className="h-3 w-3" /> on-call pages: 0
         </span>
       </div>
 
-      <div className="grid grid-cols-[auto_1fr] gap-y-2 gap-x-4 text-[12.5px]">
+      <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[12.5px]">
         {events.map((e, i) => (
           <CalendarRow key={i} {...e} />
         ))}
@@ -139,27 +226,19 @@ function CalendarCard() {
   );
 }
 
-function CalendarRow({
-  day,
-  label,
-  kind,
-}: {
-  day: string;
-  label: string;
-  kind: 'sleep' | 'meeting' | 'clear';
-}) {
+function CalendarRow({ day, label, tone }: { day: string; label: string; tone: 'sleep' | 'meeting' | 'clear' }) {
   const palette = {
-    sleep: { color: '#16A34A' },
-    meeting: { color: '#2563EB' },
-    clear: { color: '#94A3B8' },
-  }[kind];
+    sleep: '#16A34A',
+    meeting: '#2563EB',
+    clear: '#94A3B8',
+  }[tone];
   return (
     <>
-      <span className="text-[10.5px] font-mono uppercase tracking-wider text-[#64748B] pt-0.5">
+      <span className="pt-0.5 font-mono text-[10.5px] uppercase tracking-wider text-[#64748B]">
         {day}
       </span>
-      <span className="flex items-start gap-2" style={{ color: palette.color }}>
-        <CheckCircle2 className="h-3 w-3 mt-0.5" />
+      <span className="flex items-start gap-2" style={{ color: palette }}>
+        <CheckCircle2 className="mt-0.5 h-3 w-3" />
         <span className="text-[#0F172A]">{label}</span>
       </span>
     </>
@@ -169,65 +248,40 @@ function CalendarRow({
 function TeradataShutdown() {
   return (
     <div className="rounded-2xl border border-[#F87171]/30 bg-gradient-to-br from-[#FEF2F2] to-white p-5 shadow-sm">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 rounded-md bg-[#F87171]/15 border border-[#F87171]/35 flex items-center justify-center">
-          <Power className="w-4 h-4 text-[#B91C1C]" />
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md border border-[#F87171]/35 bg-[#F87171]/15">
+          <Power className="h-4 w-4 text-[#B91C1C]" />
         </div>
         <div>
-          <p className="text-[12px] font-semibold text-[#0F172A]">Teradata console · acme-prod</p>
-          <p className="text-[10.5px] font-mono text-[#64748B]">
+          <p className="text-[12px] font-semibold text-[#0F172A]">
+            Teradata console · acme-prod
+          </p>
+          <p className="font-mono text-[10.5px] text-[#64748B]">
             Last process decommissioned 06:00 PT, Monday morning.
           </p>
         </div>
-        <span className="ml-auto text-[10.5px] font-mono text-[#B91C1C] uppercase tracking-wider">
+        <span className="ml-auto font-mono text-[10.5px] uppercase tracking-wider text-[#B91C1C]">
           dark
         </span>
       </div>
 
-      <div className="rounded-md border border-[#0F172A]/10 bg-[#0F1521] text-white font-mono text-[11.5px] p-3 space-y-0.5 leading-relaxed">
+      <div className="space-y-0.5 rounded-md border border-[#0F172A]/10 bg-[#0F1521] p-3 font-mono text-[11.5px] leading-relaxed text-white">
         <p>
           <span className="text-[#F87171]">[TD-PROD]</span> STOP SESSION * — 0 active sessions
         </p>
         <p>
-          <span className="text-[#F87171]">[TD-PROD]</span> CHECKPOINT fct_daily_revenue — last run
-          15 months ago
+          <span className="text-[#F87171]">[TD-PROD]</span> CHECKPOINT fct_daily_revenue — last
+          run 15 months ago
         </p>
         <p>
           <span className="text-[#F87171]">[TD-PROD]</span> BTEQ repository frozen at commit{' '}
           <span className="text-[#7DD3F5]">a27f3d1</span>
         </p>
         <p>
-          <span className="text-[#F87171]">[TD-PROD]</span> License relinquished · renewal cancelled
-        </p>
-        <p className="pt-1">
-          <span className="text-[#4ADE80]">[SNOWFLAKE]</span> Marketplace listing live ·
-          customer-360 mart available to 3 partners
-        </p>
-        <p>
-          <span className="text-[#4ADE80]">[SNOWFLAKE]</span> Cortex agents in staging · 14
-          workflows on the modernized marts
+          <span className="text-[#F87171]">[TD-PROD]</span> License relinquished · renewal
+          cancelled
         </p>
       </div>
-    </div>
-  );
-}
-
-function OutcomeStat({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-md border border-[#0F172A]/10 bg-white px-2 py-2">
-      <div className="flex items-center justify-center gap-1 text-[9.5px] font-mono uppercase tracking-wider text-[#64748B]">
-        {icon}
-        {label}
-      </div>
-      <p className="text-[14px] font-mono font-semibold text-[#16A34A]">{value}</p>
     </div>
   );
 }

@@ -1,47 +1,66 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ChapterStage } from '../chapter-stage';
 import { ACTS, type ActComponentProps } from '../story-types';
 import { BteqToDbtMorph } from '../bteq-to-dbt-morph';
-import { TimelineScrubber } from '../timeline-scrubber';
 import { ChatThread, type ChatMessage } from '../chat-thread';
 import { CursorValueCallout } from '../cursor-value-callout';
-import { Disclosure } from '../disclosure';
-import { ListChecks } from 'lucide-react';
+import { StoryStep } from '../story-step';
+import { StepActuator } from '../step-actuator';
+import { StepResult } from '../step-result';
 import { FileCode2, GitBranch, Play, TestTube2, UserCircle2 } from 'lucide-react';
 
-type Phase = 0 | 1 | 2 | 3 | 4;
+type PhaseId = 0 | 1 | 2 | 3 | 4;
+type Status = 'idle' | 'running' | 'done';
 
-interface PhaseMeta {
-  id: Phase;
+interface Phase {
+  id: PhaseId;
   label: string;
   when: string;
-  title: string;
-  body: React.ReactNode;
+  /** What this phase is trying to accomplish, in plain English. */
+  question: React.ReactNode;
+  /** Idle-state button label. */
+  runLabel: string;
+  /** Running-state label. */
+  runningLabel: string;
+  /** Done summary headline. */
+  resultHeadline: React.ReactNode;
+  /** Done summary stats. */
+  resultStats: { label: string; value: string; hint?: string }[];
   morphProgress: number;
   highlight: 'multiset' | 'qualify' | 'collect-stats' | 'date-math' | null;
   icon: React.ReactNode;
   accent: string;
+  /** Chat messages this phase appends to the running thread. */
   thread: ChatMessage[];
+  /** "What Cursor did here" rail. */
+  rail: { headline: string; body: string };
 }
 
-const PHASES: PhaseMeta[] = [
+const PHASES: Phase[] = [
   {
     id: 0,
     label: 'Plan',
     when: 'T+14m',
-    title: 'Cursor drafts the plan. The reviewer gets the first say.',
-    body: (
-      <p>
-        Cursor posts the modernization plan to <span className="font-mono text-[#7DD3F5]">#data-platform</span>:
-        target shape (staging + fct + 14 tests), idiom map, verification strategy (Cortex semantic
-        diff + 1% row-equivalence harness). No code gets written before the plan is reviewed.
-      </p>
+    question: (
+      <>
+        Cursor reads <span className="text-[#7DD3F5]">daily_revenue_rollup.bteq</span> and
+        proposes how to rewrite it for Snowflake — <em>before</em> writing any code. The reviewer
+        gets the first say.
+      </>
     ),
+    runLabel: 'Ask Cursor for a plan',
+    runningLabel: 'Cursor is drafting the plan…',
+    resultHeadline: 'Cursor posted the plan. The principal pushed back on rounding behavior. No code yet.',
+    resultStats: [
+      { label: 'Time to plan', value: '14m', hint: 'GSI baseline: 2 weeks' },
+      { label: 'Plan changes requested', value: '1', hint: 'banker’s rounding' },
+      { label: 'Code written', value: '0 lines', hint: 'plan-first workflow' },
+    ],
     morphProgress: 0.08,
     highlight: null,
-    icon: <FileCode2 className="w-3.5 h-3.5" />,
+    icon: <FileCode2 className="h-3.5 w-3.5" />,
     accent: '#7DD3F5',
     thread: [
       {
@@ -52,8 +71,7 @@ const PHASES: PhaseMeta[] = [
             <p>
               Proposed plan for <span className="font-mono">daily_revenue_rollup</span>: staging
               CTE replaces MULTISET VOLATILE, QUALIFY stays native, COLLECT STATS drops out. 14
-              tests on grain, FX, and top-100 rank. Verification: Cortex semantic diff + 1%
-              row-equivalence harness.
+              tests on grain, FX and top-100 rank.
             </p>
             <p className="mt-1.5">No code written yet — ready for your review.</p>
           </>
@@ -65,30 +83,38 @@ const PHASES: PhaseMeta[] = [
         time: '10:34 AM',
         body: (
           <p>
-            Hold. Banker&apos;s rounding, not half-up — finance reconciles monthly against the
-            BTEQ. And the staging CTE with <span className="font-mono">ON COMMIT</span> reads
-            odd; if you need cross-step state use a transient.
+            Hold. Banker&rsquo;s rounding, not half-up — finance reconciles monthly against the
+            BTEQ.
           </p>
         ),
       },
     ],
+    rail: {
+      headline: 'Cursor proposes; the team approves. No surprises.',
+      body: 'The plan is written in English the reviewer can read. A 14-minute plan replaces what would be a 2-week kickoff with a vendor.',
+    },
   },
   {
     id: 1,
     label: 'Translate',
     when: 'T+1h 05m',
-    title: 'Cursor rewrites the BTEQ as a Snowflake-native dbt model.',
-    body: (
-      <p>
-        Each Teradata-specific token rewrites to its Snowflake equivalent.
-        <span className="font-mono text-[#29B5E8]"> MULTISET VOLATILE</span> folds into a CTE,
-        <span className="font-mono text-[#29B5E8]"> QUALIFY</span> stays native,{' '}
-        <span className="font-mono text-[#29B5E8]"> COLLECT STATS</span> disappears.
-      </p>
+    question: (
+      <>
+        Now Cursor rewrites the legacy script as a Snowflake-native dbt model — applying the
+        principal&rsquo;s rounding correction.
+      </>
     ),
+    runLabel: 'Translate the script',
+    runningLabel: 'Cursor is rewriting the legacy script for Snowflake…',
+    resultHeadline: 'Translated. Watch each Teradata-specific token rewrite into its Snowflake equivalent below.',
+    resultStats: [
+      { label: 'Lines rewritten', value: '180', hint: '+180 / −12 in dbt' },
+      { label: 'Dialect quirks', value: '3', hint: 'MULTISET · QUALIFY · COLLECT STATS' },
+      { label: 'Sample row delta', value: '0', hint: 'against legacy on 1% sample' },
+    ],
     morphProgress: 0.55,
     highlight: 'multiset',
-    icon: <GitBranch className="w-3.5 h-3.5" />,
+    icon: <GitBranch className="h-3.5 w-3.5" />,
     accent: '#29B5E8',
     thread: [
       {
@@ -96,8 +122,7 @@ const PHASES: PhaseMeta[] = [
         time: '11:05 AM',
         body: (
           <p>
-            Translated. Diff is ~180 lines of dbt. Banker&apos;s-rounding macro added, transient
-            staging table swapped in. Re-ran the 1% sample — Δ still zero.
+            Translated. Banker&rsquo;s-rounding macro added. Re-ran the 1% sample — Δ still zero.
           </p>
         ),
         attachments: [
@@ -106,22 +131,32 @@ const PHASES: PhaseMeta[] = [
         ],
       },
     ],
+    rail: {
+      headline: 'A migration the team can read while it&rsquo;s being written.',
+      body: 'Cursor doesn’t hand back a black box. The diff is one click away, and the team has been in the loop since the plan.',
+    },
   },
   {
     id: 2,
-    label: 'Human override',
+    label: 'Override',
     when: 'T+1h 47m',
-    title: 'The principal intervenes. Cursor adapts.',
-    body: (
-      <p>
-        The principal notices the QUALIFY ordering differs subtly from the BTEQ — a tie-break on{' '}
-        <span className="font-mono text-[#F59E0B]">customer_id</span> the original script relied
-        on implicitly. Cursor adjusts the window spec and re-runs the plan against the 1% sample.
-      </p>
+    question: (
+      <>
+        The principal spots a tie-break the legacy script relied on implicitly. Cursor adapts on
+        the spot.
+      </>
     ),
-    morphProgress: 0.75,
+    runLabel: 'Send the correction to Cursor',
+    runningLabel: 'Cursor is absorbing the correction…',
+    resultHeadline: 'Cursor applied the fix and re-verified against the sample. No rank drift.',
+    resultStats: [
+      { label: 'Time to absorb', value: '16m', hint: 'no SOW change order' },
+      { label: 'Rank drift', value: '0', hint: 'top-100 customers' },
+      { label: 'Reviewer comments', value: '1 → 0', hint: 'resolved' },
+    ],
+    morphProgress: 0.78,
     highlight: 'qualify',
-    icon: <UserCircle2 className="w-3.5 h-3.5" />,
+    icon: <UserCircle2 className="h-3.5 w-3.5" />,
     accent: '#F59E0B',
     thread: [
       {
@@ -129,43 +164,39 @@ const PHASES: PhaseMeta[] = [
         time: '11:47 AM',
         body: (
           <p>
-            The QUALIFY ties break on <span className="font-mono">customer_id</span> in the
-            original. If you leave it off the ORDER BY we&apos;ll see rank drift on the top-100
-            leaderboard. Finance will find it by Wednesday.
+            QUALIFY ties break on <span className="font-mono">customer_id</span> in the original.
+            Off the ORDER BY = rank drift on the top-100 leaderboard. Finance will find it.
           </p>
         ),
       },
       {
         from: 'cursor',
         time: '12:03 PM',
-        body: (
-          <p>
-            Good catch. Adjusted the ORDER BY, re-ran on the 1% sample. Top-100 rank drift is
-            still zero.
-          </p>
-        ),
+        body: <p>Good catch. Adjusted the ORDER BY, re-ran on the 1% sample. Drift is zero.</p>,
         attachments: [{ label: 'window-spec.diff', sub: '+1 −0' }],
       },
     ],
+    rail: {
+      headline: 'Cursor changes course in minutes, not change orders.',
+      body: 'Every correction the team makes is absorbed and re-verified before the next coffee. No invoices, no scope creep.',
+    },
   },
   {
     id: 3,
     label: 'Run',
     when: 'T+2h 14m',
-    title: 'First successful dbt run on Snowflake.',
-    body: (
-      <p>
-        <span className="font-mono text-[#4ADE80]">
-          dbt run --select fct_daily_revenue --target dev
-        </span>
-        <br />
-        X-Small warehouse. 12.8s wall-clock. 14 tests compile. Cursor opens Snowsight so the team
-        can inspect the DAG and query profile.
-      </p>
-    ),
+    question: <>Time to see if it actually runs on Snowflake.</>,
+    runLabel: 'Run the new model on Snowflake',
+    runningLabel: 'Executing dbt run on Snowflake X-Small warehouse…',
+    resultHeadline: 'First successful dbt run. 12.8 seconds, zero errors.',
+    resultStats: [
+      { label: 'Wall-clock', value: '12.8s', hint: 'vs 3,412s on Teradata' },
+      { label: 'Speedup', value: '266×', hint: 'same logic' },
+      { label: 'Models built', value: '1 of 1', hint: 'no errors' },
+    ],
     morphProgress: 0.95,
     highlight: null,
-    icon: <Play className="w-3.5 h-3.5" />,
+    icon: <Play className="h-3.5 w-3.5" />,
     accent: '#4ADE80',
     thread: [
       {
@@ -173,30 +204,39 @@ const PHASES: PhaseMeta[] = [
         time: '12:14 PM',
         body: (
           <p>
-            Snowflake XS warehouse. 12.8s wall-clock. One model, zero errors. Opening Snowsight
-            so you can eyeball the DAG. Running the 14 tests next.
+            Snowflake X-Small. 12.8s wall-clock. One model, zero errors. Opening Snowsight for
+            you. Running the 14 tests next.
           </p>
         ),
         attachments: [{ label: 'snowsight://fct_daily_revenue', sub: 'opened in browser' }],
       },
     ],
+    rail: {
+      headline: 'A 57-minute Teradata job becomes a 13-second Snowflake job.',
+      body: 'Same business logic, written natively for the new platform. The performance is a free side effect.',
+    },
   },
   {
     id: 4,
     label: 'Test',
     when: 'T+2h 38m',
-    title: '13 of 14 pass. Cursor diagnoses the one that fails — unprompted.',
-    body: (
-      <p>
-        <span className="font-mono text-[#F87171]">✗ not_null_currency_code (4 rows)</span>.
-        Cursor diagnoses: XOF (CFA franc) FX rates deprecated in 2023 — the legacy BTEQ was
-        silently dropping them. Cursor proposes a seed + explicit audit table so finance can
-        hand-review instead of losing rows.
-      </p>
+    question: (
+      <>
+        Cursor runs the test suite. One test fails — and Cursor diagnoses why{' '}
+        <em>without being asked</em>.
+      </>
     ),
+    runLabel: 'Run the 14 tests',
+    runningLabel: 'Running 14 tests against the new model…',
+    resultHeadline: 'Cursor caught a deprecated currency the legacy script had been silently dropping for two years.',
+    resultStats: [
+      { label: 'Tests passed', value: '13 / 14', hint: 'after first run' },
+      { label: 'Bug found', value: 'XOF FX', hint: 'deprecated 2023' },
+      { label: 'Rows surfaced', value: '4', hint: 'instead of dropped' },
+    ],
     morphProgress: 1,
     highlight: 'date-math',
-    icon: <TestTube2 className="w-3.5 h-3.5" />,
+    icon: <TestTube2 className="h-3.5 w-3.5" />,
     accent: '#C084FC',
     thread: [
       {
@@ -207,11 +247,11 @@ const PHASES: PhaseMeta[] = [
             <p>
               Test <span className="font-mono text-[#F87171]">not_null_currency_code</span>{' '}
               failed on 4 rows. Root cause: XOF (CFA franc) FX rate deprecated in 2023. Legacy
-              BTEQ silently dropped those rows.
+              BTEQ silently dropped them.
             </p>
             <p className="mt-1.5">
-              Proposing a seed plus an audit table — not a silent COALESCE. Finance should see
-              those four rows, not lose them.
+              Proposing a seed plus an audit table — not a silent COALESCE. Finance should{' '}
+              <em>see</em> those four rows.
             </p>
           </>
         ),
@@ -225,144 +265,145 @@ const PHASES: PhaseMeta[] = [
         time: '12:46 PM',
         body: (
           <p>
-            Exactly right. I&apos;d rather surface four rows in an exceptions table than lose
-            them. Ship the seed. I&apos;ll flag it to finance for hand-review.
+            Exactly right. Surface them. I&rsquo;ll flag finance for hand-review. Ship the seed.
           </p>
         ),
       },
     ],
+    rail: {
+      headline: 'Cursor doesn&rsquo;t just translate. It improves the data hygiene.',
+      body: 'A two-year-old silent bug in the legacy script comes out in the open — because Cursor knows to ask the team rather than paper it over.',
+    },
   },
 ];
 
-export function Act04FirstAsset({ onOpenArtifact }: ActComponentProps) {
+export function Act04FirstAsset({ onAdvance }: ActComponentProps) {
   const act = ACTS[3];
-  const [phase, setPhase] = useState<Phase>(0);
+  const [phaseIndex, setPhaseIndex] = useState<PhaseId>(0);
+  const [phaseStatus, setPhaseStatus] = useState<Status>('idle');
 
-  useEffect(() => {
-    if (phase >= PHASES.length - 1) return;
-    const t = setTimeout(() => setPhase((p) => Math.min(4, p + 1) as Phase), 7000);
-    return () => clearTimeout(t);
-  }, [phase]);
+  const meta = PHASES[phaseIndex];
+  const cumulativeMessages = PHASES.slice(0, phaseIndex)
+    .flatMap((p) => p.thread)
+    .concat(phaseStatus !== 'idle' ? meta.thread : []);
+  const morphProgress =
+    phaseStatus === 'idle' && phaseIndex === 0
+      ? 0
+      : phaseStatus === 'idle'
+        ? PHASES[phaseIndex - 1]?.morphProgress ?? 0
+        : meta.morphProgress;
 
-  const meta = PHASES[phase];
+  const onRun = () => {
+    setPhaseStatus('running');
+    setTimeout(() => setPhaseStatus('done'), 2200);
+  };
+
+  const onContinue = () => {
+    if (phaseIndex < PHASES.length - 1) {
+      setPhaseIndex((p) => (p + 1) as PhaseId);
+      setPhaseStatus('idle');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      onAdvance();
+    }
+  };
 
   return (
     <ChapterStage act={act}>
-      <p className="mb-6 max-w-2xl text-[14px] leading-relaxed text-white/70">
-        Friday afternoon. Cursor takes one asset end-to-end — plan, translate, run, test — and
-        pauses for the team at every step that requires taste.
-      </p>
+      <PhaseStrip phaseIndex={phaseIndex} phaseStatus={phaseStatus} />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 font-mono text-[10.5px] uppercase tracking-[0.2em]"
-              style={{
-                color: meta.accent,
-                borderColor: `${meta.accent}40`,
-                background: `${meta.accent}10`,
-              }}
-            >
-              {meta.icon}
-              Phase {meta.id + 1} · {meta.label}
-            </span>
-            <span className="font-mono text-[11px] text-white/50">{meta.when}</span>
-          </div>
-
-          <h2 className="text-[20px] md:text-[24px] font-semibold leading-tight text-white">
-            {meta.title}
-          </h2>
-
-          <BteqToDbtMorph progress={meta.morphProgress} highlight={meta.highlight} />
-
-          <TimelineScrubber
-            value={phase}
-            max={PHASES.length - 1}
-            onChange={(n) => setPhase(n as Phase)}
-            stops={PHASES.map((p) => ({ value: p.id, label: p.label }))}
-            topLabel={
-              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/50">
-                Drag to revisit any phase of the 4-hour build
-              </p>
-            }
+      <StoryStep
+        accent={meta.accent}
+        step={`Step ${meta.id + 1} of 5 · ${meta.label}`}
+        setting={`${meta.when} · #data-platform`}
+        question={meta.question}
+        actuator={
+          <StepActuator
+            accent={meta.accent}
+            status={phaseStatus}
+            runLabel={meta.runLabel}
+            runningLabel={meta.runningLabel}
+            doneLabel={`${meta.label} done`}
+            onRun={onRun}
           />
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => onOpenArtifact('snowsight')}
-              className="inline-flex items-center gap-2 rounded-full bg-[#29B5E8] px-4 py-2 text-[12.5px] font-semibold text-[#0A1419] shadow-[0_0_20px_rgba(41,181,232,0.35)] transition-colors hover:bg-[#4FC3EE] cursor-pointer"
-            >
-              Open Snowsight
-            </button>
-            <button
-              onClick={() => onOpenArtifact('triage')}
-              className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12.5px] text-white/80 hover:bg-white/5 hover:text-white cursor-pointer"
-            >
-              Read the triage report
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4 lg:sticky lg:top-24">
-          <ChatThread
-            key={`thread-${phase}`}
-            label={`#data-platform · phase ${phase + 1} of 5`}
-            messages={meta.thread}
-          />
-
-          <CursorValueCallout
-            accent="#29B5E8"
-            label="What only Cursor can do here"
-            headline="Cursor writes the migration. Your team still reviews every decision."
-            body="The reviewer sees the plan first. Every in-flight correction — rounding, tie-breaks, deprecated currencies — is absorbed and re-verified in minutes."
-          />
-
-          <Disclosure
-            label="See all five phases"
-            meta={`${phase + 1} of 5 · ${meta.when}`}
-            icon={<ListChecks className="h-3 w-3" />}
-            accent="#7DD3F5"
-          >
-            <ul className="space-y-1.5 pt-1 text-[12.5px]">
-              {PHASES.map((p) => {
-                const done = p.id < phase;
-                const active = p.id === phase;
-                return (
-                  <li
-                    key={p.id}
-                    className="flex items-center gap-2"
-                    style={{
-                      color: active
-                        ? p.accent
-                        : done
-                          ? 'rgba(237,236,236,0.75)'
-                          : 'rgba(237,236,236,0.35)',
-                    }}
-                  >
-                    <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{
-                        background: active
-                          ? p.accent
-                          : done
-                            ? '#4ADE80'
-                            : 'rgba(237,236,236,0.25)',
-                        boxShadow: active ? `0 0 8px ${p.accent}` : 'none',
-                      }}
-                    />
-                    <span className="w-20 shrink-0 font-mono text-[10.5px] text-white/45">
-                      {p.when}
-                    </span>
-                    <span className="flex-1">{p.label}</span>
-                    {done && <span className="font-mono text-[10.5px] text-[#4ADE80]">✓</span>}
-                  </li>
-                );
-              })}
-            </ul>
-          </Disclosure>
-        </div>
-      </div>
+        }
+        result={
+          phaseStatus === 'done' ? (
+            <StepResult
+              accent={meta.accent}
+              headline={meta.resultHeadline}
+              stats={meta.resultStats}
+              continueLabel={
+                phaseIndex < PHASES.length - 1
+                  ? `Continue · step ${phaseIndex + 2} of 5 · ${PHASES[phaseIndex + 1].label}`
+                  : 'Continue · prove and review'
+              }
+              onContinue={onContinue}
+            />
+          ) : null
+        }
+        rail={
+          <>
+            <CursorValueCallout
+              accent={meta.accent}
+              headline={meta.rail.headline}
+              body={meta.rail.body}
+            />
+            {phaseStatus !== 'idle' && (
+              <ChatThread
+                key={`thread-${phaseIndex}-${phaseStatus}`}
+                label={`#data-platform · ${meta.label.toLowerCase()}`}
+                messages={cumulativeMessages}
+                autoplay
+              />
+            )}
+          </>
+        }
+      >
+        <BteqToDbtMorph progress={morphProgress} highlight={meta.highlight} />
+      </StoryStep>
     </ChapterStage>
+  );
+}
+
+function PhaseStrip({ phaseIndex, phaseStatus }: { phaseIndex: PhaseId; phaseStatus: Status }) {
+  return (
+    <div className="mb-6 flex flex-wrap items-center gap-2">
+      {PHASES.map((p) => {
+        const done =
+          p.id < phaseIndex || (p.id === phaseIndex && phaseStatus === 'done');
+        const active = p.id === phaseIndex;
+        const upcoming = p.id > phaseIndex;
+        return (
+          <div
+            key={p.id}
+            className="flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-mono"
+            style={{
+              borderColor: active
+                ? `${p.accent}55`
+                : done
+                  ? 'rgba(74,222,128,0.45)'
+                  : 'rgba(255,255,255,0.10)',
+              background: active
+                ? `${p.accent}12`
+                : done
+                  ? 'rgba(74,222,128,0.08)'
+                  : 'rgba(255,255,255,0.02)',
+              color: active
+                ? p.accent
+                : done
+                  ? '#4ADE80'
+                  : 'rgba(255,255,255,0.45)',
+              opacity: upcoming ? 0.7 : 1,
+            }}
+          >
+            <span className="font-semibold">{p.id + 1}</span>
+            <span>{p.label}</span>
+            {done && <span>✓</span>}
+            {active && phaseStatus === 'running' && <span className="animate-pulse">…</span>}
+          </div>
+        );
+      })}
+    </div>
   );
 }

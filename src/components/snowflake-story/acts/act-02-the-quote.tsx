@@ -1,155 +1,274 @@
 'use client';
 
-import { useState } from 'react';
-import { FileWarning, PenTool } from 'lucide-react';
-import { ChapterStage } from '../chapter-stage';
+import { useEffect, useState } from 'react';
+import {
+  AlertTriangle,
+  Clock,
+  Database,
+  GitBranch,
+  GitPullRequest,
+  Layers,
+} from 'lucide-react';
+import { ChapterStage, ChapterHeader } from '../chapter-stage';
+import { CursorLogo } from '../cursor-logo';
+import { AccelerationTile } from '../acceleration-tile';
+import { CalendarWidget } from '../time/calendar-widget';
+import { IdiomConstellation } from '../idiom-constellation';
 import { ACTS, type ActComponentProps } from '../story-types';
-import { CursorValueCallout } from '../cursor-value-callout';
-import { StoryStep } from '../story-step';
-import { StepActuator } from '../step-actuator';
-import { StepResult } from '../step-result';
+import { IDIOMS } from '../story-data';
+import { ACT_TIMING } from '../data/script';
 
-type Beat = 'idle' | 'opened' | 'rejected';
-
+/**
+ * Act 2 · Discover.
+ *
+ * Cursor scans the 911-asset legacy ELT repo and lays out an "atlas" of every
+ * dialect quirk it finds. The viewer sees findings appear in real time, then
+ * Cursor recommends a starting asset.
+ *
+ * Mirrors AWS journey Act 2&rsquo;s 3-column layout: findings rail, focal viz,
+ * recommendation card with the act-advance button.
+ */
 export function Act02TheQuote({ onAdvance }: ActComponentProps) {
   const act = ACTS[1];
-  const [beat, setBeat] = useState<Beat>('idle');
+  const [revealed, setRevealed] = useState(0);
 
-  const status = beat === 'idle' ? 'idle' : beat === 'opened' ? 'running' : 'done';
+  useEffect(() => {
+    const total = IDIOMS.length;
+    const stepMs = ACT_TIMING.act2ScanDurationMs / total;
+    let i = 0;
+    const tick = () => {
+      i += 1;
+      setRevealed(Math.min(total, i));
+      if (i < total) id = window.setTimeout(tick, stepMs);
+    };
+    let id = window.setTimeout(tick, 600);
+    return () => window.clearTimeout(id);
+  }, []);
 
   return (
-    <ChapterStage act={act}>
-      <StoryStep
-        tone="light"
-        accent="#B91C1C"
-        step="The impasse · 1 of 1"
-        setting="Wednesday · Acme HQ"
-        question={
-          <>
-            The system integrator quotes <span className="text-[#B91C1C]">$18M over 4 years</span>
-            . The team won&rsquo;t see a Snowflake workload in production until{' '}
-            <span className="text-[#B91C1C]">month 40</span>.
-          </>
-        }
-        actuator={
-          <StepActuator
-            tone="light"
-            accent="#B91C1C"
-            status={status}
-            runLabel="Open the SOW"
-            runSub="See exactly what the team is being asked to sign."
-            runningLabel="Reading the proposal…"
-            doneLabel="The CFO has replied"
-            onRun={() => {
-              setBeat('opened');
-              setTimeout(() => setBeat('rejected'), 1100);
-            }}
-          />
-        }
-        result={
-          status === 'done' ? (
-            <StepResult
-              tone="light"
-              accent="#B91C1C"
-              headline="The CFO declined the SOW. The team has until the Dec 15 board meeting to come back with a credible third option."
-              stats={[
-                { label: 'GSI quote', value: '$18M', hint: '48 months · fixed fee' },
-                { label: 'First Snowflake workload', value: 'Month 40', hint: 'after 9-month UAT' },
-                { label: 'Parallel licensing', value: '$6M / yr', hint: 'while nothing moves' },
-              ]}
-              continueLabel="Continue · the team tries Cursor"
-              onContinue={onAdvance}
+    <ChapterStage
+      act={act}
+      topRight={
+        <CalendarWidget
+          currentDay={1}
+          contextLabel="Discover"
+          accent="#7DD3F5"
+          darkMode
+        />
+      }
+    >
+      <ChapterHeader
+        act={act}
+        eyebrow="Cursor Cloud Agent reads 63,180 lines of BTEQ, T-SQL and Informatica before the team finishes a coffee. One right answer for the starting asset."
+      />
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_1fr_320px]">
+        {/* Left rail: findings */}
+        <aside
+          className="flex flex-col gap-3 rounded-xl border p-4"
+          style={{
+            background: 'rgba(125, 211, 245, 0.04)',
+            borderColor: 'rgba(125, 211, 245, 0.18)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <CursorLogo size={16} tone="dark" />
+            <span
+              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: '#7DD3F5' }}
+            >
+              Cursor Cloud Agent · Discovery
+            </span>
+          </div>
+
+          <ul className="space-y-3">
+            <Finding n="911" label="legacy ELT scripts indexed" icon={<Layers className="h-4 w-4" />} />
+            <Finding
+              n="63,180"
+              label="lines of code parsed"
+              icon={<Database className="h-4 w-4" />}
             />
-          ) : null
-        }
-        rail={
-          <CursorValueCallout
-            tone="light"
-            accent="#2563EB"
-            label="The third option"
-            headline="Cursor collapses the slowest parts of a migration without taking the keyboard."
-            body="Discovery, translation, verification — the work that fills GSI invoices — Cursor does in minutes, supervised by the team that actually owns the code."
-          />
-        }
-      >
-        <GsiProposalCard rejected={status === 'done'} />
-      </StoryStep>
+            <Finding
+              n={`${IDIOMS.length}`}
+              label="dialect quirks mapped to Snowflake"
+              icon={<GitBranch className="h-4 w-4" />}
+            />
+            <Finding
+              n="2,417"
+              label="cross-dialect dependency edges"
+              icon={<Clock className="h-4 w-4" />}
+            />
+            <Finding
+              n="4"
+              label="silent bugs in the legacy logic"
+              icon={<AlertTriangle className="h-4 w-4" />}
+              accent="#EF4444"
+            />
+          </ul>
+
+          <AccelerationTile taskId="codebase-scan" tone="dark" variant="card" />
+
+          <div
+            className="rounded-md border px-3 py-2 font-mono text-[10px] leading-relaxed"
+            style={{
+              background: 'rgba(125, 211, 245, 0.05)',
+              borderColor: 'rgba(125, 211, 245, 0.2)',
+              color: 'rgba(229,231,235,0.7)',
+            }}
+          >
+            Cursor Cloud Agent + Snowflake Cortex
+            <br />4 minutes wall-clock · <span style={{ color: '#7EE787' }}>$0</span> additional cost
+          </div>
+        </aside>
+
+        {/* Center: idiom constellation */}
+        <div
+          className="relative overflow-hidden rounded-xl border"
+          style={{
+            minHeight: 540,
+            background:
+              'radial-gradient(ellipse at center, rgba(125,211,245,0.06) 0%, transparent 60%)',
+            borderColor: 'rgba(125,211,245,0.18)',
+          }}
+        >
+          <div
+            className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-md border bg-[#0B1220]/85 px-2.5 py-1.5"
+            style={{ borderColor: 'rgba(125,211,245,0.2)' }}
+          >
+            <CursorLogo size={14} tone="dark" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7DD3F5]">
+              Cursor reading repo · {revealed} / {IDIOMS.length} quirks mapped
+            </span>
+          </div>
+
+          <div className="px-4 py-12">
+            <IdiomConstellation revealed={revealed} />
+          </div>
+        </div>
+
+        {/* Right: Cursor's recommendation */}
+        <aside
+          className="flex h-fit flex-col gap-4 rounded-xl border p-5"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(41,181,232,0.10) 0%, rgba(41,181,232,0.02) 100%)',
+            borderColor: 'rgba(41,181,232,0.3)',
+          }}
+        >
+          <div
+            className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em]"
+            style={{ color: '#29B5E8' }}
+          >
+            <CursorLogo size={14} tone="dark" />
+            Cursor recommends
+          </div>
+
+          <div>
+            <div
+              className="mb-1 text-[10px] uppercase tracking-wider"
+              style={{ color: 'rgba(229,231,235,0.55)' }}
+            >
+              Start with
+            </div>
+            <h3 className="font-mono text-2xl font-bold leading-tight" style={{ color: '#29B5E8' }}>
+              daily_revenue_rollup.bteq
+            </h3>
+          </div>
+
+          <ul
+            className="space-y-2 text-[12px] leading-relaxed"
+            style={{ color: 'rgba(229,231,235,0.85)' }}
+          >
+            <li className="flex gap-2">
+              <span className="mt-0.5 font-mono text-[10px]" style={{ color: '#7DD3F5' }}>
+                ▸
+              </span>
+              Tier 0 · feeds <span className="font-semibold text-white">17 of 38</span> Q-close
+              rollups
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-0.5 font-mono text-[10px]" style={{ color: '#7DD3F5' }}>
+                ▸
+              </span>
+              Only <span className="font-semibold text-white">214 LOC</span> · highest leverage,
+              lowest blast radius
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-0.5 font-mono text-[10px]" style={{ color: '#7DD3F5' }}>
+                ▸
+              </span>
+              Pattern shared by <span className="font-semibold text-white">37 BTEQ rollups</span> —
+              wins compound
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-0.5 font-mono text-[10px]" style={{ color: '#EF4444' }}>
+                ▸
+              </span>
+              1 silent bug found: deprecated XOF FX rate dropping rows
+            </li>
+          </ul>
+
+          <div
+            className="rounded-md border-l-2 px-3 py-2 text-[11px] italic leading-relaxed"
+            style={{
+              background: 'rgba(41,181,232,0.05)',
+              borderColor: '#29B5E8',
+              color: 'rgba(229,231,235,0.8)',
+            }}
+          >
+            Highest-ROI starting asset. The translation pattern carries to 36 sibling rollups in
+            wave 2.
+          </div>
+
+          <button
+            type="button"
+            onClick={onAdvance}
+            className="mt-2 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+            style={{ background: '#29B5E8', color: '#0B1220' }}
+          >
+            <GitPullRequest className="h-4 w-4" />
+            Plan the migration
+            <span>→</span>
+          </button>
+        </aside>
+      </div>
     </ChapterStage>
   );
 }
 
-function GsiProposalCard({ rejected }: { rejected: boolean }) {
+function Finding({
+  n,
+  label,
+  icon,
+  accent = '#7DD3F5',
+}: {
+  n: string;
+  label: string;
+  icon: React.ReactNode;
+  accent?: string;
+}) {
   return (
-    <article
-      className="relative overflow-hidden rounded-2xl border shadow-lg"
-      style={{ background: '#FFFDF7', borderColor: 'rgba(17,24,39,0.12)', color: '#1F2937' }}
-    >
-      {rejected && (
-        <div
-          className="pointer-events-none absolute right-5 top-6 rotate-[-10deg] rounded border-[3px] px-2.5 py-1 text-center text-[11px] font-black uppercase tracking-[0.18em] rejected-stamp"
-          style={{
-            borderColor: '#B91C1C',
-            color: '#B91C1C',
-            opacity: 0.9,
-            fontFamily: 'ui-monospace, monospace',
-            boxShadow: 'inset 0 0 0 2px rgba(185,28,28,0.2)',
-          }}
-        >
-          REJECTED
-          <div className="text-[9px] font-bold opacity-85">CFO · Wed 11:02am</div>
-        </div>
-      )}
-
-      <header
-        className="flex items-center gap-2 border-b px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em]"
-        style={{ background: '#F3F0E7', borderColor: 'rgba(17,24,39,0.08)', color: '#6B7280' }}
+    <li className="flex items-start gap-3">
+      <span
+        className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+        style={{ background: `${accent}12`, color: accent }}
       >
-        <PenTool className="h-3.5 w-3.5" />
-        Statement of Work · Apex Global Services
-      </header>
-
-      <div className="space-y-3 px-5 py-5">
-        <div className="flex items-baseline gap-2">
-          <div className="text-5xl font-bold tabular-nums" style={{ color: '#111827' }}>
-            $18M
-          </div>
-          <div className="text-[12px]" style={{ color: '#6B7280' }}>
-            · 48 months · 16 FTE average
-          </div>
-        </div>
-
-        <ul className="space-y-1 text-[12.5px]" style={{ color: '#374151' }}>
-          <li>• 6-month discovery phase, deliverable: 400-page PDF</li>
-          <li>• 48 months of offshore engineers rewriting all 911 assets</li>
-          <li>• 9-month UAT running both stacks in parallel</li>
-          <li>• First Snowflake workload in production: <strong>month 40</strong></li>
-          <li>• Portfolio finish: <strong>May 2030</strong></li>
-        </ul>
-
+        {icon}
+      </span>
+      <div className="min-w-0">
         <div
-          className="rounded border-l-2 px-3 py-2 text-[11px] font-mono"
-          style={{ background: '#FEF3C7', color: '#78350F', borderColor: '#F59E0B' }}
+          className="text-xl font-bold leading-none tabular-nums"
+          style={{ color: accent }}
         >
-          <FileWarning className="mr-1 inline h-3 w-3 align-text-bottom" />
-          Teradata Enterprise support renewal: Dec 31, 2027. At this cadence, 30 months late.
+          {n}
+        </div>
+        <div
+          className="mt-0.5 text-[11px] leading-snug"
+          style={{ color: 'rgba(229,231,235,0.7)' }}
+        >
+          {label}
         </div>
       </div>
-
-      <style jsx>{`
-        :global(.rejected-stamp) {
-          animation: stampIn 350ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-        }
-        @keyframes stampIn {
-          0% {
-            opacity: 0;
-            transform: rotate(-25deg) scale(2.2);
-          }
-          100% {
-            opacity: 0.9;
-            transform: rotate(-10deg) scale(1);
-          }
-        }
-      `}</style>
-    </article>
+    </li>
   );
 }

@@ -1,224 +1,255 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChapterStage } from '../chapter-stage';
-import { ACTS, type ActComponentProps } from '../story-types';
+import { Activity, ShieldCheck, TrendingUp } from 'lucide-react';
+import { ChapterStage, ChapterHeader } from '../chapter-stage';
+import { CursorLogo } from '../cursor-logo';
+import { CalendarWidget } from '../time/calendar-widget';
+import { OverrideCard } from '../override-card';
+import { AccelerationTile } from '../acceleration-tile';
 import { CortexEquivalenceViz } from '../cortex-equivalence-viz';
-import { PrReviewThread } from '../pr-review-thread';
-import { CursorValueCallout } from '../cursor-value-callout';
-import { StoryStep } from '../story-step';
-import { StepActuator } from '../step-actuator';
-import { StepResult } from '../step-result';
+import { ACTS, type ActComponentProps } from '../story-types';
+import { ACT_TIMING } from '../data/script';
 
-type Step = 'verify-idle' | 'verify-running' | 'verify-done' | 'review-idle' | 'review-running' | 'review-done';
+const SCENE_DURATION_MS = 11_000;
+const VERIFY_PROGRESS_MS = ACT_TIMING.act5VerifyDurationMs;
+const FINOPS_SHOWN_AT_MS = ACT_TIMING.act5FinopsApprovalMs;
 
-export function Act05ProofAndReview({ onAdvance, onOpenArtifact }: ActComponentProps) {
+/**
+ * Act 5 · Verify.
+ *
+ * Cursor runs the new dbt model in parallel with Teradata over a 1% sample,
+ * then Snowflake Cortex looks for semantic drift the row-level diff
+ * can&rsquo;t catch. Equivalence proves out, the FinOps lead approves the credit
+ * budget (gate 3/4), and the viewer advances to cutover.
+ *
+ * Mirrors AWS journey Act 5 — same metric tiles + load-test viz pattern, but
+ * tuned to data-platform metrics (row delta, USD delta, semantic drift).
+ */
+export function Act05ProofAndReview(props: ActComponentProps) {
+  const { onAdvance } = props;
   const act = ACTS[4];
-  const [step, setStep] = useState<Step>('verify-idle');
+  const [elapsed, setElapsed] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [finopsVisible, setFinopsVisible] = useState(false);
 
   useEffect(() => {
-    if (step !== 'verify-running') return;
-    if (progress >= 1) {
-      setStep('verify-done');
-      return;
-    }
-    const t = setTimeout(() => setProgress((p) => Math.min(1, p + 0.08)), 280);
+    const start = performance.now();
+    let raf = 0;
+    const tick = () => {
+      const t = performance.now() - start;
+      setElapsed(t);
+      const pct = Math.min(1, t / VERIFY_PROGRESS_MS);
+      setProgress(pct);
+      if (t < SCENE_DURATION_MS) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setFinopsVisible(true), FINOPS_SHOWN_AT_MS);
     return () => clearTimeout(t);
-  }, [step, progress]);
+  }, []);
 
-  if (step === 'verify-idle' || step === 'verify-running' || step === 'verify-done') {
-    const status = step === 'verify-idle' ? 'idle' : step === 'verify-running' ? 'running' : 'done';
-    return (
-      <ChapterStage act={act}>
-        <StepStrip currentStep={1} />
+  const rowsCompared = Math.round(progress * 14_017);
+  const usdDelta = progress > 0.6 ? '$0.00' : '—';
+  const cortexVerdict = progress > 0.88 ? 'no drift' : 'analyzing…';
 
-        <StoryStep
-          accent="#29B5E8"
-          step="Step 1 of 2 · Verify"
-          setting="Friday 12:22pm"
-          question={
-            <>
-              Before showing it to the reviewer, the team needs proof the new model is{' '}
-              <span className="text-[#7DD3F5]">numerically identical</span> to the legacy one.
-              Cursor runs both in parallel on a 1% sample.
-            </>
-          }
-          actuator={
-            <StepActuator
-              accent="#29B5E8"
-              status={status}
-              runLabel="Verify equivalence on a 1% sample"
-              runSub="Row-level diff + Cortex semantic diff. About 30 seconds in real time."
-              runningLabel="Comparing every row, every currency, every rank…"
-              doneLabel="Equivalence confirmed"
-              onRun={() => {
-                setStep('verify-running');
-                setProgress(0);
-              }}
-            />
-          }
-          result={
-            step === 'verify-done' ? (
-              <StepResult
-                accent="#29B5E8"
-                headline="Numerically identical to the legacy script — and Cortex confirms no semantic drift."
-                stats={[
-                  { label: 'Row Δ', value: '0', hint: '14,017 rows compared' },
-                  { label: 'ΣUSD Δ', value: '$0.00', hint: 'revenue sums match' },
-                  { label: 'Cortex verdict', value: 'no drift', hint: 'AI-judged equivalence' },
-                ]}
-                continueLabel="Continue · ask the reviewer to approve"
-                onContinue={() => setStep('review-idle')}
-              />
-            ) : null
-          }
-          rail={
-            <CursorValueCallout
-              accent="#29B5E8"
-              headline="Cursor proves the new code, then waits for permission."
-              body="Two independent verifications — row-level and AI semantic. The reviewer doesn’t have to take Cursor&rsquo;s word for anything."
-            />
-          }
-        >
-          <CortexEquivalenceViz progress={status === 'idle' ? 0 : progress} />
-        </StoryStep>
-      </ChapterStage>
-    );
-  }
-
-  // review beat
-  const reviewStatus = step === 'review-idle' ? 'idle' : step === 'review-running' ? 'running' : 'done';
   return (
-    <ChapterStage act={act}>
-      <StepStrip currentStep={2} />
+    <ChapterStage
+      act={act}
+      topRight={
+        <CalendarWidget
+          currentDay={5}
+          targetDay={11}
+          contextLabel="Verify"
+          accent="#A78BFA"
+          darkMode
+        />
+      }
+    >
+      <ChapterHeader
+        act={act}
+        eyebrow="Cursor runs both stacks in parallel on a 1% sample. Snowflake Cortex catches semantic drift the row-level diff can&rsquo;t. The FinOps lead signs off on the credit budget."
+      />
 
-      <StoryStep
-        accent="#A78BFA"
-        step="Step 2 of 2 · Review"
-        setting="Friday 12:48pm"
-        question={
-          <>
-            Cursor opens a pull request. The reviewer reads it like any other PR — and pushes
-            back twice before approving.
-          </>
-        }
-        actuator={
-          <StepActuator
-            accent="#A78BFA"
-            status={reviewStatus}
-            runLabel="Open the PR for human review"
-            runSub="Watch the reviewer’s comments come in. Cursor responds to each one."
-            runningLabel="Review thread playing… two iteration cycles."
-            doneLabel="Reviewer approved"
-            onRun={() => {
-              setStep('review-running');
-              setTimeout(() => setStep('review-done'), 18_000);
-            }}
-          />
-        }
-        result={
-          reviewStatus === 'done' ? (
-            <StepResult
-              accent="#A78BFA"
-              headline="Approved. Asset #1 is ready to merge through the team’s normal change window."
-              stats={[
-                { label: 'Iteration cycles', value: '2', hint: 'rounding + deprecated FX' },
-                { label: 'Total wall-clock', value: '4h 03m', hint: 'agent 2h 16m + review 1h 47m' },
-                { label: 'Review approval', value: '✓', hint: 'normal change window' },
-              ]}
-              continueLabel="Continue · do that 910 more times"
-              onContinue={onAdvance}
-            />
-          ) : null
-        }
-        rail={
-          <>
-            <CursorValueCallout
-              accent="#A78BFA"
-              headline="Cursor ships to the reviewer, never to production."
-              body="Every iteration is logged in a real PR. The team’s quality bar stays exactly where it is — Cursor just gets there faster."
-            />
-            <button
-              onClick={() => onOpenArtifact('pr')}
-              className="rounded-xl border border-[#A78BFA]/40 bg-[#A78BFA]/10 px-4 py-2 text-left text-[12.5px] text-white/85 hover:bg-[#A78BFA]/15 cursor-pointer"
-            >
-              <span className="block font-mono text-[10.5px] uppercase tracking-wider text-[#C4B5FD]">
-                Artifact
-              </span>
-              <span className="block">Open PR #318 in GitHub →</span>
-            </button>
-            <button
-              onClick={() => onOpenArtifact('jira')}
-              className="rounded-xl border border-[#0052CC]/40 bg-[#0052CC]/10 px-4 py-2 text-left text-[12.5px] text-white/85 hover:bg-[#0052CC]/15 cursor-pointer"
-            >
-              <span className="block font-mono text-[10.5px] uppercase tracking-wider text-[#82B1FF]">
-                Artifact
-              </span>
-              <span className="block">Open Jira CUR-5202 timeline →</span>
-            </button>
-          </>
-        }
-      >
-        {reviewStatus === 'idle' ? (
-          <ReviewIdleHint />
-        ) : (
-          <PrReviewThread autoplay onOpenPr={() => onOpenArtifact('pr')} />
-        )}
-      </StoryStep>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <MetricTile
+          label="rows compared"
+          value={rowsCompared.toLocaleString()}
+          color="#7DD3F5"
+          mono
+        />
+        <MetricTile
+          label="row Δ"
+          value={progress > 0.4 ? '0' : '—'}
+          color={progress > 0.4 ? '#7EE787' : '#A78BFA'}
+        />
+        <MetricTile
+          label="ΣUSD Δ"
+          value={usdDelta}
+          color={progress > 0.6 ? '#7EE787' : '#A78BFA'}
+        />
+        <MetricTile
+          label="Cortex verdict"
+          value={cortexVerdict}
+          color={progress > 0.88 ? '#7EE787' : '#A78BFA'}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_420px]">
+        <div
+          className="relative flex flex-col overflow-hidden rounded-xl border"
+          style={{
+            minHeight: 360,
+            background:
+              'radial-gradient(circle at center, rgba(167,139,250,0.06) 0%, transparent 70%)',
+            borderColor: 'rgba(167,139,250,0.18)',
+          }}
+        >
+          <div
+            className="flex items-center gap-2 border-b px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
+            style={{ borderColor: 'rgba(167,139,250,0.18)', color: '#A78BFA' }}
+          >
+            <CursorLogo size={14} tone="dark" />
+            Cursor Cloud Agent · equivalence harness
+          </div>
+
+          <div className="flex-1 p-4">
+            <CortexEquivalenceViz progress={progress} />
+          </div>
+
+          <div
+            className="border-t px-4 py-2 font-mono text-[11px]"
+            style={{ borderColor: 'rgba(167,139,250,0.18)', color: 'rgba(243,244,246,0.65)' }}
+          >
+            t+{Math.round(elapsed / 1000)}s · 1% sample · Snowflake Cortex semantic diff +
+            row-level harness
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <AccelerationTile taskId="cortex-verify" tone="dark" variant="strip" />
+          <AccelerationTile taskId="finops-brief" tone="dark" variant="strip" />
+
+          <OverrideCard speaker="davis" tone="approve" visible={finopsVisible} darkMode>
+            <div className="space-y-2">
+              <p>
+                <span className="font-semibold">
+                  $0.30 / day in credits against $5.9M / yr in TCO swing — approve.
+                </span>
+              </p>
+              <p className="text-[12px] opacity-85">
+                Wiring the daily revenue mart into the FinOps dashboard with a kill-switch at
+                3× projected credits. Cursor — open the dashboard ticket.
+              </p>
+            </div>
+          </OverrideCard>
+
+          <RunCostTile visible={finopsVisible} />
+
+          <button
+            type="button"
+            onClick={onAdvance}
+            disabled={!finopsVisible}
+            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ background: '#29B5E8', color: '#060A12' }}
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Approve FinOps trade-off (gate 3/4)
+            <span>→</span>
+          </button>
+        </div>
+      </div>
     </ChapterStage>
   );
 }
 
-function StepStrip({ currentStep }: { currentStep: 1 | 2 }) {
-  const steps = [
-    { id: 1, label: 'Verify', accent: '#29B5E8' },
-    { id: 2, label: 'Review', accent: '#A78BFA' },
-  ];
+function MetricTile({
+  label,
+  value,
+  color,
+  mono,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  mono?: boolean;
+}) {
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-2">
-      {steps.map((s) => {
-        const done = s.id < currentStep;
-        const active = s.id === currentStep;
-        return (
-          <div
-            key={s.id}
-            className="flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-mono"
-            style={{
-              borderColor: active
-                ? `${s.accent}55`
-                : done
-                  ? 'rgba(74,222,128,0.45)'
-                  : 'rgba(255,255,255,0.10)',
-              background: active ? `${s.accent}12` : done ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.02)',
-              color: active ? s.accent : done ? '#4ADE80' : 'rgba(255,255,255,0.45)',
-            }}
-          >
-            <span className="font-semibold">{s.id}</span>
-            <span>{s.label}</span>
-            {done && <span>✓</span>}
-          </div>
-        );
-      })}
+    <div
+      className="rounded-xl border p-3"
+      style={{
+        background: 'rgba(167, 139, 250, 0.04)',
+        borderColor: 'rgba(167, 139, 250, 0.2)',
+      }}
+    >
+      <div
+        className="mb-1 text-[10px] font-semibold uppercase tracking-wider"
+        style={{ color: 'rgba(243,244,246,0.55)' }}
+      >
+        {label}
+      </div>
+      <div
+        className={`text-2xl font-bold tabular-nums ${mono ? 'font-mono' : ''}`}
+        style={{ color }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
 
-function ReviewIdleHint() {
+function RunCostTile({ visible }: { visible: boolean }) {
   return (
-    <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-white/10 bg-[#0A1221]/70 p-8 text-center">
-      <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#A78BFA]/40 bg-[#A78BFA]/10">
-        <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#A78BFA]" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <path d="M6 6v12M18 6v12M6 6l12 12M18 6L6 18" />
-        </svg>
+    <div
+      className="rounded-lg border p-3 transition-all duration-500"
+      style={{
+        background: 'rgba(41, 181, 232, 0.06)',
+        borderColor: 'rgba(41, 181, 232, 0.3)',
+        color: '#F3F4F6',
+        opacity: visible ? 1 : 0.3,
+      }}
+    >
+      <div
+        className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider"
+        style={{ color: '#29B5E8' }}
+      >
+        <TrendingUp className="h-3 w-3" /> Projected credit / TCO delta
       </div>
-      <p className="max-w-sm text-[14px] font-medium text-white/80">
-        Press the button above to open PR #318 for the reviewer.
-      </p>
-      <p className="mt-1 max-w-sm text-[12px] text-white/50">
-        You&rsquo;ll see the reviewer&rsquo;s comments arrive, Cursor patch the code, and a final
-        approval — exactly like a normal review.
-      </p>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <Stat5 num="$0.30" label="per day" />
+        <Stat5 num="$5.9M" label="/yr saved" good />
+        <Stat5 num="3×" label="kill-switch" warn />
+      </div>
+      <div className="mt-2 flex items-center gap-1 text-[10px] opacity-70">
+        <Activity className="h-3 w-3" /> vs Teradata maintenance + license $5.9M / yr
+      </div>
+    </div>
+  );
+}
+
+function Stat5({
+  num,
+  label,
+  good,
+  warn,
+}: {
+  num: string;
+  label: string;
+  good?: boolean;
+  warn?: boolean;
+}) {
+  return (
+    <div>
+      <div
+        className="text-lg font-bold tabular-nums"
+        style={{ color: good ? '#7EE787' : warn ? '#FBBF24' : '#E6EDF3' }}
+      >
+        {num}
+      </div>
+      <div className="text-[9px] uppercase tracking-wider opacity-60">{label}</div>
     </div>
   );
 }

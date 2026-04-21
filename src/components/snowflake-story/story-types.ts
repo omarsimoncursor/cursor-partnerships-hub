@@ -8,18 +8,12 @@ export type ActId =
   | 'morning-after';
 
 export interface ActTheme {
-  /** Base page background (solid or gradient). */
   bg: string;
-  /** Primary accent — drives eyebrows, active dots, buttons. */
   primary: string;
-  /** Secondary accent for callouts. */
   secondary: string;
-  /** Text / muted tokens for on-theme rendering. */
   text: string;
   muted: string;
-  /** Optional per-act mood label (e.g. "the problem"). */
   moodLabel?: string;
-  /** If the background is light we flip nav/card treatments. */
   tone: 'dark' | 'light';
 }
 
@@ -37,9 +31,9 @@ export const ACTS: ActMeta[] = [
   {
     id: 'the-wall',
     number: 1,
-    title: 'The Wall',
-    subtitle: 'Meet the problem.',
-    eyebrow: 'Tuesday 9:42pm · The data team has been here before',
+    title: 'The CFO won&rsquo;t sign the GSI&rsquo;s $18M quote',
+    subtitle: 'Set the stage. Meet the wall, the deadline and the rejected proposal.',
+    eyebrow: 'Wednesday morning. The data team has 9 days to come back with a credible alternative.',
     duration: '~1 min',
     theme: {
       bg: '#0F1521',
@@ -47,101 +41,107 @@ export const ACTS: ActMeta[] = [
       secondary: '#29B5E8',
       text: '#F3F4F6',
       muted: 'rgba(243,244,246,0.6)',
-      moodLabel: 'the problem',
+      moodLabel: 'Cold open',
       tone: 'dark',
     },
   },
   {
     id: 'the-quote',
     number: 2,
-    title: 'The Quote',
-    subtitle: 'See the path the team is trying to avoid.',
-    eyebrow: 'Wednesday · the GSI proposal lands in the inbox',
-    duration: '~1 min',
+    title: 'Cursor reads ten years of legacy in four minutes',
+    subtitle: 'Scan the 911-asset portfolio. Map every dialect quirk. Pick a starting asset.',
+    eyebrow:
+      'The GSI quoted six months for the discovery phase. Cursor reads every script before the team finishes a coffee.',
+    duration: '~2 min',
     theme: {
-      bg: '#FAF8F3',
-      primary: '#B91C1C',
+      bg: '#0B1220',
+      primary: '#7DD3F5',
       secondary: '#29B5E8',
-      text: '#111827',
-      muted: 'rgba(17,24,39,0.6)',
-      moodLabel: 'the impasse',
-      tone: 'light',
+      text: '#E6EDF3',
+      muted: 'rgba(230,237,243,0.6)',
+      moodLabel: 'Discover',
+      tone: 'dark',
     },
   },
   {
     id: 'diagnosis',
     number: 3,
-    title: 'Cursor reads the codebase',
-    subtitle: 'Send Cursor in. See what it finds.',
-    eyebrow: 'Friday 8:04am · the team kicks off the pilot',
+    title: 'Cursor drafts the migration plan. The reviewer pushes back.',
+    subtitle: 'Plan first. Code never. The reviewer absorbs the override.',
+    eyebrow:
+      'Cursor proposes the target shape; the principal flags the rounding behavior; the agent absorbs the correction in minutes.',
     duration: '~2 min',
     theme: {
-      bg: '#0B1220',
-      primary: '#29B5E8',
-      secondary: '#7DD3F5',
-      text: '#E6EDF3',
-      muted: 'rgba(230,237,243,0.6)',
-      moodLabel: 'discovery',
-      tone: 'dark',
+      bg: '#FAF8F3',
+      primary: '#F59E0B',
+      secondary: '#29B5E8',
+      text: '#111827',
+      muted: 'rgba(17,24,39,0.6)',
+      moodLabel: 'Design',
+      tone: 'light',
     },
   },
   {
     id: 'first-asset',
     number: 4,
-    title: 'Cursor migrates the first asset',
-    subtitle: 'Five steps. Click each one to actuate Cursor.',
-    eyebrow: 'Friday · the agent does the work, the team keeps control',
-    duration: '~3 min',
+    title: 'Cursor rewrites the BTEQ as a Snowflake-native dbt model',
+    subtitle: 'Watch a 214-line BTEQ become a 132-line dbt model. Codex auto-patches the gaps.',
+    eyebrow:
+      'Two weeks of senior data-engineering work — translation, tests, security review — done in 37 agent-minutes.',
+    duration: '~2 min',
     theme: {
       bg: '#0D1117',
       primary: '#29B5E8',
       secondary: '#7EE787',
       text: '#E6EDF3',
       muted: 'rgba(230,237,243,0.55)',
-      moodLabel: 'the build',
+      moodLabel: 'Build',
       tone: 'dark',
     },
   },
   {
     id: 'proof-and-review',
     number: 5,
-    title: 'Prove it, then ship it',
-    subtitle: 'Verify the new model matches the old. Then ask the reviewer.',
-    eyebrow: 'Friday 12:22pm · the review that makes it real',
+    title: 'Two streams flow in. One verdict comes out.',
+    subtitle: 'Cortex semantic diff + 1% row-equivalence. FinOps approves the credit budget.',
+    eyebrow:
+      'Cursor proves the new model is numerically identical to the legacy one before asking for an approval.',
     duration: '~2 min',
     theme: {
       bg: '#060A12',
       primary: '#A78BFA',
       secondary: '#29B5E8',
       text: '#F3F4F6',
-      muted: 'rgba(243,244,246,0.55)',
-      moodLabel: 'the proof',
+      muted: 'rgba(243,244,246,0.6)',
+      moodLabel: 'Verify',
       tone: 'dark',
     },
   },
   {
     id: 'scale',
     number: 6,
-    title: 'Now do that 910 more times',
-    subtitle: 'Press play. Watch fifteen months go by.',
-    eyebrow: 'Asset #1 was Friday. Cursor is back on Monday.',
+    title: 'Cursor orchestrates the cutover. The reliability lead holds the rollback lever.',
+    subtitle: 'Canary 0 → 1 → 10 → 50 → 100% on the daily revenue rollup.',
+    eyebrow:
+      'Cursor wrote the runbook overnight. The data-reliability lead approves each canary step.',
     duration: '~2 min',
     theme: {
-      bg: '#05101C',
-      primary: '#4C9AFF',
+      bg: '#030712',
+      primary: '#10B981',
       secondary: '#29B5E8',
-      text: '#F3F4F6',
-      muted: 'rgba(243,244,246,0.6)',
-      moodLabel: 'compounding',
+      text: '#F9FAFB',
+      muted: 'rgba(249,250,251,0.6)',
+      moodLabel: 'Operate',
       tone: 'dark',
     },
   },
   {
     id: 'morning-after',
     number: 7,
-    title: 'The morning after',
-    subtitle: 'Teradata goes dark. The data team sleeps through the night.',
-    eyebrow: '15 months later · Monday 6:47am',
+    title: 'Asset #1 of 911 ships. Here&rsquo;s the receipts.',
+    subtitle: 'Open every artifact the reviewers signed off on. See the full acceleration ledger.',
+    eyebrow:
+      'The Teradata renewal is 7 months out. At Cursor&rsquo;s cadence the portfolio finishes 4 months early. At the GSI&rsquo;s cadence: 28 months late.',
     duration: '~1 min',
     theme: {
       bg: 'linear-gradient(180deg, #FAFBFC 0%, #EEF2F6 100%)',
@@ -149,7 +149,7 @@ export const ACTS: ActMeta[] = [
       secondary: '#16A34A',
       text: '#0F172A',
       muted: 'rgba(15,23,42,0.6)',
-      moodLabel: 'the future',
+      moodLabel: 'Portfolio',
       tone: 'light',
     },
   },

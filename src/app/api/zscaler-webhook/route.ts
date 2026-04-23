@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 /**
  * Receives Zscaler ZPA / ZIA risk events and triggers a Cursor Background Agent
- * to scope down the offending application policy automatically.
+ * to scope down the offending application access rule in Terraform.
  *
  * Setup:
  * 1. Create a Zscaler webhook (ZPA Policy Engine notifications) pointing at
@@ -11,6 +11,8 @@ import crypto from 'crypto';
  * 2. Set the webhook signing secret (shared HMAC) in ZSCALER_WEBHOOK_SECRET.
  *    Zscaler signs the payload with `X-Zscaler-Signature: sha256=<hex>`.
  * 3. Set CURSOR_API_KEY for triggering Background Agents.
+ * 4. The agent expects the customer's Terraform module to live in
+ *    `infrastructure/zscaler/` (override via the iac_path payload field).
  */
 
 function verifyZscalerSignature(
@@ -37,7 +39,6 @@ interface ZscalerPayload {
   risk_event_id?: string;
   policy_id?: string;
   application_segment?: string;
-  endpoint?: string;
   scope?: {
     in_scope_users?: number;
     intent_users?: number;
@@ -48,10 +49,8 @@ interface ZscalerPayload {
     managed_noncompliant_pct?: number;
     managed_compliant_pct?: number;
   };
-  actor?: {
-    idp?: string;
-    location?: string;
-  };
+  iac_path?: string;
+  iac_resource?: string;
   alert_url?: string;
 }
 
@@ -75,7 +74,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  // Only trigger on active high/critical violations.
   if (payload.state === 'resolved') {
     return NextResponse.json({ ok: true, skipped: true, reason: 'resolved' });
   }
@@ -90,10 +88,11 @@ export async function POST(request: NextRequest) {
   const riskEventId = payload.risk_event_id ?? 'unknown';
   const policyId = payload.policy_id ?? 'unknown';
   const appSegment = payload.application_segment ?? 'unknown';
-  const endpoint = payload.endpoint ?? 'unknown';
   const inScope = payload.scope?.in_scope_users ?? null;
   const intent = payload.scope?.intent_users ?? null;
   const riskScore = payload.scope?.risk_score ?? null;
+  const iacPath = payload.iac_path ?? 'infrastructure/zscaler/';
+  const iacResource = payload.iac_resource ?? null;
   const alertUrl =
     payload.alert_url ?? `https://admin.zscaler.net/zpa/policy/${policyId}/risk/${riskEventId}`;
 
@@ -101,7 +100,8 @@ export async function POST(request: NextRequest) {
     riskEventId,
     policyId,
     appSegment,
-    endpoint,
+    iacPath,
+    iacResource,
     inScope,
     intent,
     riskScore,
@@ -153,7 +153,8 @@ function buildAgentPrompt({
   riskEventId,
   policyId,
   appSegment,
-  endpoint,
+  iacPath,
+  iacResource,
   inScope,
   intent,
   riskScore,
@@ -162,7 +163,8 @@ function buildAgentPrompt({
   riskEventId: string;
   policyId: string;
   appSegment: string;
-  endpoint: string;
+  iacPath: string;
+  iacResource: string | null;
   inScope: number | null;
   intent: number | null;
   riskScore: number | null;
@@ -176,17 +178,26 @@ function buildAgentPrompt({
     riskScore != null
       ? `- Risk score: ${riskScore} / 100`
       : `- Risk score: unavailable in payload — fetch via zscaler-mcp in Step 1`;
+  const resourceLine = iacResource
+    ? `- Likely Terraform resource: ${iacResource}`
+    : `- Terraform resource: not provided — locate via Step 1 (segment tag) and Step 4 (file scan)`;
 
-  return `You are the orchestration layer between Zscaler, Okta, GitHub, Jira, and the codebase.
-A Zscaler ZPA Zero Trust violation was reported. Coordinate across Zscaler MCP, Okta MCP, GitHub MCP,
-Jira MCP, and the shell to ship a tested security PR — with zero human intervention until the review step.
+  return `You are the orchestration layer between Zscaler, Okta, GitHub, Jira, and the customer's
+Terraform module that manages ZPA-as-Code. A Zscaler ZPA Zero Trust violation was reported.
+Coordinate across Zscaler MCP, Okta MCP, GitHub MCP, Jira MCP, and the shell to ship a tested
+Terraform PR — with zero human intervention until the security review step.
+
+CRITICAL: ZPA access rules live in Terraform (the zscaler/zpa provider), NOT in application
+code. Your fix is HCL (.tf), not TypeScript. The application code under src/ is unrelated to
+this incident. Do not edit application code.
 
 ## Incoming risk event
 - Risk event: ${riskEventId}
-- Policy: ${policyId}
+- ZPA policy id: ${policyId}
 - App segment: ${appSegment}
-- Affected endpoint: ${endpoint}
 - Alert URL: ${alertUrl}
+- IaC root: ${iacPath}
+${resourceLine}
 ${scopeLine}
 ${riskLine}
 
@@ -197,48 +208,51 @@ You MUST execute every step. Do not skip steps. Cite evidence from each step in 
 ### Step 1 — Zscaler MCP intake
 - Fetch the ZPA risk event detail: severity, state, risk score, posture distribution, in-scope vs intent.
 - Fetch the ZIA web log slice for the affected app segment (last 60 minutes by default).
-- Identify the affected app, endpoint, deployment marker, and which policy ID governs it.
-- Record: in-scope user count, intent user count, posture compliance %, regression deploy SHA.
+- Identify the IaC owner via segment tags (e.g. \`iac:terraform\`, \`repo:<name>\`, \`module:<path>\`).
+- Record: in-scope user count, intent user count, posture compliance %, regression deploy SHA, IaC path.
 
-### Step 2 — Identity context (Okta MCP, optional but preferred)
-- Reconcile the policy's role list against actual Okta group membership.
-- Compute the smallest role set that satisfies the least-privilege intent.
-- Record: which groups should retain access; which should not.
+### Step 2 — Identity context (Okta MCP)
+- Resolve the SCIM groups that should retain access (typically the intent set: e.g. security-admin, compliance-officer).
+- Compute the smallest justifiable allow-list. Cite group IDs and member counts in the PR body.
 
 ### Step 3 — Regression hunt (GitHub MCP)
-- List the last 10 commits touching the policy file or any caller in the slow path.
-- Identify the most recent commit that widened scope.
+- \`git log\` the IaC path: \`git log --since=14.days -- ${iacPath}\`.
+- Identify the most recent commit that widened scope (stripped conditions, added wildcard, switched ALLOW operator).
 - Record SHA, author, date, message — cite in the PR body.
 
-### Step 4 — Read affected code (shell)
-- Read the policy file, the evaluator, and any callers / type definitions.
-- Form a written hypothesis before patching:
-  - What fields are over-permissive? (wildcard roles, posture skip, wildcard locations/IdPs)
-  - What is the minimal correct change?
+### Step 4 — Read the .tf and form a hypothesis
+- Locate the access rule resource. If \`iac_resource\` was provided, read that file directly. Otherwise grep the IaC path for \`zpa_policy_access_rule\` resources and match by app segment name.
+- Read the resource. Enumerate which condition object_types are present and which are missing.
+- Form a written hypothesis BEFORE patching:
+  - Which object_types are missing? (typical answer: SCIM_GROUP, POSTURE, TRUSTED_NETWORK, CLIENT_TYPE)
+  - Which data sources already exist in the module that you can reference? (e.g. \`data.zpa_idp_controller\`, \`data.zpa_scim_groups\`, \`data.zpa_posture_profile\`, \`data.zpa_trusted_network\`)
+  - If a needed data source does not exist, define it in the same module.
 
-### Step 5 — Patch (shell + edit)
-- Apply the minimal correct security fix. Prefer in order:
-  1. Replace wildcard roles with an explicit allow-list derived from Step 2.
-  2. Set \`postureRequired: true\` and any other gate that was disabled.
-  3. Restrict locations and IdPs to known-safe values.
-- Preserve the evaluator and existing types. Do NOT widen contracts.
+### Step 5 — Patch the Terraform
+- Add the missing condition blocks to the access rule resource.
+- Use the existing data sources (do NOT hard-code IDs).
+- Preserve the resource's name, description, action, and the existing \`APP\` condition. The plan must be in-place-only.
+- Do NOT touch the application segment, server groups, or app connector groups.
+- Do NOT edit application code under src/.
 - Do NOT add narrative comments explaining the change.
 
-### Step 6 — Static + policy-conformance verify (shell)
-- \`npm run lint\` — fix any new errors your patch introduced.
-- \`npx tsc --noEmit\` — must be clean.
-- Run a small policy conformance probe (4 simulated requests):
-  - admin-role + managed-compliant + corporate-location + primary-IdP → allow
-  - admin-role + managed-noncompliant → deny
-  - employee-role + managed-compliant → deny
-  - anonymous + unmanaged → deny
+### Step 6 — Static + plan + conformance verify (shell)
+- \`terraform fmt -check -recursive ${iacPath}\` — must be clean.
+- \`terraform validate\` against the IaC root — must succeed.
+- \`terraform plan -out=tfplan\` — output MUST be \`Plan: 0 to add, N to change, 0 to destroy\` (in-place update only). If destroy or recreate appears, return to Step 5.
+- \`tfsec\` or \`checkov\` against the IaC root — the broad-scope finding (e.g. \`AVD-ZPA-001\`) must be resolved; no new high or medium findings.
+- Run the policy conformance probe (4 simulated requests against the rule via the customer's probe endpoint or local simulator):
+  - sec-admin + managed-compliant + corp-egress + zpa-client → ALLOW
+  - sec-admin + managed-noncompliant → DENY
+  - employee + managed-compliant → DENY
+  - anon + unmanaged + public + exporter → DENY
 - If any check fails, return to Step 5.
 
 ### Step 7 — Open the PR via GitHub MCP
-- Create a branch: \`sec/<slug-from-app-segment>\`.
-- Commit with message:
+- Create a branch: \`sec/scope-down-<segment-slug>-zpa\`.
+- Commit message:
   \`\`\`
-  sec: <one-line description> (<before> → <after> users in scope, resolves Sec-P1)
+  sec(zpa): scope down <segment> ALLOW rule (<before> → <after> in scope, resolves Sec-P1)
 
   Resolves ${alertUrl}
   \`\`\`
@@ -246,39 +260,46 @@ You MUST execute every step. Do not skip steps. Cite evidence from each step in 
 - Open a PR with this body structure (every section must be filled with evidence from the steps above):
 
   ## Summary
-  One sentence describing what changed and why.
+  One sentence describing which conditions were added and why.
 
   ## Before / after scope
-  A markdown table:
   | Metric | Before | After | Δ |
   | --- | ---: | ---: | ---: |
   | Users in scope | <pre> | <post> | <delta>% |
   | Risk score | <before>/100 | <after>/100 | resolved |
-  | Posture compliance | <before>% | 100% | restored |
-  | Unmanaged paths | <n> | 0 | closed |
+  | Conformance probes | <n>/4 | 4/4 | restored |
+  | Unmanaged-device paths | <n> | 0 | closed |
 
   ## Root cause
-  - Offending policy fields (cite file:line from Step 4)
+  - Which object_types were missing (cite file:line from Step 4)
   - Regression commit (cite SHA from Step 3)
   - ZPA risk event ${riskEventId} observation (Step 1)
 
   ## Fix
-  - Bullet-point diff of what you changed and where
+  - HCL diff bullet list (which conditions were added, against which data sources)
+
+  ## terraform plan
+  - Paste the (truncated, in-place-only) plan output
+
+  ## Conformance probe (replayed)
+  - 4-row table: request → expected → got → result
 
   ## Evidence
   - Zscaler ZPA event: ${alertUrl}
   - Risk event: ${riskEventId}
-  - Typecheck: ✓
-  - Lint: ✓
-  - Policy conformance probe: ✓ (4 simulated requests, deny-by-default restored)
+  - terraform validate: ✓
+  - terraform plan: ~N / +0 / -0
+  - tfsec/checkov: AVD-ZPA-001 resolved
+  - Conformance probe: ✓ 4 / 4 passed
 
   ## Risk assessment
-  - Blast radius (files, lines changed, type-surface impact)
-  - Rollback plan (no SCIM, no IdP, no infra changes)
+  - Blast radius (file count, line count)
+  - Plan shape (in-place vs destroy/recreate)
+  - Rollback plan (\`git revert HEAD && terraform apply\`)
 
 ### Step 8 — Jira update (Jira MCP)
 - Move the security incident ticket to \`In Review\`.
 - Link the PR URL.
-- Post a comment that cites the before/after scope and links the Zscaler risk event.
+- Post a comment that cites the before/after scope, the terraform plan summary, and the Zscaler risk event.
 `;
 }

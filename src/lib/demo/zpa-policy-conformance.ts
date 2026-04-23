@@ -90,13 +90,13 @@ export function parseAccessRule(hcl: string, resourceName: string): PolicyAccess
       const operand: PolicyOperand = {
         object_type: extractScalarString(opBody, 'object_type') ?? '',
       };
-      const lhs = extractScalarString(opBody, 'lhs');
+      const lhs = extractScalarValue(opBody, 'lhs');
       if (lhs !== null) operand.lhs = lhs;
-      const rhs = extractScalarString(opBody, 'rhs');
+      const rhs = extractScalarValue(opBody, 'rhs');
       if (rhs !== null) operand.rhs = rhs;
       const entries = extractBlocks(opBody, 'entry_values').map(eBody => ({
-        lhs: extractScalarString(eBody, 'lhs') ?? undefined,
-        rhs: extractScalarString(eBody, 'rhs') ?? undefined,
+        lhs: extractScalarValue(eBody, 'lhs') ?? undefined,
+        rhs: extractScalarValue(eBody, 'rhs') ?? undefined,
       }));
       if (entries.length > 0) operand.entry_values = entries;
       return operand;
@@ -126,6 +126,14 @@ function extractScalarString(body: string, key: string): string | null {
   return m ? m[1] : null;
 }
 
+function extractScalarValue(body: string, key: string): string | null {
+  const quoted = extractScalarString(body, key);
+  if (quoted !== null) return quoted;
+  const re = new RegExp(`\\b${key}\\s*=\\s*([^\\n#]+)`, 'm');
+  const m = body.match(re);
+  return m ? m[1].trim().replace(/,$/, '') : null;
+}
+
 function extractBlocks(body: string, key: string): string[] {
   const out: string[] = [];
   const re = new RegExp(`\\b${key}\\s*\\{`, 'g');
@@ -141,7 +149,7 @@ function extractBlocks(body: string, key: string): string[] {
 /* Evaluator                                                           */
 /* ------------------------------------------------------------------ */
 
-const REFERENCED_GROUP_HINTS = ['security_admin', 'security-admin', 'compliance_officer', 'compliance-officer'];
+const REFERENCED_GROUP_HINTS = ['security-admin', 'compliance-officer'];
 
 export function evaluateRequest(
   rule: PolicyAccessRule,
@@ -187,10 +195,10 @@ function evaluateOperand(op: PolicyOperand, req: AccessRequest): boolean {
       // APP id reference always evaluated as the app under test
       return true;
     case 'SCIM_GROUP': {
-      const rhs = (op.rhs ?? '').toLowerCase();
-      const groupSlug = REFERENCED_GROUP_HINTS.find(g => rhs.includes(g.replace('_', '-')));
-      if (!groupSlug) return req.scim_groups.length > 0;
-      return req.scim_groups.includes(groupSlug.replace('_', '-'));
+      const rhs = normalizeRef(op.rhs ?? '');
+      const groupSlug = REFERENCED_GROUP_HINTS.find(g => rhs.includes(normalizeRef(g)));
+      if (!groupSlug) return false;
+      return req.scim_groups.includes(groupSlug);
     }
     case 'POSTURE':
       // RHS "true" means posture must be satisfied (managed-compliant)
@@ -207,6 +215,10 @@ function evaluateOperand(op: PolicyOperand, req: AccessRequest): boolean {
     default:
       return true;
   }
+}
+
+function normalizeRef(value: string): string {
+  return value.toLowerCase().replace(/_/g, '-');
 }
 
 /* ------------------------------------------------------------------ */

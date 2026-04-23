@@ -176,8 +176,8 @@ export function Partnerships() {
               {
                 href: '/partnerships/zscaler',
                 partner: 'Zscaler',
-                title: 'From Zero Trust Violation to Merged PR',
-                description: 'Zscaler ZPA flags an over-permissive policy. Cursor reads the application policy out of the codebase, scopes it down, verifies deny-by-default, and submits a PR.',
+                title: 'From ZPA Risk Event to Merged Terraform PR',
+                description: 'Zscaler ZPA flags an under-conditioned access rule. Cursor reads the customer\u2019s zscaler/zpa Terraform module, adds the missing SCIM/posture/network conditions, runs terraform plan, replays the conformance probe, and submits a PR.',
                 color: '#0079D5',
                 letter: 'Z',
               },

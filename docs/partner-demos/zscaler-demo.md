@@ -1,59 +1,58 @@
 # Zscaler Live Zero-Trust Triage & Fix Demo — Build Brief
 
-> **Purpose of this document:** This is a self-contained prompt/spec for a new Cursor agent to build an interactive live-fix demo at `/partnerships/zscaler/demo`, patterned on the existing Datadog demo at `/partnerships/datadog/demo`. Read it end-to-end before writing any code.
+> **Purpose of this document:** Self-contained spec for an interactive live-fix demo at `/partnerships/zscaler/demo`. Read it end-to-end before writing any code. The accuracy of this workflow is the whole point of the demo: this is what real Zscaler customers actually do.
 
 ---
 
 ## 0. TL;DR for the agent
 
-Build a repeatable, click-to-run demo that dramatizes Zscaler + Cursor orchestration end-to-end:
+Build a repeatable, click-to-run demo that dramatizes the **real** Zscaler + Cursor orchestration:
 
-1. A user lands on `/partnerships/zscaler/demo` and clicks a button to open an internal admin endpoint ("Open audit logs", "Run workforce report").
-2. The endpoint succeeds, but it should not have. The application's access-policy file in the repo contains an overly permissive rule (`roles: ['*']`, `posture: skip`, `locations: ['*']`). The UI immediately pivots to a full-screen **Zero Trust violation** takeover.
-3. Zscaler (mocked) detects the broad-scope access in real time. ZPA Policy Engine fires a webhook to Cursor.
-4. A scripted "agent console" plays on the right half of the screen showing Cursor orchestrating: Zscaler MCP → Opus triage → GitHub MCP → Composer edit → Codex review → shell verification → PR opened → Jira ticket updated.
-5. When the run completes, the user can click through four pixel-perfect artifact modals: **Zscaler ZPA console**, **Triage report**, **Jira ticket**, and **GitHub PR** (inside a MacBook frame).
-6. Reset button returns the demo to clean state. A `scripts/reset-zscaler-demo.sh` script re-seeds the bug after a real PR merges.
+1. A user lands on `/partnerships/zscaler/demo` and clicks **Run policy conformance probe**.
+2. The probe reads the customer's actual ZPA Terraform module (`infrastructure/zscaler/workforce-admin.tf`) from disk, parses the access rule, and replays four canonical access requests through it. Three of the four fail because the rule has only an APP condition — no SCIM_GROUP, POSTURE, TRUSTED_NETWORK, or CLIENT_TYPE blocks.
+3. The UI pivots to a full-screen **Zero Trust violation** takeover.
+4. Zscaler ZPA (mocked) detects the broad-scope segment in real time. ZPA Policy Engine fires a webhook to Cursor.
+5. A scripted "agent console" plays on the right half of the screen showing Cursor orchestrating: Zscaler MCP → Okta MCP → GitHub MCP → Opus triage → Composer edit → Codex review → terraform fmt + validate + plan → tfsec/checkov → policy-conformance probe → PR opened → Jira updated.
+6. When the run completes, the user can click through four pixel-perfect artifact modals: **Zscaler ZPA console**, **Triage report**, **Jira ticket**, and **GitHub PR with HCL diff + terraform plan + probe output** (inside a MacBook frame).
+7. Reset button returns the demo to clean state. `scripts/reset-zscaler-demo.sh` re-seeds the .tf to the under-conditioned state after a real PR merges.
 
-**The demo must behave identically every time it runs.** All agent work is scripted playback. Only the underlying bug and reset are real.
+**The demo must behave identically every time it runs.** All agent work is scripted playback. Only the underlying .tf file and the conformance probe are real.
 
 ---
 
-## 1. Why this is being built
+## 1. Why this is being built (and what we got wrong before)
 
-The Datadog demo dramatizes a *performance* incident (SLO breach → parallel fix). The Sentry demo dramatizes a *crash* (null-ref → patch). Zscaler's story is different again: it is a **security posture / zero-trust policy** story. The bug is not a crash and not a slowdown, it is an over-permissive access rule that lets the wrong people read a sensitive endpoint. Zscaler's ZPA Policy Engine catches the broad-scope traffic, fires a webhook, and Cursor closes the policy in code.
+The first cut of this demo (PR #10) used a TypeScript "policy" file with wildcards. **That was inaccurate.** Real ZPA access policies do not live in application code. They live in the Zscaler control plane and, for any mature enterprise, are managed via the **official `zscaler/zpa` Terraform provider**.
 
-This demo proves Cursor can act as the orchestration layer between a security control plane and the source of truth (the codebase), not just observability and the codebase.
+This rebuild reflects how a real Zscaler customer actually triages a Zero Trust violation:
+
+1. ZPA Risk Operations gets paged.
+2. The on-call security engineer cannot directly fix the rule because it is in code.
+3. A ticket bounces to the platform team that owns the Terraform module.
+4. A platform engineer opens the .tf, drafts the missing conditions, runs `terraform plan`, opens a PR.
+5. Security reviews and approves the PR.
+6. Atlantis runs `terraform apply` on merge.
+
+That handoff takes **2 to 3 business days** in most organizations. Cursor compresses steps 2 to 5 to about two minutes without changing the human approval gate.
 
 ---
 
 ## 2. Required reading (in this repo, in order)
 
-Before you write any code, study the Datadog demo. This is the pattern you are replicating most closely (the Datadog demo is the most recent and the cleanest reference for the orchestration scaffolding).
+Before you write any code, study the Datadog demo. It is the closest pattern reference.
 
 **Page + state machine:**
 
-- `src/app/partnerships/datadog/demo/page.tsx` — state machine (`idle` → `error` → `running` → `complete`), three conditional regions, artifact modal dispatch.
+- `src/app/partnerships/datadog/demo/page.tsx` — state machine (`idle` → `error` → `running` → `complete`).
 
 **Components:**
 
-- `src/components/datadog-demo/reports-card.tsx` — the trigger UI.
+- `src/components/datadog-demo/reports-card.tsx` — trigger UI pattern.
 - `src/components/datadog-demo/demo-perf-boundary.tsx` — error interception via React Error Boundary.
-- `src/components/datadog-demo/full-slo-breach-page.tsx` — full-screen takeover with "Watch the fix" CTA.
-- `src/components/datadog-demo/slo-summary.tsx` — compact summary for split-screen (left panel while agent runs).
-- `src/components/datadog-demo/agent-console.tsx` — **the single most important file to study**. Scripted step playback with channel-coded rows, timestamps, delays, and `onComplete` callback.
-- `src/components/datadog-demo/artifact-cards.tsx` — the four CTA tiles after the run completes.
-- `src/components/datadog-demo/artifacts/triage-report.tsx` — markdown modal.
-- `src/components/datadog-demo/artifacts/jira-ticket.tsx` — pixel-perfect Jira ticket modal.
-- `src/components/datadog-demo/artifacts/macbook-frame.tsx` — photorealistic MacBook chrome.
-- `src/components/datadog-demo/artifacts/github-pr-preview.tsx` — pixel-perfect GitHub PR.
-- `src/components/datadog-demo/artifacts/pr-modal.tsx` — wraps GitHub PR in MacBook.
-- `src/components/datadog-demo/artifacts/datadog-trace.tsx` + `datadog-modal.tsx` — pixel-perfect Datadog APM trace detail in MacBook.
-- `src/components/datadog-demo/latency-comparison.tsx`, `guardrails-panel.tsx` — supporting cards on the idle page.
-
-**Trigger code (the real bug):**
-
-- `src/lib/demo/aggregate-orders.ts` + `src/lib/demo/region-store.ts` — two-file performance bug.
+- `src/components/datadog-demo/full-slo-breach-page.tsx` — full-screen takeover pattern.
+- `src/components/datadog-demo/slo-summary.tsx` — split-screen summary pattern.
+- `src/components/datadog-demo/agent-console.tsx` — **the single most important file to study**. Scripted step playback.
+- `src/components/datadog-demo/artifacts/*` — pixel-perfect artifact modals + MacBook frame.
 
 **Webhook + reset:**
 
@@ -62,362 +61,270 @@ Before you write any code, study the Datadog demo. This is the pattern you are r
 
 ---
 
-## 3. What the Datadog demo does (pattern summary)
+## 3. The Zscaler workflow — concept & story
 
-The demo is a state machine rendered on one route. Phases:
+### 3.1 The customer's IaC reality
 
-| Phase      | What renders                                                                                              |
-| ---------- | --------------------------------------------------------------------------------------------------------- |
-| `idle`     | Hero + CTA pill + trigger card inside an Error Boundary + comparison/guardrails sections below the fold.  |
-| `error`    | Full-screen takeover with "Watch the fix" and "Reset" CTAs. Hides everything else.                        |
-| `running`  | Split screen: incident summary left, `AgentConsole` right. Scripted steps stream in. Reset in nav.        |
-| `complete` | Same split screen, plus `ArtifactCards` strip with 4 tiles. Top banner flips to green "Run complete".     |
+A real Zscaler customer has a Terraform module that looks roughly like this:
 
-Artifact modals (triage, jira, pr, partner-specific) are overlays opened from either the summary panel or `ArtifactCards`, closable, self-contained.
+```
+infrastructure/zscaler/
+├── versions.tf       # required_providers { zpa = "zscaler/zpa" ~> 4.4 }
+├── data.tf           # zpa_idp_controller, zpa_scim_groups, zpa_posture_profile, zpa_trusted_network
+└── workforce-admin.tf  # zpa_application_segment + zpa_policy_access_rule resources
+```
 
-The AgentConsole `SCRIPT` is an array of `Step` objects with `channel`, a `label`, a one-line `detail`, and a `delayMs`. Real runtime is ~19s; displayed timestamps are scaled by `TIME_SCALE = 6.9` to show a realistic ~2 min of "agent work".
+The buggy access rule looks like this (real `zscaler/zpa` provider syntax):
 
-**This scripted-playback pattern is the whole trick.** Replicate it faithfully.
+```hcl
+resource "zpa_policy_access_rule" "workforce_admin_audit_logs_allow" {
+  name        = "workforce-admin-audit-logs-allow"
+  action      = "ALLOW"
+  operator    = "AND"
 
----
-
-## 4. The Zscaler demo — concept & story
-
-### The trigger scenario
-
-**Surface UI:** A "Workforce Admin" mini-app card on the demo page. The hero card is something like:
-
-> **Open employee audit logs**
-> Read the access log for the last 24 hours.
-> `[ Open audit logs ]`
-
-When clicked, the card calls `/api/admin/audit-logs`. The endpoint's access policy is wrong — it uses a wildcard role and skips the device-posture check — so it returns the sensitive data even when no role / posture is presented. The card detects the broad-scope success and immediately throws a `ZeroTrustViolationError`, pivoting to a full-screen **Zero Trust violation** takeover.
-
-**The full-screen violation page (Zscaler equivalent of `FullSloBreachPage`):**
-
-- Big "Zero Trust violation" heading (not a 500, not a perf metric, this is a *posture* breach).
-- Zscaler blue accent (`#0079D5` primary, `#0E5DA8` deeper, `#65B5F2` light text on dark).
-- Line: `/api/admin/audit-logs · 4,287 users in scope · least-privilege intent: 18 users · 238× over scope`.
-- Subtext naming the cause in Zscaler vocabulary: "ZPA Policy Engine flagged broad-scope access. The application policy in `src/lib/demo/access-policy.ts` uses `roles: ['*']` and skips device posture."
-- Two buttons: **"Watch Cursor close this policy"** (→ running phase) and **"Reset"**.
-
-### The underlying bug (real code, reset-able)
-
-Create two cooperating files. The bug must typecheck and run, but the resulting policy is over-permissive.
-
-**`src/lib/demo/access-policy.ts`** (buggy):
-
-```ts
-import { lookupUser, type AccessRequest, type AccessDecision } from './identity-store';
-
-export interface AccessPolicy {
-  app: string;
-  roles: string[];          // wildcard "*" means any role
-  postureRequired: boolean; // skips device-posture check when false
-  allowedLocations: string[];
-  allowedIdps: string[];
-}
-
-export const ADMIN_AUDIT_LOG_POLICY: AccessPolicy = {
-  app: 'workforce-admin/audit-logs',
-  roles: ['*'],             // overly permissive
-  postureRequired: false,   // device posture not enforced
-  allowedLocations: ['*'],  // any geography
-  allowedIdps: ['*'],       // any IdP
-};
-
-export async function evaluateAccess(req: AccessRequest): Promise<AccessDecision> {
-  const user = await lookupUser(req.userId);
-  const roleOk = ADMIN_AUDIT_LOG_POLICY.roles.includes('*') ||
-                 user.roles.some(r => ADMIN_AUDIT_LOG_POLICY.roles.includes(r));
-  const locationOk = ADMIN_AUDIT_LOG_POLICY.allowedLocations.includes('*') ||
-                     ADMIN_AUDIT_LOG_POLICY.allowedLocations.includes(req.location);
-  const postureOk = !ADMIN_AUDIT_LOG_POLICY.postureRequired || req.devicePosture === 'managed-compliant';
-  return { allow: roleOk && locationOk && postureOk, user, evaluatedAt: Date.now() };
+  conditions {
+    operator = "OR"
+    operands {
+      object_type = "APP"
+      lhs         = "id"
+      rhs         = zpa_application_segment.workforce_admin_audit_logs.id
+    }
+  }
 }
 ```
 
-**`src/lib/demo/identity-store.ts`** (simulates ~80–120ms per call so traffic feels real, but not a perf demo):
+The bug: the rule only declares an **APP** condition. ZPA evaluates a missing SCIM_GROUP, POSTURE, TRUSTED_NETWORK, or CLIENT_TYPE condition as "any". So any authenticated user from any device on any network using any client can reach the segment.
 
-```ts
-export type Location = 'sf-hq' | 'remote' | 'kiosk' | 'unknown';
-export type DevicePosture = 'managed-compliant' | 'managed-noncompliant' | 'unmanaged';
+The fix adds the missing condition blocks (each as a separate `conditions { ... }` block, joined by the rule's top-level `operator = "AND"`):
 
-export interface AccessRequest {
-  userId: string;
-  location: Location;
-  devicePosture: DevicePosture;
-  idp: string;
+```hcl
+conditions {
+  operator = "OR"
+  operands {
+    object_type = "SCIM_GROUP"
+    lhs = data.zpa_idp_controller.okta_prod.id
+    rhs = data.zpa_scim_groups.security_admin.id
+  }
+  operands {
+    object_type = "SCIM_GROUP"
+    lhs = data.zpa_idp_controller.okta_prod.id
+    rhs = data.zpa_scim_groups.compliance_officer.id
+  }
 }
 
-export interface User {
-  id: string;
-  name: string;
-  roles: string[];
-  department: string;
+conditions {
+  operator = "AND"
+  operands {
+    object_type = "POSTURE"
+    lhs = data.zpa_posture_profile.managed_compliant.posture_udid
+    rhs = "true"
+  }
 }
 
-export interface AccessDecision {
-  allow: boolean;
-  user: User;
-  evaluatedAt: number;
+conditions {
+  operator = "AND"
+  operands {
+    object_type = "TRUSTED_NETWORK"
+    lhs = data.zpa_trusted_network.corp_egress.network_id
+    rhs = "true"
+  }
 }
 
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-
-export async function lookupUser(userId: string): Promise<User> {
-  await sleep(95);
-  // Deterministic user fixture used by the demo trigger
-  return { id: userId, name: 'Demo Visitor', roles: ['employee'], department: 'unknown' };
+conditions {
+  operator = "OR"
+  operands {
+    object_type = "CLIENT_TYPE"
+    lhs = "id"
+    rhs = "zpn_client_type_zapp"
+  }
 }
 ```
 
-> Use this exact bug or one structurally equivalent. The point is it must be real, typechecks, and produces a *visible policy violation* the prospect can feel.
+`terraform plan` against this change produces an **in-place update only** (no destroy, no recreate, no app-segment churn). That property is critical for the demo — the agent must verify it before opening the PR.
 
-**The fix** (what the agent "produces"): scope down to explicit `roles: ['security-admin', 'compliance-officer']`, set `postureRequired: true`, restrict `allowedLocations` and `allowedIdps`. Same evaluator. Result: 4,287 users → 18 users in scope.
+### 3.2 The trigger surface
 
-### The orchestration (scripted console playback)
+**Card title:** "ZPA-as-Code · Conformance"
+**CTA:** "Run policy conformance probe"
 
-Channels your `SCRIPT` needs (extend the channel union, keep Opus/Composer/Codex):
+When clicked, the card calls `/api/zscaler/policy-conformance`. That route:
 
-| Channel    | Label              | Hex accent   | Role in the story                                        |
-| ---------- | ------------------ | ------------ | -------------------------------------------------------- |
-| `zscaler`  | `zscaler-mcp`      | `#0079D5`    | ZPA Policy Engine + ZIA traffic intake                   |
-| `okta`     | `okta-mcp`         | `#007DC1`    | *Optional* IdP context: actual user roles, group claims  |
-| `github`   | `github-mcp`       | (white)      | Commit history, branch, PR                               |
-| `jira`     | `jira-mcp`         | `#4C9AFF`    | Sec incident ticket creation + state transitions         |
-| `shell`    | `shell`            | green        | `tsc`, lint, integration test, git                       |
-| `opus`     | `opus · triage`    | `#D97757`    | Long-context root-cause reasoning across logs + policy   |
-| `composer` | `composer · edit`  | blue         | Scoped policy edits                                      |
-| `codex`    | `codex · review`   | `#10a37f`    | Patch review / least-privilege check                     |
-| `codegen`  | `codegen`          | blue         | Triage report generation                                 |
-| `done`     | `complete`         | green        | Terminal step                                            |
+1. Reads `infrastructure/zscaler/workforce-admin.tf` from disk.
+2. Parses the `zpa_policy_access_rule` resource using a small (just-enough) HCL subparser (`src/lib/demo/zpa-policy-conformance.ts`).
+3. Replays four canonical access requests through the rule's conditions.
+4. Returns `{ scope, probe, allPass: false }` and a 422.
 
-`okta` is optional. Default to the core set with `zscaler` replacing `datadog` and `pagerduty` removed (security incidents do not page; they ticket).
+The card detects the failure and immediately throws a `ZeroTrustViolationError`, pivoting to the full-screen Zero Trust violation takeover.
 
-**Target script arc (~25–28 steps, ~19s real, scaled to ~2min displayed via `TIME_SCALE`):**
+### 3.3 The full-screen violation page
 
-1. **Intake (zscaler):** ZPA Policy Engine event → ZIA web log slice → identify endpoint → enumerate user / device / location dimensions in scope.
-2. **Identity context (okta — optional):** Pull group claims to confirm 18 users *should* have access vs the 4,287 currently allowed.
-3. **Incident management (jira):** Ticket `CUR-5712` created (Sec-P1, Zero Trust violation). No PagerDuty — Zscaler routes through Risk Operations.
-4. **Opus triage:** Model selected for long-context reasoning over policy + traffic logs. Pulls commit history (github-mcp). Identifies regression commit. Forms hypothesis: "ADMIN_AUDIT_LOG_POLICY uses wildcard roles and skips posture check; should be explicit role list + posture-required."
-5. **Codegen:** Triage report written to `docs/triage/2026-04-23-zerotrust-violation-audit-logs.md`.
-6. **Composer edit:** Reads `access-policy.ts`. Replaces wildcards with explicit role list, sets `postureRequired: true`, restricts locations and IdPs.
-7. **Codex review:** Confirms least-privilege, no contract change to `evaluateAccess`, no callers broken.
-8. **Shell verification:**
-   - `npx tsc --noEmit` → ✓
-   - `npm run lint` → ✓
-   - Integration test: simulate four access requests (admin/posture-ok, admin/posture-bad, employee/posture-ok, anonymous) → asserts deny-by-default behavior is restored.
-   - Recompute scope: `4,287 → 18 users · 238.2× narrower · 0 unmanaged-device access paths`.
-9. **PR (github):** Branch `sec/scope-down-audit-log-policy` → commit → push → PR #213 opened. Title: `sec: scope down audit-log policy (4,287 → 18 users in scope, resolves Sec-P1)`.
-10. **Jira update:** `CUR-5712 → In Review`.
+- Big "ZPA access rule has no SCIM, posture, or network conditions." heading.
+- Zscaler blue accent (`#0079D5` primary, `#65B5F2` light text on dark).
+- Line: `infrastructure/zscaler/workforce-admin.tf` · resource `zpa_policy_access_rule.workforce_admin_audit_logs_allow`.
+- Subtext: "The rule is `action = "ALLOW"` with only an APP condition. No SCIM_GROUP, no POSTURE, no TRUSTED_NETWORK, no CLIENT_TYPE."
+- Two buttons: **"Watch Cursor scope this policy"** → running phase, and **"Reset"**.
+
+### 3.4 The orchestration (scripted console playback)
+
+Channels the SCRIPT needs:
+
+| Channel     | Label              | Hex accent | Role in the story                                       |
+| ----------- | ------------------ | ---------- | ------------------------------------------------------- |
+| `zscaler`   | `zscaler-mcp`      | `#0079D5`  | ZPA Policy Engine + ZIA traffic + segment intake        |
+| `okta`      | `okta-mcp`         | `#007DC1`  | SCIM group resolution for least-privilege allow-list    |
+| `github`    | `github-mcp`       | (white)    | git log on the IaC path, PR creation                    |
+| `jira`      | `jira-mcp`         | `#4C9AFF`  | Sec-Incident ticket lifecycle                           |
+| `shell`     | `shell`            | green      | git, file IO, conformance probe runner                  |
+| `terraform` | `terraform`        | `#7B42BC`  | terraform fmt / validate / plan + tfsec/checkov         |
+| `opus`      | `opus · triage`    | `#D97757`  | Long-context root-cause reasoning                       |
+| `composer`  | `composer · edit`  | blue       | Scoped HCL edits                                        |
+| `codex`     | `codex · review`   | `#10a37f`  | Patch review / least-privilege check                    |
+| `codegen`   | `codegen`          | blue       | Triage report generation                                |
+| `done`      | `complete`         | green      | Terminal step                                           |
+
+**Target script arc (~30 steps, ~22s real, scaled to ~2:30 displayed via `TIME_SCALE = 6.9`):**
+
+1. **Intake (zscaler):** ZPA risk event → ZIA web log slice → segment + IaC owner cross-reference.
+2. **Identity (okta):** Resolve SCIM groups for the least-privilege allow-list.
+3. **Incident (jira):** Sec-P1 ticket created.
+4. **Opus triage:** Pull commit history of the IaC path. Identify regression commit. Form hypothesis.
+5. **Codegen:** Triage report written to `docs/triage/2026-04-23-zerotrust-violation-workforce-admin.md`.
+6. **Composer edit:** Read `workforce-admin.tf`. Add SCIM_GROUP, POSTURE, TRUSTED_NETWORK, CLIENT_TYPE conditions.
+7. **Codex review:** No destructive plan changes, operator AND across blocks, style + provider conventions OK.
+8. **Verification:**
+   - `terraform fmt -check` ✓
+   - `terraform validate` ✓
+   - `terraform plan -out=tfplan` → `~ 1 to change · 0 add · 0 destroy`
+   - `tfsec` + `checkov` → AVD-ZPA-001 resolved
+   - Conformance probe (4 simulated requests) → 4/4 pass
+   - Scope recompute: `4,287 → 18 users · 238.2× narrower · 0 unmanaged-device paths`
+9. **PR:** Branch `sec/scope-down-workforce-admin-zpa` → commit → push → PR #213.
+10. **Jira:** CUR-5712 → In Review.
 11. **Done:** Artifacts ready.
 
-### The four artifact modals
+### 3.5 The four artifact modals
 
-All four render in a MacBook frame using the existing MacBook chrome (copy `src/components/datadog-demo/artifacts/macbook-frame.tsx` as `src/components/zscaler-demo/artifacts/macbook-frame.tsx` — do not delete the Datadog one).
+All four render in a MacBook frame.
 
-1. **Zscaler ZPA console modal** (equivalent of `DatadogModal`) — pixel-perfect Zscaler **Zero Trust Exchange Admin Portal** policy violation page. Must include:
-   - Top nav with Zscaler logo (blue), org/cloud selector, search bar.
-   - Page title: `Policy Violation — workforce-admin/audit-logs`.
-   - Risk score widget showing `Critical · 92/100` with sparkline.
-   - Scope card: `4,287 users in scope · intent: 18 · 238× over scope`.
-   - Tabs: `Overview`, `Affected users`, `Traffic`, `Policy diff`, `Activity`.
-   - Default tab = **Overview**: a "Posture compliance" donut chart (e.g. 12% managed-compliant, 38% managed-noncompliant, 50% unmanaged), an "Access events (last 1h)" sparkline, and an "Affected app" panel showing the policy fields with the bad ones highlighted in amber.
-   - Right sidebar: ZPA application segment, Policy ID, last evaluated time, related risk events, deployment marker.
-   - Use Zscaler's portal aesthetic: deep navy `#0A1F3F`-ish background, white-blue text, sharp 1px borders, blue primary actions.
-2. **Triage report modal** — same as Datadog's (`react-markdown` + `remark-gfm`), Zscaler-specific content. Format:
-   ```md
-   # Triage — Zero Trust violation on /api/admin/audit-logs
+1. **Zscaler ZPA console modal** — pixel-perfect Zero Trust Exchange Admin Portal:
+   - Top nav with Zscaler logo, cloud selector, search bar.
+   - Page title: `Policy Violation — workforce-admin / audit-logs`.
+   - Risk score `Critical · 92/100` with sparkline.
+   - Scope card: `4,287 in scope · intent 18 · 238.2x over`.
+   - Posture donut: 50% unmanaged / 38% noncompliant / 12% compliant.
+   - **Rule conditions card** with side-by-side current vs recommended (APP-only vs APP + SCIM_GROUP + POSTURE + TRUSTED_NETWORK + CLIENT_TYPE).
+   - Right sidebar: ZPA segment, policy ID, IaC source (`infrastructure/zscaler/workforce-admin.tf`, provider `zscaler/zpa ~> 4.4`, drift state), deployment marker, related risk events.
+   - Deep navy background, white-blue text, blue primary actions.
 
-   **Status:** Fix proposed · PR #213 · CUR-5712
+2. **Triage report modal** — markdown via `react-markdown` + `remark-gfm`. Includes a "How this enterprise normally triages this" table that contrasts the 2-3 day human path with the 2m 14s agent run.
 
-   ## Incident
-   - Endpoint: /api/admin/audit-logs
-   - Users in scope: 4,287 (intent: 18 · 238× over)
-   - Posture: 50% unmanaged, 38% managed-noncompliant, 12% managed-compliant
-   - Window: rolling 60 minutes
+3. **Jira ticket modal** — pixel-perfect Jira ticket `CUR-5712`, Sec-P1, Zero Trust Violation type. Description cites the IaC source. Three integration comments (Cursor Agent, Zscaler ZPA, Okta).
 
-   ## Root cause
-   | Layer | Observation |
-   | --- | --- |
-   | Policy | `roles: ['*']`, `postureRequired: false`, `allowedLocations: ['*']` |
-   | Logs | 312 ZIA web hits in last hour from 4 unmanaged devices |
-   | Regression | Commit `b7c91d2` — "wip: open audit logs for QA"  (3 days ago) |
+4. **GitHub PR modal** — pixel-perfect PR #213. Includes:
+   - Title: `sec(zpa): scope down workforce-admin-audit-logs ALLOW rule (4,287 → 18 in scope)`
+   - **HCL diff** (real `zscaler/zpa` provider syntax).
+   - **`terraform plan` output** (in-place update only).
+   - **Conformance probe output** (4-row table).
+   - CI checks: `terraform-fmt`, `terraform-validate`, `terraform-plan`, `tfsec + checkov`, `zpa-policy-conformance`.
+   - Reviewers: codex-bot (approved), @risk-ops (requested).
+   - Labels: `zero-trust`, `terraform`, `sec-p1`, `auto-fix`, `zscaler-triage`.
 
-   ## Fix
-   - Replace wildcard roles with explicit allow-list
-   - Set `postureRequired: true`
-   - Restrict `allowedLocations` to corporate egress
-   - Restrict `allowedIdps` to primary IdP
+### 3.6 Branding
 
-   ## Verification
-   - Static: `tsc --noEmit` ✓, `eslint` ✓
-   - Integration: 4 simulated requests — deny-by-default restored
-   - Scope: 4,287 → 18 users · 0 unmanaged-device paths
-
-   ## Risk
-   - Blast radius: 1 file, +14 −5
-   - Rollback: `git revert HEAD`
-   - Type surface unchanged
-   ```
-3. **Jira ticket modal** — pixel-perfect Jira, same style as Datadog's. Ticket `CUR-5712`, Sec-P1, Zero Trust Violation type. Include the "linked PR", "Zscaler trace", "assignee", "components" fields. Status moves through `To Triage → In Progress → In Review` (render as a timeline).
-4. **GitHub PR modal** — wrapped in MacBook, mirrors the Datadog PR pattern. PR #213. Include:
-   - Title: `sec: scope down audit-log policy (4,287 → 18 users in scope)`
-   - Body with before/after scope table, CI checks (all green), "Verified by Cursor agent" reviewer banner.
-   - Files changed: 1 (`access-policy.ts`).
-   - Diff excerpt in modal preview.
-   - CI: `tsc ✓`, `lint ✓`, `unit ✓`, `policy-conformance suite ✓`.
-
-### Branding
-
-- **Primary accent:** Zscaler blue `#0079D5` (hero glyph, badges, CTA emphasis).
-- **Secondary:** `#0E5DA8` (deeper) and `#65B5F2` (light text on dark).
-- **Risk / violation color:** Amber `#F5A623` for "broad scope" and "policy violation" chips. Reserve red `#FF4757` for "Critical risk score".
-- **Success:** Green `#4ADE80` (after-fix, artifacts, Jira "In Review").
-- **Avoid:** Don't reuse Datadog purple. Don't reuse Sentry purple. Don't reuse the Datadog flame-graph metaphor — Zscaler is a posture and policy story, not a span/trace story.
+- **Primary:** Zscaler blue `#0079D5`, deeper `#0E5DA8`, light `#65B5F2`.
+- **Risk / violation:** Amber `#F5A623`.
+- **Critical:** Red `#FF4757`.
+- **Success:** Green `#4ADE80`.
+- **Terraform channel accent:** `#7B42BC` (HashiCorp purple).
+- **Avoid:** Don't reuse Datadog purple, Sentry purple, or any other partner accent.
 
 ---
 
-## 5. Files to create
-
-Mirror Datadog structure under new directories. Keep Datadog files untouched.
+## 4. Files
 
 ```
-src/app/partnerships/zscaler/page.tsx                                 NEW  (narrative thesis page)
-src/app/partnerships/zscaler/demo/page.tsx                            NEW
-src/app/api/zscaler-webhook/route.ts                                  NEW
+docs/partner-demos/zscaler-demo.md                                       (this file)
 
-src/components/zscaler-demo/audit-card.tsx                            NEW  (the trigger UI, analogous to ReportsCard)
-src/components/zscaler-demo/demo-zerotrust-boundary.tsx               NEW  (intercepts violation thrown from audit-card)
-src/components/zscaler-demo/full-violation-page.tsx                   NEW  (FullSloBreachPage equivalent, Zscaler-blue)
-src/components/zscaler-demo/violation-summary.tsx                     NEW  (SloSummary equivalent, compact split-screen panel)
-src/components/zscaler-demo/agent-console.tsx                         NEW  (fork of datadog-demo/agent-console.tsx)
-src/components/zscaler-demo/artifact-cards.tsx                        NEW
-src/components/zscaler-demo/risk-comparison.tsx                       NEW  (LatencyComparison equivalent — before/after scope)
-src/components/zscaler-demo/guardrails-panel.tsx                      NEW
-src/components/zscaler-demo/artifacts/macbook-frame.tsx               NEW  (copy from datadog-demo)
-src/components/zscaler-demo/artifacts/zscaler-console.tsx             NEW  (pixel-perfect ZPA Admin Portal)
-src/components/zscaler-demo/artifacts/zscaler-modal.tsx               NEW  (wraps console in MacBook)
-src/components/zscaler-demo/artifacts/triage-report.tsx               NEW  (Zscaler-specific content)
-src/components/zscaler-demo/artifacts/jira-ticket.tsx                 NEW  (CUR-5712 content)
-src/components/zscaler-demo/artifacts/github-pr-preview.tsx           NEW  (sec PR content)
-src/components/zscaler-demo/artifacts/pr-modal.tsx                    NEW
+infrastructure/zscaler/versions.tf                                       NEW — provider pin
+infrastructure/zscaler/data.tf                                           NEW — IdP / SCIM / posture / network data sources
+infrastructure/zscaler/workforce-admin.tf                                NEW — buggy access rule + app segment
 
-src/lib/demo/access-policy.ts                                         NEW  (the buggy code)
-src/lib/demo/identity-store.ts                                        NEW  (simulated identity lookup)
-src/app/api/admin/audit-logs/route.ts                                 NEW  (calls evaluateAccess)
+src/lib/demo/zpa-policy-conformance.ts                                   NEW — HCL subparser + evaluator + 4-request probe
+src/app/api/zscaler/policy-conformance/route.ts                          NEW — runs the probe against the .tf
+src/app/api/zscaler-webhook/route.ts                                     NEW — webhook + IaC-aware buildAgentPrompt
 
-scripts/reset-zscaler-demo.sh                                         NEW  (re-seeds the wildcard policy)
-public/logos/zscaler.svg                                              NEW  (wordmark)
+src/app/partnerships/zscaler/page.tsx                                    NEW — narrative thesis page (with the 6-step today-vs-Cursor table)
+src/app/partnerships/zscaler/demo/page.tsx                               NEW — 4-phase state machine
+
+src/components/zscaler-demo/audit-card.tsx                               NEW — trigger card
+src/components/zscaler-demo/demo-zerotrust-boundary.tsx                  NEW — React Error Boundary
+src/components/zscaler-demo/full-violation-page.tsx                      NEW — full-screen takeover
+src/components/zscaler-demo/violation-summary.tsx                        NEW — split-screen left panel
+src/components/zscaler-demo/agent-console.tsx                            NEW — scripted IaC playback
+src/components/zscaler-demo/artifact-cards.tsx                           NEW — four-tile completion grid
+src/components/zscaler-demo/risk-comparison.tsx                          NEW — before/after scope table
+src/components/zscaler-demo/guardrails-panel.tsx                         NEW — IaC-specific guardrails
+src/components/zscaler-demo/artifacts/macbook-frame.tsx                  NEW — MacBook chrome
+src/components/zscaler-demo/artifacts/zscaler-console.tsx                NEW — pixel-perfect ZPA Admin Portal
+src/components/zscaler-demo/artifacts/zscaler-modal.tsx                  NEW — wraps console in MacBook
+src/components/zscaler-demo/artifacts/triage-report.tsx                  NEW — markdown report
+src/components/zscaler-demo/artifacts/jira-ticket.tsx                    NEW — CUR-5712
+src/components/zscaler-demo/artifacts/github-pr-preview.tsx              NEW — PR #213 with HCL diff + plan + probe
+src/components/zscaler-demo/artifacts/pr-modal.tsx                       NEW
+
+scripts/reset-zscaler-demo.sh                                            NEW — re-seeds the under-conditioned .tf
+public/logos/zscaler.svg                                                 NEW — wordmark
 ```
 
-**Also:**
-
-- Add a new "security" category to `PARTNER_CATEGORIES` in `src/lib/constants.ts` (or add Zscaler to the `devtools` category — your call). Register the partner card.
-- Add a Zscaler entry to the partnerships demo showcase grid in `src/components/sections/partnerships.tsx`.
-- Update `README.md` partner table to include Zscaler.
+Also: register Zscaler in `src/lib/constants.ts`, `src/components/sections/partnerships.tsx`, and the README.
 
 ---
 
-## 6. Implementation order (recommended)
+## 5. Webhook prompt (`buildAgentPrompt`) — what the real agent must do
 
-1. **Scaffold the route** — `src/app/partnerships/zscaler/demo/page.tsx` with the four-phase state machine, copy-pasted from the Datadog demo page as a skeleton.
-2. **Ship the trigger path first** — `audit-card.tsx` + `access-policy.ts` + `identity-store.ts` + the API route. Verify the button fires the violation immediately.
-3. **Wire the boundary + full-screen takeover** — make sure a thrown `ZeroTrustViolationError` flips phase to `error`.
-4. **Build the agent console** — fork Datadog's, swap channels, write the 25–28-step Zscaler SCRIPT. Tune `TIME_SCALE` for ~2-min displayed runtime.
-5. **Build artifact modals in this order:** PR (reuse MacBook frame) → Jira → Zscaler ZPA console → Triage report. PR and Jira are cheapest to adapt from Datadog; Zscaler ZPA is the new/hard one.
-6. **Side content** — risk comparison, guardrails panel, CTA pill.
-7. **Webhook route** — Zscaler signature verification, background agent trigger, `buildAgentPrompt` explaining the Zscaler-specific 7-step sequence.
-8. **Reset script + docs** — `scripts/reset-zscaler-demo.sh` with `git add + commit`. Update README and add narrative page.
-9. **Typecheck + manual walkthrough** — click through all 4 phases + all 4 modals + reset. Confirm the demo is *visually indistinguishable* between run 1 and run 2.
+The webhook prompt MUST make these things explicit:
 
----
-
-## 7. Design requirements (non-negotiable)
-
-- **Repeatability:** Same click, same visible result, every time. No real network calls in the scripted console. No `Math.random()` in the displayed playback. Timestamps are derived from cumulative `delayMs × TIME_SCALE`.
-- **Trigger is real:** `/api/admin/audit-logs` must actually evaluate the buggy policy and return data. The fix changes the policy contents, not the evaluator.
-- **Artifacts are fully self-contained:** No external links out to zscaler.com or github.com. Everything opens in-modal. Prospects without Zscaler accounts must get the full experience.
-- **On-brand language:** "Zero Trust Exchange", "ZPA Policy Engine", "ZIA web log", "posture", "least-privilege intent", "policy segment", "scope". Avoid Datadog vocabulary ("SLO", "P99", "flame graph", "spans").
-- **Single-page, no auth:** Don't require login. Don't require API keys client-side. The webhook route is the only place env vars are read.
-- **Safety-by-default:** Exactly like Datadog's `buildAgentPrompt`, the Zscaler webhook's prompt must enforce the step sequence (intake → regression hunt → read → patch → static verify → policy verify → open PR) and require evidence in the PR body.
+1. **ZPA access rules live in Terraform**, NOT in application code. The agent's fix is HCL.
+2. The agent must read the customer's IaC root (provided in the payload as `iac_path`, default `infrastructure/zscaler/`).
+3. The agent must NOT touch application code under `src/`.
+4. The 8-step sequence is non-negotiable:
+   1. Zscaler MCP intake (risk event + ZIA log + segment + IaC owner)
+   2. Okta MCP for SCIM group resolution
+   3. GitHub MCP regression hunt on the IaC path
+   4. Read the .tf, write a hypothesis
+   5. Patch (add SCIM_GROUP / POSTURE / TRUSTED_NETWORK / CLIENT_TYPE conditions, wire to existing data sources)
+   6. `terraform fmt -check` + `terraform validate` + `terraform plan` (must be in-place-only) + `tfsec`/`checkov` + conformance probe (4 simulated requests, deny-by-default restored)
+   7. Open PR with HCL diff + plan + probe + evidence + risk assessment
+   8. Jira → In Review
 
 ---
 
-## 8. Webhook prompt (`buildAgentPrompt`) — what the real agent must do
+## 6. Acceptance criteria
 
-Fork the shape of `src/app/api/datadog-webhook/route.ts` exactly. Replace Datadog vocabulary with Zscaler vocabulary. Required steps in order:
-
-1. **Zscaler MCP intake.** Fetch the ZPA Policy Engine event, the ZIA traffic slice, the affected app segment, and the in-scope vs intent user counts.
-2. **Identity context (Okta MCP, optional).** Reconcile group/role claims against the policy's role list to surface the over-permission delta.
-3. **Regression hunt (GitHub MCP).** List the last 10 commits touching `src/lib/demo/access-policy.ts` (or whichever policy file is implicated). Identify the most recent commit that widened scope.
-4. **Read affected code (shell).** Read the policy file, the evaluator, and any callers. Form a written hypothesis before patching.
-5. **Patch (shell + edit).** Minimal correct fix. Replace wildcards with explicit lists, enable posture/IdP/location restrictions. Do not widen contracts.
-6. **Static + policy-conformance verify.** `npm run lint`, `npx tsc --noEmit`, then a small policy conformance probe (4 simulated requests asserting deny-by-default). Iterate until clean.
-7. **Open PR (GitHub MCP).** Branch `sec/<slug>`. PR body must include a **before/after scope table**, the regression commit SHA, the triage report path, and a risk assessment.
-8. **Jira update (Jira MCP).** Move ticket to `In Review`, link the PR.
-
-Make the prompt explicit that the agent **must** hit every step and cite evidence in the PR body from that step. This is the contract that keeps behavior deterministic across real runs.
-
----
-
-## 9. Acceptance criteria
-
-Demo is ready to ship when:
+Demo is ready when:
 
 - `/partnerships/zscaler/demo` loads with hero + CTA pill + audit card.
-- Clicking **Open audit logs** returns immediately and pivots to the full-screen Zero Trust violation page.
-- Clicking **Watch Cursor close this policy** starts the scripted console which plays ~25 channel-coded steps in ~19s real time with displayed timestamps scaling to ~2 minutes.
-- Console completion transitions to `complete` phase and reveals four artifact cards.
+- Clicking **Run policy conformance probe** reads the real `.tf` from disk, parses it, runs the 4-request probe, and the failing probe pivots to the full-screen violation page.
+- Clicking **Watch Cursor scope this policy** starts the scripted console which plays ~30 channel-coded steps in ~22s real time, displayed timestamps scaling to ~2:30.
+- Console completion transitions to `complete` and reveals four artifact cards.
 - Each artifact modal opens, renders pixel-perfect, and closes without leaking state.
-- The Zscaler ZPA console modal shows a believable Admin Portal with risk score, scope, posture donut, and policy diff.
-- **Reset** in the nav returns the demo to clean `idle` across all phases.
+- The Zscaler ZPA console modal shows the IaC source (Terraform-managed, file path, drift state) prominently.
+- The GitHub PR modal shows real HCL diff, real `terraform plan` output (`~ 1 to change · 0 add · 0 destroy`), and the 4-row conformance probe output.
+- **Reset** in the nav returns the demo to clean `idle`.
 - Running the demo twice in a row produces identical output.
-- `npx tsc --noEmit` passes.
+- `npx tsc --noEmit` passes; `npm run build` succeeds.
 - No external links leak out of any modal.
-- `scripts/reset-zscaler-demo.sh` restores the wildcard policy after a real PR merge.
-- The narrative page `/partnerships/zscaler` exists with a CTA link to `/demo`.
+- `scripts/reset-zscaler-demo.sh` restores the under-conditioned `.tf` after a real fix PR merges.
 
 ---
 
-## 10. Anti-patterns / things to avoid
+## 7. Anti-patterns / things to avoid
 
-- **Don't** reuse Datadog purple, Sentry purple, or any other partner's accent. The demos must feel distinct.
+- **Don't** put the policy in application code. ZPA policies live in Terraform.
+- **Don't** invent HCL syntax. The `zscaler/zpa` provider has a documented schema (`zpa_policy_access_rule` with `conditions { operands { object_type = ... } }` blocks). Use it accurately.
+- **Don't** show a "destroy and recreate" plan. The fix must be in-place-only — that is what makes it safe to merge.
+- **Don't** invent SCIM group names that don't justify the intent. Tie the allow-list to actual Okta groups (`security-admin`, `compliance-officer`).
 - **Don't** make the agent console non-deterministic. No `setTimeout(…, Math.random()…)`. No real HTTP calls during playback.
-- **Don't** show a generic "error" page. This is a **policy / posture** story, not a crash and not a slowdown — the vocabulary and visuals must reflect Zero Trust scope and posture.
-- **Don't** put the policy comparison in pure HTML table form only. Use side-by-side "before" and "after" cards with the offending fields highlighted, plus a scope counter that reads `4,287 → 18`.
-- **Don't** skip the MacBook frame for artifact modals — it is the visual signature and must be consistent.
-- **Don't** delete or modify other partner directories. Fork via copy, do not share state unless you deliberately extract into `shared/`.
-- **Don't** hardcode API keys or secrets anywhere in client code. Everything env-driven, server-side only.
-
----
-
-## 11. Quick reference — Datadog-demo files → Zscaler-demo files
-
-| Datadog                                       | Zscaler                                                |
-| --------------------------------------------- | ------------------------------------------------------ |
-| `reports-card.tsx`                            | `audit-card.tsx`                                       |
-| `demo-perf-boundary.tsx`                      | `demo-zerotrust-boundary.tsx`                          |
-| `full-slo-breach-page.tsx`                    | `full-violation-page.tsx`                              |
-| `slo-summary.tsx`                             | `violation-summary.tsx`                                |
-| `agent-console.tsx`                           | `agent-console.tsx` (different channels + script)      |
-| `artifact-cards.tsx`                          | `artifact-cards.tsx`                                   |
-| `artifacts/datadog-trace.tsx`                 | `artifacts/zscaler-console.tsx`                        |
-| `artifacts/datadog-modal.tsx`                 | `artifacts/zscaler-modal.tsx`                          |
-| `artifacts/triage-report.tsx`                 | `artifacts/triage-report.tsx` (Zscaler content)        |
-| `artifacts/jira-ticket.tsx`                   | `artifacts/jira-ticket.tsx` (CUR-5712)                 |
-| `artifacts/github-pr-preview.tsx`             | `artifacts/github-pr-preview.tsx` (sec PR)             |
-| `artifacts/pr-modal.tsx`                      | `artifacts/pr-modal.tsx`                               |
-| `artifacts/macbook-frame.tsx`                 | Same file copied                                       |
-| `latency-comparison.tsx`                      | `risk-comparison.tsx`                                  |
-| `src/lib/demo/aggregate-orders.ts` +          | `src/lib/demo/access-policy.ts` +                      |
-| `src/lib/demo/region-store.ts`                | `src/lib/demo/identity-store.ts`                       |
-| `src/app/api/datadog-webhook/route.ts`        | `src/app/api/zscaler-webhook/route.ts`                 |
-| `scripts/reset-datadog-demo.sh`               | `scripts/reset-zscaler-demo.sh`                        |
-
----
-
-## 12. Ship it
-
-Build the demo. Typecheck clean. Manually click through all four phases and all four modals twice in a row. Commit on a new branch. Open a draft PR against `main` titled **"feat: Zscaler live zero-trust triage + fix demo"** with a body matching the Datadog PR's structure.
+- **Don't** reuse Datadog purple, Sentry purple, or any other partner accent.
+- **Don't** skip the human approval gate. The agent proposes; the reviewer ships; Atlantis applies. That is the whole point.
+- **Don't** edit application code in the agent script. The `src/` tree is unrelated to this incident.

@@ -77,13 +77,11 @@ export function AnalyticsDashboard({
       : attackBlend < 0.7
         ? 'Anomaly detected · ASN 14618'
         : 'Active attack · credential-stuffing in progress';
-  const statusTone = live
+  const statusTone: 'normal' | 'attack' | 'mitigating' | 'recovered' = live
     ? live.statusTone
     : attackBlend < 0.05
       ? 'normal'
-      : attackBlend < 0.6
-        ? 'attack'
-        : 'attack';
+      : 'attack';
 
   return (
     <div

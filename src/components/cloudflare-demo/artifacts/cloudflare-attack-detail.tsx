@@ -12,11 +12,9 @@
 import {
   Activity,
   ChevronDown,
-  Search,
   Shield,
   ShieldCheck,
   Users,
-  Zap,
   Cpu,
   Globe2,
   Clock,
@@ -512,6 +510,3 @@ function KV({ k, v, mono, highlight }: { k: string; v: string; mono?: boolean; h
     </div>
   );
 }
-
-// Suppress unused warning for Search icon (kept for parity with WafRuleDiff chrome).
-void Search;

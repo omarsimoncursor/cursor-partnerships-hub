@@ -31,7 +31,6 @@ import {
   RUNNING_PHASE_REAL_MS,
   formatDisplayedClock,
   interpolateAt,
-  ATTACK_STAGES,
 } from '@/lib/demo/cloudflare-attack-fixture';
 
 interface LiveDashboardProps {
@@ -47,15 +46,18 @@ export function LiveDashboard({ complete, onViewAttackDetail, onReset }: LiveDas
   const startRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
 
+  // Tick the dashboard from the moment the running phase begins until it
+  // naturally reaches RUNNING_PHASE_REAL_MS. The `complete` prop only signals
+  // that the agent console has finished — the dashboard keeps animating
+  // smoothly to the recovered stage rather than jumping to it.
   useEffect(() => {
     startRef.current = performance.now();
     let cancelled = false;
     const tick = () => {
       if (cancelled) return;
       const elapsed = performance.now() - startRef.current;
-      const cap = complete ? RUNNING_PHASE_REAL_MS : Math.min(elapsed, RUNNING_PHASE_REAL_MS);
-      setOffsetMs(cap);
-      if (!complete && elapsed < RUNNING_PHASE_REAL_MS) {
+      setOffsetMs(Math.min(elapsed, RUNNING_PHASE_REAL_MS));
+      if (elapsed < RUNNING_PHASE_REAL_MS) {
         rafRef.current = requestAnimationFrame(tick);
       }
     };
@@ -64,11 +66,9 @@ export function LiveDashboard({ complete, onViewAttackDetail, onReset }: LiveDas
       cancelled = true;
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     };
-  }, [complete]);
+  }, []);
 
-  // When complete, freeze the dashboard at the recovered stage.
-  const liveOffset = complete ? RUNNING_PHASE_REAL_MS : offsetMs;
-  const live = interpolateAt(liveOffset);
+  const live = interpolateAt(offsetMs);
 
   return (
     <div
@@ -77,7 +77,7 @@ export function LiveDashboard({ complete, onViewAttackDetail, onReset }: LiveDas
     >
       {/* Live dashboard chrome */}
       <div className="flex-1 min-h-0 relative">
-        <AnalyticsDashboard liveOffsetMs={liveOffset} compact hideSimulateCta />
+        <AnalyticsDashboard liveOffsetMs={offsetMs} compact hideSimulateCta />
       </div>
 
       {/* Mitigation timeline + actions footer */}
@@ -94,7 +94,11 @@ export function LiveDashboard({ complete, onViewAttackDetail, onReset }: LiveDas
             Mitigation timeline · {complete ? 'recovered' : 'in progress'}
           </p>
           <span className="ml-auto text-[10.5px] font-mono" style={{ color: CF_TEXT_TERTIARY }}>
-            T+{formatDisplayedClock(live.timelineEntries.at(-1)?.displayedSeconds ?? 0)}
+            T+{formatDisplayedClock(
+              live.timelineEntries.length > 0
+                ? live.timelineEntries[live.timelineEntries.length - 1].displayedSeconds
+                : 0,
+            )}
           </span>
         </div>
         <ul className="px-4 py-2 space-y-1 max-h-[120px] overflow-y-auto">
@@ -155,6 +159,3 @@ export function LiveDashboard({ complete, onViewAttackDetail, onReset }: LiveDas
     </div>
   );
 }
-
-// Keep ATTACK_STAGES referenced for tree-shaking-friendly debug.
-void ATTACK_STAGES;

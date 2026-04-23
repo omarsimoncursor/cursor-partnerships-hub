@@ -18,10 +18,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Bot, Check } from 'lucide-react';
-import {
-  RUNNING_PHASE_REAL_MS,
-  TIME_SCALE,
-} from '@/lib/demo/cloudflare-attack-fixture';
+import { TIME_SCALE } from '@/lib/demo/cloudflare-attack-fixture';
 
 type Status = 'pending' | 'running' | 'done';
 
@@ -119,10 +116,6 @@ const SCRIPT: Step[] = [
   { channel: 'cloudflare',  delayMs: 600, label: 'Verifying Analytics post-mitigation',           detail: 'req/s back to 12.2k baseline · bot-score distribution restored · error rate 0.7%' },
   { channel: 'done',        delayMs: 500, label: 'Mitigation complete · 4 artifacts ready',       detail: 'Attack detail · WAF rule diff · Worker PR · Postmortem' },
 ];
-
-// Sanity check: cumulative delay should land near RUNNING_PHASE_REAL_MS.
-// (Compile-time docu only — this is checked by manual walkthrough.)
-void RUNNING_PHASE_REAL_MS;
 
 interface AgentConsoleProps {
   onComplete?: () => void;

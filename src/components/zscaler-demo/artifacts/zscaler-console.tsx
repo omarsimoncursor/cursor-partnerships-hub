@@ -492,7 +492,7 @@ function PolicyDiffCard() {
       <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: '#1A2A45' }}>
         <ScrollText className="w-3.5 h-3.5 text-[#65B5F2]" />
         <p className="text-[11px] font-semibold text-white uppercase tracking-wider">
-          Application policy · src/lib/demo/access-policy.ts
+          Rule conditions · infrastructure/zscaler/workforce-admin.tf
         </p>
         <span className="ml-auto text-[10px] font-mono text-[#5E7290]">{POLICY_ID}</span>
       </div>
@@ -500,14 +500,16 @@ function PolicyDiffCard() {
       <div className="p-4 grid grid-cols-2 gap-3 font-mono text-[12px]">
         <div>
           <p className="text-[10px] text-[#FF4757] uppercase tracking-wider mb-2 font-semibold">
-            ✗ Current policy (over-permissive)
+            ✗ Current rule (under-conditioned)
           </p>
           <div className="space-y-1 text-[#C7D2E1]">
-            <PolicyLine k="app" v="'workforce-admin/audit-logs'" />
-            <PolicyLine k="roles" v="['*']" warn />
-            <PolicyLine k="postureRequired" v="false" warn />
-            <PolicyLine k="allowedLocations" v="['*']" warn />
-            <PolicyLine k="allowedIdps" v="['*']" warn />
+            <PolicyLine k="action" v={`"ALLOW"`} />
+            <PolicyLine k="operator" v={`"AND"`} />
+            <PolicyLine k="APP" v="present" />
+            <PolicyLine k="SCIM_GROUP" v="missing" warn />
+            <PolicyLine k="POSTURE" v="missing" warn />
+            <PolicyLine k="TRUSTED_NETWORK" v="missing" warn />
+            <PolicyLine k="CLIENT_TYPE" v="missing" warn />
           </div>
         </div>
         <div>
@@ -515,11 +517,13 @@ function PolicyDiffCard() {
             ✓ Recommended (least-privilege)
           </p>
           <div className="space-y-1 text-[#C7D2E1]">
-            <PolicyLine k="app" v="'workforce-admin/audit-logs'" />
-            <PolicyLine k="roles" v="['security-admin', 'compliance-officer']" good />
-            <PolicyLine k="postureRequired" v="true" good />
-            <PolicyLine k="allowedLocations" v="['sf-hq', 'nyc-hq']" good />
-            <PolicyLine k="allowedIdps" v="['okta-prod']" good />
+            <PolicyLine k="action" v={`"ALLOW"`} />
+            <PolicyLine k="operator" v={`"AND"`} />
+            <PolicyLine k="APP" v="present" good />
+            <PolicyLine k="SCIM_GROUP" v="security-admin OR compliance-officer" good />
+            <PolicyLine k="POSTURE" v="managed-compliant-corp" good />
+            <PolicyLine k="TRUSTED_NETWORK" v="corp-egress" good />
+            <PolicyLine k="CLIENT_TYPE" v="zpn_client_type_zapp" good />
           </div>
         </div>
       </div>
@@ -650,8 +654,25 @@ function ConsoleSidebar() {
           <TagPill label="team:platform-sec" />
           <TagPill label="owner:risk-ops" />
           <TagPill label="data-class:sensitive" />
-          <TagPill label="zpa-segment:internal" />
+          <TagPill label="iac:terraform" />
+          <TagPill label="repo:cursor-for-enterprise" />
           <TagPill label="trust:zero" tone="amber" />
+        </div>
+      </SidebarSection>
+
+      <SidebarSection title="IaC source" icon={<Layers className="w-3.5 h-3.5" />}>
+        <div className="space-y-1.5">
+          <p className="text-[11px] text-[#7E94B4]">Managed by</p>
+          <p className="font-mono text-[11px] text-[#65B5F2] break-words">
+            zscaler/zpa ~&gt; 4.4
+          </p>
+          <p className="text-[11px] text-[#7E94B4] mt-1.5">File</p>
+          <p className="font-mono text-[11px] text-white break-words">
+            infrastructure/zscaler/workforce-admin.tf
+          </p>
+          <p className="text-[10.5px] text-[#7E94B4] mt-1.5">
+            Drift state: <span className="text-[#4ADE80] font-mono">none</span>
+          </p>
         </div>
       </SidebarSection>
 

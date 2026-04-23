@@ -22,7 +22,7 @@ const JIRA_COMMENTS = [
     avatarBg: 'bg-accent-blue/20',
     avatarColor: 'text-accent-blue',
     avatarInitial: 'C',
-    body: 'Automatically opened from Zscaler ZPA risk event evt-21794. Triage report attached, PR #213 submitted — 4,287 → 18 users in scope, deny-by-default restored. Awaiting human review.',
+    body: 'Automatically opened from Zscaler ZPA risk event evt-21794. The IaC source for this segment is infrastructure/zscaler/workforce-admin.tf — the rule was missing SCIM_GROUP, POSTURE, TRUSTED_NETWORK, and CLIENT_TYPE conditions. PR #213 adds them. terraform plan: ~1/+0/-0 (in-place update only). Conformance probe: 4/4 passed. Awaiting human review.',
     pill: 'Automation',
   },
   {
@@ -31,7 +31,7 @@ const JIRA_COMMENTS = [
     avatarBg: 'bg-[#0079D5]/25',
     avatarColor: 'text-[#65B5F2]',
     avatarInitial: 'Z',
-    body: 'Zero Trust violation — workforce-admin/audit-logs scopes 4,287 users vs intent 18 (238x over). Risk score Critical (92/100). 312 ZIA web hits in last 60m, including 4 unmanaged-device sessions.',
+    body: 'Zero Trust violation — zpa_policy_access_rule.workforce_admin_audit_logs_allow declares ALLOW with only an APP condition. ZPA evaluates missing SCIM/POSTURE/TRUSTED_NETWORK/CLIENT_TYPE as "any". Effective scope: 4,287 users vs intent 18 (238x over). Risk score Critical (92/100). 312 ZIA web hits in last 60m.',
     pill: 'Integration',
   },
   {
@@ -92,7 +92,7 @@ export function JiraTicket({ onClose }: JiraTicketProps) {
             </span>
           </div>
           <h1 className="text-[22px] font-semibold text-[#B6C2CF] leading-tight">
-            Zero Trust violation on /api/admin/audit-logs — wildcard policy in access-policy.ts
+            Zero Trust violation on workforce-admin-audit-logs — ZPA access rule missing SCIM, POSTURE, TRUSTED_NETWORK, CLIENT_TYPE conditions
           </h1>
         </div>
 
@@ -145,31 +145,51 @@ export function JiraTicket({ onClose }: JiraTicketProps) {
                     <code className="px-1 py-0.5 rounded bg-[#161A1D] border border-[#2C333A] text-[12px] text-[#65B5F2] font-mono">
                       evt-21794
                     </code>{' '}
-                    fired at <strong className="font-semibold">14:21 PDT</strong> when policy
-                    conformance for{' '}
+                    fired at <strong className="font-semibold">14:21 PDT</strong> when the rolling
+                    conformance probe against the{' '}
                     <code className="px-1 py-0.5 rounded bg-[#161A1D] border border-[#2C333A] text-[12px] text-[#65B5F2] font-mono">
-                      workforce-admin/audit-logs
+                      workforce-admin-audit-logs
                     </code>{' '}
-                    measured 4,287 users in scope vs the least-privilege intent of{' '}
-                    <strong className="font-semibold text-[#F5A623]">18 users</strong> — 238x over
-                    scope. ZIA logged 312 hits in the last hour, including 4 unmanaged-device
+                    application segment measured 4,287 users in scope vs the least-privilege intent
+                    of <strong className="font-semibold text-[#F5A623]">18 users</strong> — 238x
+                    over scope. ZIA logged 312 hits in the last hour, including 4 unmanaged-device
                     sessions.
                   </p>
                   <p>
-                    Root cause:{' '}
+                    Root cause: the IaC source of truth (
+                    <code className="px-1 py-0.5 rounded bg-[#161A1D] border border-[#2C333A] text-[12px] text-[#65B5F2] font-mono">
+                      infrastructure/zscaler/workforce-admin.tf
+                    </code>
+                    ) declares{' '}
                     <code className="px-1 py-0.5 rounded bg-[#161A1D] border border-[#2C333A] text-[12px] text-[#F87462] font-mono">
-                      ADMIN_AUDIT_LOG_POLICY
+                      zpa_policy_access_rule.workforce_admin_audit_logs_allow
                     </code>{' '}
-                    declares{' '}
+                    with{' '}
                     <code className="px-1 py-0.5 rounded bg-[#161A1D] border border-[#2C333A] text-[12px] text-[#4C9AFF] font-mono">
-                      roles: [&apos;*&apos;]
-                    </code>
-                    , skips{' '}
+                      action = &quot;ALLOW&quot;
+                    </code>{' '}
+                    and only an{' '}
                     <code className="px-1 py-0.5 rounded bg-[#161A1D] border border-[#2C333A] text-[12px] text-[#4C9AFF] font-mono">
-                      postureRequired
-                    </code>
-                    , and accepts wildcard locations and IdPs. Any authenticated employee on any
-                    device can read the internal audit log.
+                      APP
+                    </code>{' '}
+                    condition. ZPA evaluates a missing{' '}
+                    <code className="px-1 py-0.5 rounded bg-[#161A1D] border border-[#2C333A] text-[12px] text-[#4C9AFF] font-mono">
+                      SCIM_GROUP
+                    </code>{' '}
+                    /{' '}
+                    <code className="px-1 py-0.5 rounded bg-[#161A1D] border border-[#2C333A] text-[12px] text-[#4C9AFF] font-mono">
+                      POSTURE
+                    </code>{' '}
+                    /{' '}
+                    <code className="px-1 py-0.5 rounded bg-[#161A1D] border border-[#2C333A] text-[12px] text-[#4C9AFF] font-mono">
+                      TRUSTED_NETWORK
+                    </code>{' '}
+                    /{' '}
+                    <code className="px-1 py-0.5 rounded bg-[#161A1D] border border-[#2C333A] text-[12px] text-[#4C9AFF] font-mono">
+                      CLIENT_TYPE
+                    </code>{' '}
+                    block as &quot;any&quot;. Any authenticated employee on any device from any
+                    network on any client can reach the audit log.
                   </p>
                   <p>
                     Regression introduced in commit{' '}
@@ -177,7 +197,8 @@ export function JiraTicket({ onClose }: JiraTicketProps) {
                       b7c91d2
                     </code>{' '}
                     — <em>&quot;wip: open audit logs for QA&quot;</em> (3 days ago, qa-bot). The
-                    intent was a temporary widening for QA; it shipped to prod by accident.
+                    SCIM and POSTURE conditions were stripped for a QA fixture and the revert
+                    never landed. Atlantis applied to prod the same evening.
                   </p>
                 </div>
               </section>
@@ -238,14 +259,14 @@ export function JiraTicket({ onClose }: JiraTicketProps) {
                   <LinkRow
                     type="blocks"
                     refLabel="PR #213"
-                    title="sec: scope down audit-log policy (4,287 → 18 users in scope)"
+                    title="sec(zpa): scope down workforce-admin-audit-logs ALLOW rule (4,287 → 18 in scope)"
                     status="Open"
                     statusColor="bg-[#1F845A]"
                   />
                   <LinkRow
                     type="relates to"
                     refLabel="ZPA risk evt-21794"
-                    title="Zero Trust violation — workforce-admin/audit-logs · scope 238x over"
+                    title="Zero Trust violation — workforce-admin-audit-logs · scope 238x over"
                     status="Critical"
                     statusColor="bg-[#C9372C]"
                   />

@@ -67,7 +67,7 @@ export function GitHubPRPreview() {
       <div className="max-w-[1280px] mx-auto px-5 pt-6 pb-4 border-b border-[#30363d]">
         <div className="flex items-start justify-between gap-4 mb-3">
           <h1 className="text-[26px] font-normal text-[#e6edf3] leading-tight">
-            sec: scope down audit-log policy (4,287 → 18 users in scope, resolves Sec-P1)
+            sec(zpa): scope down workforce-admin-audit-logs ALLOW rule (4,287 → 18 in scope)
             <span className="text-[#7d8590] ml-2 font-light">#213</span>
           </h1>
           <div className="flex items-center gap-2 shrink-0">
@@ -93,7 +93,7 @@ export function GitHubPRPreview() {
             </span>{' '}
             from{' '}
             <span className="inline-block px-1.5 py-0.5 rounded bg-[#21262d] border border-[#30363d] font-mono text-[12.5px] text-[#4493f8]">
-              sec/scope-down-audit-log-policy
+              sec/scope-down-workforce-admin-zpa
             </span>
           </p>
         </div>
@@ -109,7 +109,7 @@ export function GitHubPRPreview() {
             icon={<MessageSquare className="w-3.5 h-3.5" />}
           />
           <PrTab label="Commits" count="1" />
-          <PrTab label="Checks" count="4" icon={<Check className="w-3.5 h-3.5 text-[#3fb950]" />} />
+          <PrTab label="Checks" count="5" icon={<Check className="w-3.5 h-3.5 text-[#3fb950]" />} />
           <PrTab label="Files changed" count="1" />
         </div>
       </div>
@@ -124,16 +124,15 @@ export function GitHubPRPreview() {
               <section>
                 <h3 className="font-semibold text-[15px] mb-1">Summary</h3>
                 <p>
-                  Replace the wildcard policy in{' '}
-                  <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                    access-policy.ts
-                  </code>{' '}
-                  with an explicit allow-list, enable{' '}
-                  <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                    postureRequired
-                  </code>
-                  , and restrict locations and IdPs. Same evaluator, same return shape — 4,287
-                  users in scope reduced to the 18 users matching least-privilege intent.
+                  Add the missing <code className="ghx">SCIM_GROUP</code>,{' '}
+                  <code className="ghx">POSTURE</code>, <code className="ghx">TRUSTED_NETWORK</code>, and{' '}
+                  <code className="ghx">CLIENT_TYPE</code> conditions to{' '}
+                  <code className="ghx">zpa_policy_access_rule.workforce_admin_audit_logs_allow</code>
+                  . The application segment is unchanged. <code className="ghx">terraform plan</code>{' '}
+                  shows{' '}
+                  <span className="font-mono text-[#3fb950]">~ 1 to change · 0 add · 0 destroy</span>
+                  . Replayed conformance probe restores deny-by-default for the four canonical
+                  requests.
                 </p>
               </section>
 
@@ -163,16 +162,16 @@ export function GitHubPRPreview() {
                         <td className="px-3 py-2 text-right font-mono text-[#3fb950]">cleared</td>
                       </tr>
                       <tr>
-                        <td className="px-3 py-2 font-mono text-[#4493f8]">Unmanaged paths</td>
+                        <td className="px-3 py-2 font-mono text-[#4493f8]">Conformance probes</td>
+                        <td className="px-3 py-2 text-right font-mono text-[#f85149]">1 / 4</td>
+                        <td className="px-3 py-2 text-right font-mono text-[#3fb950]">4 / 4</td>
+                        <td className="px-3 py-2 text-right font-mono text-[#3fb950]">restored</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2 font-mono text-[#4493f8]">Unmanaged-device paths</td>
                         <td className="px-3 py-2 text-right font-mono text-[#f85149]">1</td>
                         <td className="px-3 py-2 text-right font-mono text-[#3fb950]">0</td>
                         <td className="px-3 py-2 text-right font-mono text-[#3fb950]">closed</td>
-                      </tr>
-                      <tr>
-                        <td className="px-3 py-2 font-mono text-[#4493f8]">Posture compliance</td>
-                        <td className="px-3 py-2 text-right font-mono">12%</td>
-                        <td className="px-3 py-2 text-right font-mono text-[#3fb950]">100%</td>
-                        <td className="px-3 py-2 text-right font-mono text-[#3fb950]">+88pt</td>
                       </tr>
                     </tbody>
                   </table>
@@ -183,25 +182,20 @@ export function GitHubPRPreview() {
                 <h3 className="font-semibold text-[15px] mb-1">Root cause</h3>
                 <ul className="list-disc list-outside ml-5 space-y-1">
                   <li>
-                    <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                      ADMIN_AUDIT_LOG_POLICY
-                    </code>{' '}
-                    used wildcard{' '}
-                    <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                      roles
-                    </code>
-                    , skipped{' '}
-                    <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                      postureRequired
-                    </code>
-                    , and accepted any location and IdP.
+                    <code className="ghx">zpa_policy_access_rule.workforce_admin_audit_logs_allow</code>{' '}
+                    declared an{' '}
+                    <code className="ghx">action = &quot;ALLOW&quot;</code> with only an{' '}
+                    <code className="ghx">APP</code> condition. ZPA evaluates a missing
+                    SCIM/POSTURE/TRUSTED_NETWORK/CLIENT_TYPE condition as &quot;any&quot;.
                   </li>
                   <li>
                     Regression introduced in commit{' '}
                     <span className="text-[#4493f8] hover:underline cursor-pointer font-mono text-[12.5px]">
                       b7c91d2
                     </span>{' '}
-                    — <em>&quot;wip: open audit logs for QA&quot;</em> (3 days ago, qa-bot)
+                    — <em>&quot;wip: open audit logs for QA&quot;</em> (3 days ago, qa-bot). The
+                    earlier version had SCIM and POSTURE conditions; QA stripped them and the
+                    revert never landed.
                   </li>
                   <li>
                     Zscaler ZPA risk event{' '}
@@ -217,34 +211,28 @@ export function GitHubPRPreview() {
                 <h3 className="font-semibold text-[15px] mb-1">Fix</h3>
                 <ul className="list-disc list-outside ml-5 space-y-1">
                   <li>
-                    Replaced{' '}
-                    <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                      roles: [&apos;*&apos;]
-                    </code>{' '}
-                    with explicit{' '}
-                    <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                      [&apos;security-admin&apos;, &apos;compliance-officer&apos;]
-                    </code>
+                    Add <code className="ghx">SCIM_GROUP</code> conditions for{' '}
+                    <code className="ghx">security-admin</code> and{' '}
+                    <code className="ghx">compliance-officer</code>, joined by <code className="ghx">OR</code>.
                   </li>
                   <li>
-                    Set{' '}
-                    <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                      postureRequired: true
-                    </code>{' '}
-                    — only managed-compliant devices
+                    Add <code className="ghx">POSTURE</code> condition pinned to the{' '}
+                    <code className="ghx">managed-compliant-corp</code> profile with{' '}
+                    <code className="ghx">rhs = &quot;true&quot;</code>.
                   </li>
                   <li>
-                    Restricted{' '}
-                    <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                      allowedLocations
-                    </code>{' '}
-                    to corporate egress and{' '}
-                    <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                      allowedIdps
-                    </code>{' '}
-                    to the primary IdP
+                    Add <code className="ghx">TRUSTED_NETWORK</code> condition for{' '}
+                    <code className="ghx">corp-egress</code>.
                   </li>
-                  <li>No type changes, no contract changes, evaluator unchanged.</li>
+                  <li>
+                    Add <code className="ghx">CLIENT_TYPE</code> condition for{' '}
+                    <code className="ghx">zpn_client_type_zapp</code> only.
+                  </li>
+                  <li>
+                    Resource ID is unchanged. <code className="ghx">terraform plan</code> shows{' '}
+                    <span className="font-mono text-[#3fb950]">in-place update only</span> —{' '}
+                    no destroy, no re-create, no app-segment churn.
+                  </li>
                 </ul>
               </section>
 
@@ -252,21 +240,110 @@ export function GitHubPRPreview() {
                 <h3 className="font-semibold text-[15px] mb-1">Diff preview</h3>
                 <div className="overflow-x-auto rounded-md border border-[#30363d] bg-[#0d1117]">
                   <pre className="text-[12px] leading-relaxed font-mono p-3 whitespace-pre text-[#e6edf3]">
-<span>{`  export const ADMIN_AUDIT_LOG_POLICY: AccessPolicy = {
-    app: 'workforce-admin/audit-logs',
+<span className="text-[#7d8590]">{`  # infrastructure/zscaler/workforce-admin.tf
+
+  resource "zpa_policy_access_rule" "workforce_admin_audit_logs_allow" {
+    name        = "workforce-admin-audit-logs-allow"
+    action      = "ALLOW"
+    operator    = "AND"
+
+    conditions {
+      operator = "OR"
+      operands {
+        object_type = "APP"
+        lhs         = "id"
+        rhs         = zpa_application_segment.workforce_admin_audit_logs.id
+      }
+    }
 `}</span>
-<span className="bg-[#301216] text-[#f85149]">{`-   roles: ['*'],
--   postureRequired: false,
--   allowedLocations: ['*'],
--   allowedIdps: ['*'],
+<span className="bg-[#102a1a] text-[#3fb950]">{`+
++   conditions {
++     operator = "OR"
++     operands {
++       object_type = "SCIM_GROUP"
++       lhs         = data.zpa_idp_controller.okta_prod.id
++       rhs         = data.zpa_scim_groups.security_admin.id
++     }
++     operands {
++       object_type = "SCIM_GROUP"
++       lhs         = data.zpa_idp_controller.okta_prod.id
++       rhs         = data.zpa_scim_groups.compliance_officer.id
++     }
++   }
++
++   conditions {
++     operator = "AND"
++     operands {
++       object_type = "POSTURE"
++       lhs         = data.zpa_posture_profile.managed_compliant.posture_udid
++       rhs         = "true"
++     }
++   }
++
++   conditions {
++     operator = "AND"
++     operands {
++       object_type = "TRUSTED_NETWORK"
++       lhs         = data.zpa_trusted_network.corp_egress.network_id
++       rhs         = "true"
++     }
++   }
++
++   conditions {
++     operator = "OR"
++     operands {
++       object_type = "CLIENT_TYPE"
++       lhs         = "id"
++       rhs         = "zpn_client_type_zapp"
++     }
++   }
 `}</span>
-<span className="bg-[#102a1a] text-[#3fb950]">{`+   roles: ['security-admin', 'compliance-officer'],
-+   postureRequired: true,
-+   allowedLocations: ['sf-hq', 'nyc-hq'],
-+   allowedIdps: ['okta-prod'],
+<span className="text-[#7d8590]">{`  }
 `}</span>
-<span>{`  };
+                  </pre>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-[15px] mb-1">terraform plan</h3>
+                <div className="overflow-x-auto rounded-md border border-[#30363d] bg-[#0d1117]">
+                  <pre className="text-[12px] leading-relaxed font-mono p-3 whitespace-pre">
+<span className="text-[#e6edf3]">{`Terraform will perform the following actions:
+
+  # zpa_policy_access_rule.workforce_admin_audit_logs_allow will be `}</span><span className="text-[#d29922]">updated in-place</span>
+<span className="text-[#d29922]">{`  ~ resource "zpa_policy_access_rule" "workforce_admin_audit_logs_allow" {
+        id          = "ZTA-pol-9921"
+        name        = "workforce-admin-audit-logs-allow"
+        # (4 unchanged attributes hidden)
+
+      + conditions { operator = "OR"  operands { object_type = "SCIM_GROUP"  ... } operands { ... } }
+      + conditions { operator = "AND" operands { object_type = "POSTURE"        ... } }
+      + conditions { operator = "AND" operands { object_type = "TRUSTED_NETWORK" ... } }
+      + conditions { operator = "OR"  operands { object_type = "CLIENT_TYPE"    ... } }
+    }
+
 `}</span>
+<span className="text-[#e6edf3]">{`Plan: `}</span><span className="text-[#3fb950]">0 to add</span><span className="text-[#e6edf3]">{`, `}</span><span className="text-[#d29922]">1 to change</span><span className="text-[#e6edf3]">{`, `}</span><span className="text-[#3fb950]">0 to destroy</span><span className="text-[#e6edf3]">.</span>
+                  </pre>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-[15px] mb-1">Conformance probe (replayed)</h3>
+                <div className="overflow-x-auto rounded-md border border-[#30363d] bg-[#0d1117]">
+                  <pre className="text-[12px] leading-relaxed font-mono p-3 whitespace-pre text-[#e6edf3]">
+<span>{`request                                            expected   got      result
+─────────────────────────────────────────────────  ─────────  ───────  ──────
+security-admin · compliant · corp · zapp           ALLOW      ALLOW   `}</span><span className="text-[#3fb950]">{` ✓`}</span>
+<span>{`
+security-admin · noncompliant · corp · zapp        DENY       DENY    `}</span><span className="text-[#3fb950]">{` ✓`}</span>
+<span>{`
+employee · compliant · corp · zapp                 DENY       DENY    `}</span><span className="text-[#3fb950]">{` ✓`}</span>
+<span>{`
+anon · unmanaged · public · exporter               DENY       DENY    `}</span><span className="text-[#3fb950]">{` ✓`}</span>
+<span>{`
+
+`}</span><span className="text-[#3fb950]">{`4/4 passed · deny-by-default restored`}</span>
                   </pre>
                 </div>
               </section>
@@ -292,14 +369,15 @@ export function GitHubPRPreview() {
                     <span className="text-[#4493f8] hover:underline cursor-pointer">CUR-5712</span>
                   </li>
                   <li>
-                    Typecheck: <span className="text-[#3fb950]">✓</span> · Lint:{' '}
+                    <code className="ghx">terraform validate</code>:{' '}
+                    <span className="text-[#3fb950]">✓</span> ·{' '}
+                    <code className="ghx">terraform plan</code>:{' '}
+                    <span className="text-[#3fb950]">~1 / +0 / -0</span> · tfsec / checkov:{' '}
                     <span className="text-[#3fb950]">✓</span>
                   </li>
                   <li>
-                    Policy conformance probe:{' '}
-                    <span className="text-[#3fb950]">
-                      ✓ 4 simulated requests, deny-by-default restored
-                    </span>
+                    Conformance probe:{' '}
+                    <span className="text-[#3fb950]">✓ 4 / 4 passed, deny-by-default restored</span>
                   </li>
                 </ul>
               </section>
@@ -307,14 +385,16 @@ export function GitHubPRPreview() {
               <section>
                 <h3 className="font-semibold text-[15px] mb-1">Risk assessment</h3>
                 <ul className="list-disc list-outside ml-5 space-y-1">
-                  <li>Blast radius: 1 file · +14 −5</li>
-                  <li>Type surface: unchanged</li>
+                  <li>Blast radius: 1 file · +24 −1</li>
+                  <li>
+                    Plan shape: <span className="font-mono text-[#3fb950]">in-place update only</span> — app segment, IDs, and connector groups unchanged.
+                  </li>
                   <li>
                     Rollback:{' '}
-                    <code className="px-1 py-0.5 rounded bg-[#151b23] border border-[#30363d] text-[12.5px] font-mono">
-                      git revert HEAD
-                    </code>{' '}
-                    — no SCIM, no IdP, no infra changes
+                    <code className="ghx">git revert HEAD &amp;&amp; terraform apply</code> — no SCIM, no IdP, no infra side effects.
+                  </li>
+                  <li>
+                    18 in-scope users (security-admin + compliance-officer) confirmed via Okta SCIM data source.
                   </li>
                 </ul>
               </section>
@@ -346,16 +426,21 @@ export function GitHubPRPreview() {
               </button>
             </div>
             <div className="divide-y divide-[#30363d] text-[13px]">
-              <CheckRow name="typecheck" detail="npx tsc --noEmit" duration="4s" />
-              <CheckRow name="lint" detail="eslint + prettier" duration="3s" />
+              <CheckRow name="terraform-fmt" detail="terraform fmt -check -recursive" duration="1s" />
+              <CheckRow name="terraform-validate" detail="zscaler/zpa ~> 4.4 · ✓" duration="3s" />
               <CheckRow
-                name="unit-tests"
-                detail="vitest · 158 passed"
-                duration="11s"
+                name="terraform-plan"
+                detail="~ 1 to change · 0 add · 0 destroy"
+                duration="9s"
               />
               <CheckRow
-                name="policy-conformance"
-                detail="4 simulated requests · deny-by-default ✓"
+                name="tfsec + checkov"
+                detail="AVD-ZPA-001 (broad scope) → resolved · 0 high · 0 medium"
+                duration="6s"
+              />
+              <CheckRow
+                name="zpa-policy-conformance"
+                detail="4 / 4 simulated requests · deny-by-default ✓"
                 duration="5s"
               />
             </div>
@@ -370,7 +455,7 @@ export function GitHubPRPreview() {
                   This branch has no conflicts with the base branch
                 </p>
                 <p className="text-[12.5px] text-[#7d8590]">
-                  Merging can be performed automatically.
+                  Atlantis will run <code className="ghx">terraform apply</code> on merge.
                 </p>
               </div>
               <button className="px-3.5 py-1.5 rounded-md bg-[#238636] hover:bg-[#2ea043] text-white text-[13.5px] font-medium">
@@ -390,6 +475,13 @@ export function GitHubPRPreview() {
               <span className="text-[#e6edf3]">codex-bot</span>
               <span className="ml-auto text-[#3fb950]">✓ approved</span>
             </SidebarRow>
+            <SidebarRow>
+              <div className="w-5 h-5 rounded-full bg-[#0079D5]/20 flex items-center justify-center">
+                <span className="text-[#65B5F2] text-[10px] font-bold">R</span>
+              </div>
+              <span className="text-[#e6edf3]">@risk-ops</span>
+              <span className="ml-auto text-[#7d8590]">requested</span>
+            </SidebarRow>
           </SidebarSection>
           <SidebarSection title="Assignees">
             <SidebarRow>
@@ -402,6 +494,7 @@ export function GitHubPRPreview() {
           <SidebarSection title="Labels">
             <div className="flex flex-wrap gap-1.5">
               <Label color="#0079D5" label="zero-trust" />
+              <Label color="#7B42BC" label="terraform" />
               <Label color="#F5A623" label="sec-p1" />
               <Label color="#2188ff" label="auto-fix" />
               <Label color="#7D8590" label="zscaler-triage" />
@@ -429,6 +522,17 @@ export function GitHubPRPreview() {
           </SidebarSection>
         </aside>
       </div>
+
+      <style jsx>{`
+        .ghx {
+          padding: 1px 4px;
+          border-radius: 4px;
+          background: #151b23;
+          border: 1px solid #30363d;
+          font-family: ui-monospace, monospace;
+          font-size: 12.5px;
+        }
+      `}</style>
     </div>
   );
 }

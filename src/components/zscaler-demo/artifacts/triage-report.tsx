@@ -4,14 +4,16 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FileText, X, Download } from 'lucide-react';
 
-const REPORT_MARKDOWN = `# Triage — Zero Trust violation on /api/admin/audit-logs
+const REPORT_MARKDOWN = `# Triage — Zero Trust violation on workforce-admin-audit-logs
 
 | Field | Value |
 | --- | --- |
 | **Status** | Fix proposed · PR #213 · CUR-5712 |
 | **Severity** | Sec-P1 · Zero Trust violation |
 | **ZPA risk event** | evt-21794 (Critical · 92 / 100) |
-| **App segment** | workforce-admin · ZPA |
+| **App segment** | workforce-admin-audit-logs |
+| **Policy resource** | \`zpa_policy_access_rule.workforce_admin_audit_logs_allow\` |
+| **IaC source** | \`infrastructure/zscaler/workforce-admin.tf\` |
 | **First flagged** | 14:21 PDT · rolling 60-minute window |
 | **Jira** | CUR-5712 |
 | **Authored by** | Cursor Background Agent |
@@ -19,57 +21,74 @@ const REPORT_MARKDOWN = `# Triage — Zero Trust violation on /api/admin/audit-l
 
 ## Incident
 
-- **Endpoint**: \`/api/admin/audit-logs\`
+- **App segment**: \`workforce-admin-audit-logs\` (ZPA)
 - **Users in scope**: 4,287 (intent: 18 · **238x over**)
 - **Posture distribution**: 50% unmanaged · 38% managed-noncompliant · 12% managed-compliant
 - **ZIA web hits (last 60m)**: 312 · including 4 unmanaged-device sessions and 2 lobby kiosks
-- **Risk surface**: read access to internal audit log including contractor activity
+- **Risk surface**: read access to internal audit log via internal app segment
+
+## How this enterprise normally triages this
+
+| Step | Owner | Wall time |
+| --- | --- | --- |
+| ZPA Risk Operations gets paged | Sec on-call | 0 |
+| On-call opens ticket, requests context from app team | Sec on-call | ~30 min |
+| App team identifies that policy is IaC-managed | App PM + Sec | ~2 h |
+| Engineer opens the .tf, drafts the missing conditions | Platform eng | ~4 h |
+| \`terraform plan\` reviewed in PR with security team | Platform + Sec | ~1 day |
+| Atlantis applies on merge | Platform | ~10 min |
+
+**Total median: 2-3 business days.** This run: **2m 14s.**
 
 ## Stack & policy
 
 \`\`\`
-ADMIN_AUDIT_LOG_POLICY        src/lib/demo/access-policy.ts:14
-  roles: ['*']                                           :15
-  postureRequired: false                                 :16
-  allowedLocations: ['*']                                :17
-  allowedIdps: ['*']                                     :18
-evaluateAccess(req)            src/lib/demo/access-policy.ts:25  (unchanged)
+infrastructure/zscaler/workforce-admin.tf
+
+resource "zpa_policy_access_rule" "workforce_admin_audit_logs_allow" {
+  action   = "ALLOW"
+  operator = "AND"
+  conditions { operands { object_type = "APP" ... } }   # only condition declared
+}
 \`\`\`
 
 ## Root cause
 
 | Layer | Observation |
 | --- | --- |
-| Policy | Wildcard roles, posture skipped, wildcard locations + IdPs |
+| IaC | Rule has only the APP condition — no SCIM_GROUP, POSTURE, TRUSTED_NETWORK, CLIENT_TYPE |
+| ZPA evaluation | A missing condition type evaluates as "any" → 4,287 users in scope |
 | ZIA logs | 312 reads in last hour, 50% from unmanaged devices |
-| ZPA | Risk score climbed to 92/100 after the regression deploy |
+| ZPA risk | Score climbed from 12 → 92 after the regression deploy |
 | Regression | Commit \`b7c91d2\` — "wip: open audit logs for QA" (3 days ago, qa-bot) |
-| Type surface | No change required — policy shape preserved |
 
 ## Fix
 
-1. Replace \`roles: ['*']\` with explicit \`['security-admin', 'compliance-officer']\`
-2. Set \`postureRequired: true\` (managed-compliant only)
-3. Restrict \`allowedLocations\` to \`['sf-hq', 'nyc-hq']\`
-4. Restrict \`allowedIdps\` to \`['okta-prod']\`
-5. \`evaluateAccess\` evaluator unchanged — same return shape, same callers
+1. Add \`SCIM_GROUP\` conditions for \`security-admin\` and \`compliance-officer\` (joined OR), resolved via \`data.zpa_scim_groups\`
+2. Add \`POSTURE\` condition pinned to the \`managed-compliant-corp\` profile, \`rhs = "true"\`
+3. Add \`TRUSTED_NETWORK\` condition for \`corp-egress\`, \`rhs = "true"\`
+4. Add \`CLIENT_TYPE\` condition for \`zpn_client_type_zapp\` only
+5. App segment, resource ID, server group, connector group all unchanged
 
 ## Verification
 
-- Static: \`tsc --noEmit\` ✓, \`eslint\` ✓
-- Policy conformance probe (4 simulated requests):
-  - admin-role + managed-compliant + sf-hq + okta-prod → **allow** ✓
-  - admin-role + managed-noncompliant → **deny** ✓
-  - employee-role + managed-compliant → **deny** ✓
-  - anonymous + unmanaged → **deny** ✓
+- \`terraform fmt -check\` ✓
+- \`terraform validate\` ✓ (zscaler/zpa ~> 4.4)
+- \`terraform plan\`: \`~ 1 to change · 0 to add · 0 to destroy\` (in-place update only)
+- \`tfsec\` + \`checkov\`: AVD-ZPA-001 (broad scope) → resolved · 0 high · 0 medium
+- Conformance probe (4 simulated requests):
+  - sec-admin + managed-compliant + corp + zapp → **allow** ✓
+  - sec-admin + managed-noncompliant → **deny** ✓
+  - employee + managed-compliant → **deny** ✓
+  - anon + unmanaged + public + exporter → **deny** ✓
 - Scope recompute: **4,287 → 18 users** · 0 unmanaged-device paths
 
 ## Risk
 
-- **Blast radius**: 1 file, +14 −5
-- **Rollback**: \`git revert HEAD\` — no migrations, no SCIM changes, no IdP edits
-- **Type surface**: unchanged
-- **Behavior**: same evaluator, narrower allow-list. No callers refactored.
+- **Blast radius**: 1 file, +24 −1
+- **Plan shape**: in-place update, no destroy/recreate, no app-segment churn
+- **Rollback**: \`git revert HEAD && terraform apply\` — no SCIM, no IdP, no infra side effects
+- **18 in-scope users** confirmed via Okta SCIM data source (sec-admin 12 + compliance-officer 6)
 `;
 
 interface TriageReportProps {
@@ -85,7 +104,7 @@ export function TriageReport({ onClose }: TriageReportProps) {
           <div className="flex items-center gap-2.5">
             <FileText className="w-4 h-4 text-text-tertiary" />
             <span className="text-xs font-mono text-text-secondary">
-              docs/triage/2026-04-23-zerotrust-violation-audit-logs.md
+              docs/triage/2026-04-23-zerotrust-violation-workforce-admin.md
             </span>
           </div>
           <div className="flex items-center gap-2">

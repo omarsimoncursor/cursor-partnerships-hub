@@ -56,8 +56,8 @@ export function FullViolationPage({ error, onGo, onReset }: FullViolationPagePro
             <span className="text-accent-amber font-mono">
               {failed}/{total}
             </span>{' '}
-            simulated requests. Risk Operations opened CUR-5712 and assigned it to
-            the Cursor Background Agent.
+            simulated requests. ServiceNow Security Incident SIR0005712 was opened
+            and assigned to the Cursor Background Agent.
           </p>
 
           {/* Metric card */}

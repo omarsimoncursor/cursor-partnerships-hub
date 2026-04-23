@@ -682,7 +682,7 @@ function ConsoleSidebar() {
 
       <SidebarSection title="Related" icon={<AlertTriangle className="w-3.5 h-3.5 text-[#F5A623]" />}>
         <RelatedRow kind="Risk event" title={RISK_EVT} status="Critical" tone="red" />
-        <RelatedRow kind="Incident" title="CUR-5712 (Jira)" status="In Progress" tone="blue" />
+        <RelatedRow kind="SecOps case" title="SIR0005712 (ServiceNow)" status="In Review" tone="blue" />
         <RelatedRow kind="Okta" title="Group reconciliation · 18 users" status="OK" tone="green" />
       </SidebarSection>
 

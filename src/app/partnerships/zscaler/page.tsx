@@ -92,12 +92,12 @@ export default function ZscalerPartnership() {
             The 2 to 3 business-day handoff between Risk Operations and Platform Engineering.
           </h2>
           <p className="text-base text-text-secondary max-w-3xl mb-10">
-            Most ZPA-as-Code shops follow the same painful path. Risk Operations gets paged, the
-            on-call security engineer can&apos;t directly fix the rule because it&apos;s in code,
-            so a ticket bounces to the platform team that owns the Terraform module. Days later
-            someone writes the missing conditions, the PR sits in review, and Atlantis finally
-            applies. Cursor compresses that handoff to minutes without changing who reviews and
-            approves.
+            Most ZPA-as-Code shops follow the same painful path. A Zscaler event lands in
+            ServiceNow Security Incident Response, the SecOps analyst confirms the app segment is
+            Terraform-managed, and the case bounces to the platform team that owns the module.
+            Days later someone writes the missing conditions, the PR sits in review, and Atlantis
+            finally applies. Cursor compresses that handoff to minutes without changing who
+            reviews and approves.
           </p>
 
           <div className="rounded-xl border border-dark-border bg-dark-surface overflow-hidden">
@@ -107,11 +107,11 @@ export default function ZscalerPartnership() {
               <Header className="text-right">Today</Header>
               <Header className="text-right text-[#65B5F2]">With Cursor</Header>
 
-              <Row n="1" task="ZPA Risk Operations gets paged" owner="Sec on-call" today="0" cursor="0" />
+              <Row n="1" task="Zscaler event lands in ServiceNow SIR" owner="SecOps" today="0" cursor="0" />
               <Row
                 n="2"
-                task="On-call requests context from app team"
-                owner="Sec on-call"
+                task="Analyst requests context from app team"
+                owner="SecOps"
                 today="~30 min"
                 cursor="auto"
               />
@@ -149,8 +149,9 @@ export default function ZscalerPartnership() {
 
           <p className="text-sm text-text-tertiary mt-4">
             The reviewer step is intentionally unchanged. Cursor accelerates the work that humans
-            were doing badly (correlating ZPA findings to .tf files, writing the conditions,
-            running plan, building the evidence packet). It does not bypass the people who say yes.
+            were doing badly (correlating ZPA findings to ServiceNow, Okta, and .tf files, writing
+            the conditions, running plan, building the evidence packet). It does not bypass the
+            people who say yes.
           </p>
         </div>
       </section>
@@ -184,8 +185,22 @@ export default function ZscalerPartnership() {
             <ThesisCard
               icon={<GitPullRequest className="w-5 h-5" />}
               title="Cursor closes the loop into a PR"
-              detail="Triage, edit the .tf, terraform plan, tfsec, conformance probe, PR opened, Jira updated. A reviewer approves; Atlantis applies."
+              detail="Triage, edit the .tf, terraform plan, tfsec, conformance probe, PR opened, ServiceNow SecOps case updated. A reviewer approves; Atlantis applies."
             />
+          </div>
+
+          <div className="mt-6 rounded-xl border border-[#0079D5]/25 bg-[#0079D5]/5 p-5">
+            <p className="text-sm font-semibold text-[#65B5F2] mb-2">
+              Source-of-truth routing is the broad pattern.
+            </p>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              This demo routes to Terraform because the ZPA segment is tagged as
+              <span className="font-mono text-text-primary"> iac:terraform</span>. If the same event
+              came from a portal-managed ZPA tenant, Cursor would generate a ZPA MCP change request
+              and ServiceNow approval instead of a GitHub PR. If the event mapped to a cloud control
+              plane, Cursor could pull AWS/Azure/GCP context to identify ownership, but the fix
+              still lands in the customer&apos;s system of record.
+            </p>
           </div>
         </div>
       </section>
@@ -246,8 +261,8 @@ export default function ZscalerPartnership() {
             <Step
               n="8"
               icon={<Users className="w-4 h-4" />}
-              title="Jira update + Atlantis apply"
-              detail="CUR-5712 moves to In Review with the PR linked. Reviewer approves. Atlantis runs terraform apply on merge. Risk score drops from 92 to 7."
+              title="ServiceNow update + Atlantis apply"
+              detail="SIR0005712 moves to Awaiting Security Review with the PR linked. Reviewer approves. Atlantis runs terraform apply on merge. Risk score drops from 92 to 7."
             />
           </ol>
         </div>

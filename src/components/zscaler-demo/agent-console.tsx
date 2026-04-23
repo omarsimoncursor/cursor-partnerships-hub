@@ -9,7 +9,7 @@ type Channel =
   | 'zscaler'
   | 'okta'
   | 'github'
-  | 'jira'
+  | 'servicenow'
   | 'shell'
   | 'terraform'
   | 'opus'
@@ -32,7 +32,7 @@ const CHANNEL_STYLES: Record<
   zscaler:   { label: 'zscaler-mcp',     color: 'text-[#65B5F2]',    bg: 'bg-[#0079D5]/15',    border: 'border-[#0079D5]/35' },
   okta:      { label: 'okta-mcp',        color: 'text-[#5BB7E2]',    bg: 'bg-[#007DC1]/10',    border: 'border-[#007DC1]/30' },
   github:    { label: 'github-mcp',      color: 'text-text-primary', bg: 'bg-text-primary/10', border: 'border-text-primary/20' },
-  jira:      { label: 'jira-mcp',        color: 'text-[#4C9AFF]',    bg: 'bg-[#0052CC]/15',    border: 'border-[#4C9AFF]/30' },
+  servicenow:{ label: 'servicenow-mcp',  color: 'text-[#81B5A1]',    bg: 'bg-[#81B5A1]/10',    border: 'border-[#81B5A1]/30' },
   shell:     { label: 'shell',           color: 'text-accent-green', bg: 'bg-accent-green/10', border: 'border-accent-green/20' },
   terraform: { label: 'terraform',       color: 'text-[#7B42BC]',    bg: 'bg-[#7B42BC]/10',    border: 'border-[#7B42BC]/30' },
   opus:      { label: 'opus · triage',   color: 'text-[#D97757]',    bg: 'bg-[#D97757]/10',    border: 'border-[#D97757]/30' },
@@ -48,13 +48,14 @@ const SCRIPT: Step[] = [
   { channel: 'zscaler',   delayMs: 600,  label: 'ZIA web log slice (last 60m)',                detail: '312 hits · 4 unmanaged-device sessions · 51 unique users with employee role' },
   { channel: 'zscaler',   delayMs: 600,  label: 'Scope vs intent diff',                        detail: '4,287 users in scope · least-privilege intent 18 · 238x over scope' },
   { channel: 'zscaler',   delayMs: 500,  label: 'Cross-referencing IaC owner',                 detail: 'segment marker → terraform-managed · module: infrastructure/zscaler' },
+  { channel: 'zscaler',   delayMs: 500,  label: 'Source of truth routed',                      detail: 'iac:terraform tag present → remediation path = GitHub PR, not direct ZPA API patch' },
 
   // Identity context
   { channel: 'okta',      delayMs: 600,  label: 'Resolving SCIM groups for least-privilege',   detail: 'security-admin (12) + compliance-officer (6) = 18 users' },
 
   // Incident management
-  { channel: 'jira',      delayMs: 600,  label: 'Creating security incident ticket',           detail: 'Project: CUR · Type: Sec-Incident · Priority: Sec-P1 · Zero Trust' },
-  { channel: 'jira',      delayMs: 500,  label: 'Ticket CUR-5712 created',                     detail: 'Linked to Zscaler risk evt-21794' },
+  { channel: 'servicenow', delayMs: 600, label: 'Creating ServiceNow SecOps incident',         detail: 'Table: sn_si_incident · Priority: Critical · Assignment group: Risk Operations' },
+  { channel: 'servicenow', delayMs: 500, label: 'Case SIR0005712 created',                     detail: 'Linked to Zscaler risk evt-21794 · playbook: ZPA Terraform remediation' },
 
   // Opus triages
   { channel: 'opus',      delayMs: 1000, label: 'Claude Opus: triaging',                       detail: 'long-context reasoning over .tf module + Okta claims + ZPA event' },
@@ -88,8 +89,8 @@ const SCRIPT: Step[] = [
   { channel: 'github',    delayMs: 600,  label: 'Creating branch sec/scope-down-workforce-admin-zpa', detail: 'base: main' },
   { channel: 'github',    delayMs: 600,  label: 'Committing & pushing',                        detail: '1 file changed · +24 −1 · signed-off-by: cursor-agent · plan attached' },
   { channel: 'github',    delayMs: 800,  label: 'Opening pull request #213',                   detail: 'sec(zpa): scope down workforce-admin-audit-logs ALLOW rule (4,287 → 18)' },
-  { channel: 'jira',      delayMs: 500,  label: 'CUR-5712 → In Review',                        detail: 'PR #213 + tfplan + ZPA risk evt-21794 cross-referenced' },
-  { channel: 'done',      delayMs: 500,  label: 'Artifacts ready for review',                  detail: 'Zscaler ZPA console · Triage report · Jira ticket · Pull request' },
+  { channel: 'servicenow', delayMs: 500, label: 'SIR0005712 → Awaiting Security Review',       detail: 'PR #213 + tfplan + ZPA risk evt-21794 cross-referenced' },
+  { channel: 'done',      delayMs: 500,  label: 'Artifacts ready for review',                  detail: 'Zscaler ZPA console · Triage report · ServiceNow case · Pull request' },
 ];
 
 interface AgentConsoleProps {

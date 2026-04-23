@@ -12,8 +12,8 @@ Build a repeatable, click-to-run demo that dramatizes the **real** Zscaler + Cur
 2. The probe reads the customer's actual ZPA Terraform module (`infrastructure/zscaler/workforce-admin.tf`) from disk, parses the access rule, and replays four canonical access requests through it. Three of the four fail because the rule has only an APP condition — no SCIM_GROUP, POSTURE, TRUSTED_NETWORK, or CLIENT_TYPE blocks.
 3. The UI pivots to a full-screen **Zero Trust violation** takeover.
 4. Zscaler ZPA (mocked) detects the broad-scope segment in real time. ZPA Policy Engine fires a webhook to Cursor.
-5. A scripted "agent console" plays on the right half of the screen showing Cursor orchestrating: Zscaler MCP → Okta MCP → GitHub MCP → Opus triage → Composer edit → Codex review → terraform fmt + validate + plan → tfsec/checkov → policy-conformance probe → PR opened → Jira updated.
-6. When the run completes, the user can click through four pixel-perfect artifact modals: **Zscaler ZPA console**, **Triage report**, **Jira ticket**, and **GitHub PR with HCL diff + terraform plan + probe output** (inside a MacBook frame).
+5. A scripted "agent console" plays on the right half of the screen showing Cursor orchestrating: Zscaler MCP → Okta MCP → ServiceNow MCP → GitHub MCP → Opus triage → Composer edit → Codex review → terraform fmt + validate + plan → tfsec/checkov → policy-conformance probe → PR opened → ServiceNow case updated.
+6. When the run completes, the user can click through four pixel-perfect artifact modals: **Zscaler ZPA console**, **Triage report**, **ServiceNow Security Operations case**, and **GitHub PR with HCL diff + terraform plan + probe output** (inside a MacBook frame).
 7. Reset button returns the demo to clean state. `scripts/reset-zscaler-demo.sh` re-seeds the .tf to the under-conditioned state after a real PR merges.
 
 **The demo must behave identically every time it runs.** All agent work is scripted playback. Only the underlying .tf file and the conformance probe are real.
@@ -173,7 +173,7 @@ Channels the SCRIPT needs:
 | `zscaler`   | `zscaler-mcp`      | `#0079D5`  | ZPA Policy Engine + ZIA traffic + segment intake        |
 | `okta`      | `okta-mcp`         | `#007DC1`  | SCIM group resolution for least-privilege allow-list    |
 | `github`    | `github-mcp`       | (white)    | git log on the IaC path, PR creation                    |
-| `jira`      | `jira-mcp`         | `#4C9AFF`  | Sec-Incident ticket lifecycle                           |
+| `servicenow`| `servicenow-mcp`   | `#81B5A1`  | SecOps case lifecycle, playbook state, review queue     |
 | `shell`     | `shell`            | green      | git, file IO, conformance probe runner                  |
 | `terraform` | `terraform`        | `#7B42BC`  | terraform fmt / validate / plan + tfsec/checkov         |
 | `opus`      | `opus · triage`    | `#D97757`  | Long-context root-cause reasoning                       |
@@ -186,7 +186,7 @@ Channels the SCRIPT needs:
 
 1. **Intake (zscaler):** ZPA risk event → ZIA web log slice → segment + IaC owner cross-reference.
 2. **Identity (okta):** Resolve SCIM groups for the least-privilege allow-list.
-3. **Incident (jira):** Sec-P1 ticket created.
+3. **Incident (servicenow):** SecOps case `SIR0005712` created.
 4. **Opus triage:** Pull commit history of the IaC path. Identify regression commit. Form hypothesis.
 5. **Codegen:** Triage report written to `docs/triage/2026-04-23-zerotrust-violation-workforce-admin.md`.
 6. **Composer edit:** Read `workforce-admin.tf`. Add SCIM_GROUP, POSTURE, TRUSTED_NETWORK, CLIENT_TYPE conditions.
@@ -199,7 +199,7 @@ Channels the SCRIPT needs:
    - Conformance probe (4 simulated requests) → 4/4 pass
    - Scope recompute: `4,287 → 18 users · 238.2× narrower · 0 unmanaged-device paths`
 9. **PR:** Branch `sec/scope-down-workforce-admin-zpa` → commit → push → PR #213.
-10. **Jira:** CUR-5712 → In Review.
+10. **ServiceNow:** `SIR0005712 → Awaiting Security Review`.
 11. **Done:** Artifacts ready.
 
 ### 3.5 The four artifact modals
@@ -218,7 +218,7 @@ All four render in a MacBook frame.
 
 2. **Triage report modal** — markdown via `react-markdown` + `remark-gfm`. Includes a "How this enterprise normally triages this" table that contrasts the 2-3 day human path with the 2m 14s agent run.
 
-3. **Jira ticket modal** — pixel-perfect Jira ticket `CUR-5712`, Sec-P1, Zero Trust Violation type. Description cites the IaC source. Three integration comments (Cursor Agent, Zscaler ZPA, Okta).
+3. **ServiceNow Security Operations modal** — pixel-perfect ServiceNow Security Incident Response workspace. Case `SIR0005712`, Critical, ZPA Zero Trust Violation. Must include: ServiceNow top chrome, Security Operations Workspace nav, left rail, case header, summary metric cards, agent-generated evidence packet, playbook steps, assignment card, related records, and an activity stream with Cursor Agent, Zscaler ZPA, and Okta integration comments.
 
 4. **GitHub PR modal** — pixel-perfect PR #213. Includes:
    - Title: `sec(zpa): scope down workforce-admin-audit-logs ALLOW rule (4,287 → 18 in scope)`
@@ -268,7 +268,7 @@ src/components/zscaler-demo/artifacts/macbook-frame.tsx                  NEW —
 src/components/zscaler-demo/artifacts/zscaler-console.tsx                NEW — pixel-perfect ZPA Admin Portal
 src/components/zscaler-demo/artifacts/zscaler-modal.tsx                  NEW — wraps console in MacBook
 src/components/zscaler-demo/artifacts/triage-report.tsx                  NEW — markdown report
-src/components/zscaler-demo/artifacts/jira-ticket.tsx                    NEW — CUR-5712
+src/components/zscaler-demo/artifacts/servicenow-case.tsx                NEW — SIR0005712
 src/components/zscaler-demo/artifacts/github-pr-preview.tsx              NEW — PR #213 with HCL diff + plan + probe
 src/components/zscaler-demo/artifacts/pr-modal.tsx                       NEW
 
@@ -295,7 +295,9 @@ The webhook prompt MUST make these things explicit:
    5. Patch (add SCIM_GROUP / POSTURE / TRUSTED_NETWORK / CLIENT_TYPE conditions, wire to existing data sources)
    6. `terraform fmt -check` + `terraform validate` + `terraform plan` (must be in-place-only) + `tfsec`/`checkov` + conformance probe (4 simulated requests, deny-by-default restored)
    7. Open PR with HCL diff + plan + probe + evidence + risk assessment
-   8. Jira → In Review
+   8. ServiceNow → Awaiting Security Review
+
+If the app segment is not IaC-managed, Cursor should not invent a GitHub PR. The fallback path is: use Zscaler MCP to draft the ZPA policy delta, open or update the ServiceNow security case, attach the proposed ZPA API payload and evidence packet, and wait for human approval in the Zscaler control plane. This demo chooses the Terraform path because it is the strongest Cursor Agents showcase for mature enterprises.
 
 ---
 

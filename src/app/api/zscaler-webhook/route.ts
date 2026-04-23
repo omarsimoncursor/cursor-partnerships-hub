@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 /**
  * Receives Zscaler ZPA / ZIA risk events and triggers a Cursor Background Agent
- * to scope down the offending application access rule in Terraform.
+ * to scope down the offending application access rule in the right source of truth.
  *
  * Setup:
  * 1. Create a Zscaler webhook (ZPA Policy Engine notifications) pointing at
@@ -51,6 +51,7 @@ interface ZscalerPayload {
   };
   iac_path?: string;
   iac_resource?: string;
+  source_of_truth?: 'terraform' | 'zpa-api' | 'servicenow-change';
   alert_url?: string;
 }
 
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
   const riskScore = payload.scope?.risk_score ?? null;
   const iacPath = payload.iac_path ?? 'infrastructure/zscaler/';
   const iacResource = payload.iac_resource ?? null;
+  const sourceOfTruth = payload.source_of_truth ?? 'terraform';
   const alertUrl =
     payload.alert_url ?? `https://admin.zscaler.net/zpa/policy/${policyId}/risk/${riskEventId}`;
 
@@ -102,6 +104,7 @@ export async function POST(request: NextRequest) {
     appSegment,
     iacPath,
     iacResource,
+    sourceOfTruth,
     inScope,
     intent,
     riskScore,
@@ -155,6 +158,7 @@ function buildAgentPrompt({
   appSegment,
   iacPath,
   iacResource,
+  sourceOfTruth,
   inScope,
   intent,
   riskScore,
@@ -165,6 +169,7 @@ function buildAgentPrompt({
   appSegment: string;
   iacPath: string;
   iacResource: string | null;
+  sourceOfTruth: 'terraform' | 'zpa-api' | 'servicenow-change';
   inScope: number | null;
   intent: number | null;
   riskScore: number | null;
@@ -181,15 +186,22 @@ function buildAgentPrompt({
   const resourceLine = iacResource
     ? `- Likely Terraform resource: ${iacResource}`
     : `- Terraform resource: not provided — locate via Step 1 (segment tag) and Step 4 (file scan)`;
+  const routeLine =
+    sourceOfTruth === 'terraform'
+      ? `- Source of truth route: Terraform PR (${iacPath})`
+      : sourceOfTruth === 'zpa-api'
+        ? `- Source of truth route: direct ZPA Admin/API change request (no GitHub PR unless IaC owner is discovered)`
+        : `- Source of truth route: ServiceNow change request for policy-owner approval`;
 
-  return `You are the orchestration layer between Zscaler, Okta, GitHub, Jira, and the customer's
-Terraform module that manages ZPA-as-Code. A Zscaler ZPA Zero Trust violation was reported.
-Coordinate across Zscaler MCP, Okta MCP, GitHub MCP, Jira MCP, and the shell to ship a tested
+  return `You are the orchestration layer between Zscaler, Okta, GitHub, ServiceNow, and the customer's
+system of record that manages ZPA policy. A Zscaler ZPA Zero Trust violation was reported.
+Coordinate across Zscaler MCP, Okta MCP, GitHub MCP, ServiceNow MCP, and the shell to ship a tested
 Terraform PR — with zero human intervention until the security review step.
 
-CRITICAL: ZPA access rules live in Terraform (the zscaler/zpa provider), NOT in application
-code. Your fix is HCL (.tf), not TypeScript. The application code under src/ is unrelated to
-this incident. Do not edit application code.
+CRITICAL: First identify the policy source of truth. If the segment is tagged iac:terraform,
+the fix is HCL (.tf), not TypeScript. The application code under src/ is unrelated to this
+incident. Do not edit application code. If the policy is not Terraform-managed, do not invent
+a GitHub PR; draft a ZPA API/Admin change request and attach it to ServiceNow for approval.
 
 ## Incoming risk event
 - Risk event: ${riskEventId}
@@ -198,6 +210,7 @@ this incident. Do not edit application code.
 - Alert URL: ${alertUrl}
 - IaC root: ${iacPath}
 ${resourceLine}
+${routeLine}
 ${scopeLine}
 ${riskLine}
 
@@ -209,18 +222,19 @@ You MUST execute every step. Do not skip steps. Cite evidence from each step in 
 - Fetch the ZPA risk event detail: severity, state, risk score, posture distribution, in-scope vs intent.
 - Fetch the ZIA web log slice for the affected app segment (last 60 minutes by default).
 - Identify the IaC owner via segment tags (e.g. \`iac:terraform\`, \`repo:<name>\`, \`module:<path>\`).
+- If no IaC owner exists, route to a ServiceNow ZPA change request instead of a GitHub PR.
 - Record: in-scope user count, intent user count, posture compliance %, regression deploy SHA, IaC path.
 
 ### Step 2 — Identity context (Okta MCP)
 - Resolve the SCIM groups that should retain access (typically the intent set: e.g. security-admin, compliance-officer).
 - Compute the smallest justifiable allow-list. Cite group IDs and member counts in the PR body.
 
-### Step 3 — Regression hunt (GitHub MCP)
+### Step 3 — Regression hunt (GitHub MCP, only for Terraform-managed policy)
 - \`git log\` the IaC path: \`git log --since=14.days -- ${iacPath}\`.
 - Identify the most recent commit that widened scope (stripped conditions, added wildcard, switched ALLOW operator).
 - Record SHA, author, date, message — cite in the PR body.
 
-### Step 4 — Read the .tf and form a hypothesis
+### Step 4 — Read the source of truth and form a hypothesis
 - Locate the access rule resource. If \`iac_resource\` was provided, read that file directly. Otherwise grep the IaC path for \`zpa_policy_access_rule\` resources and match by app segment name.
 - Read the resource. Enumerate which condition object_types are present and which are missing.
 - Form a written hypothesis BEFORE patching:
@@ -248,7 +262,7 @@ You MUST execute every step. Do not skip steps. Cite evidence from each step in 
   - anon + unmanaged + public + exporter → DENY
 - If any check fails, return to Step 5.
 
-### Step 7 — Open the PR via GitHub MCP
+### Step 7 — Open the PR via GitHub MCP (Terraform route) OR draft ServiceNow change (non-IaC route)
 - Create a branch: \`sec/scope-down-<segment-slug>-zpa\`.
 - Commit message:
   \`\`\`
@@ -297,8 +311,8 @@ You MUST execute every step. Do not skip steps. Cite evidence from each step in 
   - Plan shape (in-place vs destroy/recreate)
   - Rollback plan (\`git revert HEAD && terraform apply\`)
 
-### Step 8 — Jira update (Jira MCP)
-- Move the security incident ticket to \`In Review\`.
+### Step 8 — ServiceNow update
+- Move the ServiceNow Security Incident to \`Awaiting Security Review\`.
 - Link the PR URL.
 - Post a comment that cites the before/after scope, the terraform plan summary, and the Zscaler risk event.
 `;

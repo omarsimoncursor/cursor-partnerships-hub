@@ -8,14 +8,14 @@ const REPORT_MARKDOWN = `# Triage — Zero Trust violation on workforce-admin-au
 
 | Field | Value |
 | --- | --- |
-| **Status** | Fix proposed · PR #213 · CUR-5712 |
+| **Status** | Fix proposed · PR #213 · SIR0005712 |
 | **Severity** | Sec-P1 · Zero Trust violation |
 | **ZPA risk event** | evt-21794 (Critical · 92 / 100) |
 | **App segment** | workforce-admin-audit-logs |
 | **Policy resource** | \`zpa_policy_access_rule.workforce_admin_audit_logs_allow\` |
 | **IaC source** | \`infrastructure/zscaler/workforce-admin.tf\` |
 | **First flagged** | 14:21 PDT · rolling 60-minute window |
-| **Jira** | CUR-5712 |
+| **ServiceNow** | SIR0005712 |
 | **Authored by** | Cursor Background Agent |
 | **Models used** | Opus (triage) · Composer (edit) · Codex (review) |
 

@@ -365,8 +365,10 @@ anon · unmanaged · public · exporter               DENY       DENY    `}</spa
                     </span>
                   </li>
                   <li>
-                    Jira:{' '}
-                    <span className="text-[#4493f8] hover:underline cursor-pointer">CUR-5712</span>
+                    ServiceNow:{' '}
+                    <span className="text-[#4493f8] hover:underline cursor-pointer">
+                      SIR0005712
+                    </span>
                   </li>
                   <li>
                     <code className="ghx">terraform validate</code>:{' '}
@@ -503,7 +505,9 @@ anon · unmanaged · public · exporter               DENY       DENY    `}</spa
           <SidebarSection title="Development">
             <div className="space-y-1 text-[#7d8590]">
               <p>Successfully links to an issue</p>
-              <p className="text-[#4493f8] hover:underline cursor-pointer">CUR-5712 (Jira)</p>
+              <p className="text-[#4493f8] hover:underline cursor-pointer">
+                SIR0005712 (ServiceNow)
+              </p>
               <p className="text-[#4493f8] hover:underline cursor-pointer">evt-21794 (Zscaler)</p>
             </div>
           </SidebarSection>

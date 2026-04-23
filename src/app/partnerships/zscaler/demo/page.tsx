@@ -12,12 +12,12 @@ import { ViolationSummary } from '@/components/zscaler-demo/violation-summary';
 import { AgentConsole } from '@/components/zscaler-demo/agent-console';
 import { ArtifactCards } from '@/components/zscaler-demo/artifact-cards';
 import { TriageReport } from '@/components/zscaler-demo/artifacts/triage-report';
-import { JiraTicket } from '@/components/zscaler-demo/artifacts/jira-ticket';
+import { ServiceNowCase } from '@/components/zscaler-demo/artifacts/servicenow-case';
 import { PrModal } from '@/components/zscaler-demo/artifacts/pr-modal';
 import { ZscalerModal } from '@/components/zscaler-demo/artifacts/zscaler-modal';
 
 type Phase = 'idle' | 'error' | 'running' | 'complete';
-type Artifact = 'pr' | 'triage' | 'jira' | 'zscaler';
+type Artifact = 'pr' | 'triage' | 'servicenow' | 'zscaler';
 
 export default function ZscalerDemoPage() {
   const [phase, setPhase] = useState<Phase>('idle');
@@ -202,7 +202,7 @@ export default function ZscalerDemoPage() {
 
       {/* Artifact modals */}
       {artifact === 'triage' && <TriageReport onClose={closeArtifact} />}
-      {artifact === 'jira' && <JiraTicket onClose={closeArtifact} />}
+      {artifact === 'servicenow' && <ServiceNowCase onClose={closeArtifact} />}
       {artifact === 'pr' && <PrModal onClose={closeArtifact} />}
       {artifact === 'zscaler' && <ZscalerModal onClose={closeArtifact} />}
     </div>

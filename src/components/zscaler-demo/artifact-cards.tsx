@@ -1,9 +1,9 @@
 'use client';
 
-import { FileText, GitPullRequest, ChevronRight, ShieldCheck } from 'lucide-react';
+import { FileText, GitPullRequest, ChevronRight, ShieldCheck, Workflow } from 'lucide-react';
 
 interface ArtifactCardsProps {
-  onOpen: (artifact: 'pr' | 'triage' | 'jira' | 'zscaler') => void;
+  onOpen: (artifact: 'pr' | 'triage' | 'servicenow' | 'zscaler') => void;
 }
 
 export function ArtifactCards({ onOpen }: ArtifactCardsProps) {
@@ -40,14 +40,14 @@ export function ArtifactCards({ onOpen }: ArtifactCardsProps) {
           onClick={() => onOpen('triage')}
         />
         <ArtifactCard
-          icon={<span className="text-[#4C9AFF] text-sm font-bold leading-none">J</span>}
-          iconBg="bg-[#0052CC]/15"
-          iconBorder="border-[#4C9AFF]/30"
-          iconColor="text-[#4C9AFF]"
-          label="Jira Ticket"
-          refLabel="CUR-5712"
-          summary="In Review · linked to Zscaler + PR #213."
-          onClick={() => onOpen('jira')}
+          icon={<Workflow className="w-4 h-4" />}
+          iconBg="bg-[#81B5A1]/15"
+          iconBorder="border-[#81B5A1]/40"
+          iconColor="text-[#81B5A1]"
+          label="ServiceNow SIR"
+          refLabel="SIR0005712"
+          summary="SecOps workspace · playbook + evidence packet."
+          onClick={() => onOpen('servicenow')}
         />
         <ArtifactCard
           icon={<GitPullRequest className="w-4 h-4" />}

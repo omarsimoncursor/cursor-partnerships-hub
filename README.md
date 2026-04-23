@@ -19,6 +19,7 @@ Each partner gets two routes:
 | Figma | [/partnerships/figma](https://cursor.omarsimon.com/partnerships/figma) | [/partnerships/figma/demo](https://cursor.omarsimon.com/partnerships/figma/demo) |
 | Sentry | [/partnerships/sentry](https://cursor.omarsimon.com/partnerships/sentry) | [/partnerships/sentry/demo](https://cursor.omarsimon.com/partnerships/sentry/demo) |
 | Snowflake | [/partnerships/snowflake](https://cursor.omarsimon.com/partnerships/snowflake) | [/partnerships/snowflake/demo](https://cursor.omarsimon.com/partnerships/snowflake/demo) (7-act cinematic) |
+| Snyk | [/partnerships/snyk](https://cursor.omarsimon.com/partnerships/snyk) | [/partnerships/snyk/demo](https://cursor.omarsimon.com/partnerships/snyk/demo) |
 | GitHub, GitLab | Coming soon | — |
 
 ## Tech stack

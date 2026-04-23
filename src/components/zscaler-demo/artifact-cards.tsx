@@ -35,8 +35,8 @@ export function ArtifactCards({ onOpen }: ArtifactCardsProps) {
           iconBorder="border-accent-amber/20"
           iconColor="text-accent-amber"
           label="Triage Report"
-          refLabel="zerotrust-violation-audit-logs.md"
-          summary="Root cause, fix, verification, risk."
+          refLabel="zerotrust-violation-workforce-admin.md"
+          summary="Root cause, fix, terraform plan, conformance."
           onClick={() => onOpen('triage')}
         />
         <ArtifactCard
@@ -55,8 +55,8 @@ export function ArtifactCards({ onOpen }: ArtifactCardsProps) {
           iconBorder="border-accent-green/20"
           iconColor="text-accent-green"
           label="Pull Request"
-          refLabel="#213 · scope-down-audit-log-policy"
-          summary="All checks passed. Awaiting approval."
+          refLabel="#213 · scope-down-workforce-admin-zpa"
+          summary="HCL diff + tf plan + probe. Awaiting approval."
           onClick={() => onOpen('pr')}
           primary
         />

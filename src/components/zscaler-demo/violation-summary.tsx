@@ -21,7 +21,9 @@ export function ViolationSummary({ error, onReset, onViewZscaler }: ViolationSum
   const inScope = v?.inScope ?? 4287;
   const intent = v?.intent ?? 18;
   const ratio = v?.scopeRatio ?? '238.2x';
-  const endpoint = v?.endpoint ?? '/api/admin/audit-logs';
+  const tfFile = v?.tfFile ?? 'infrastructure/zscaler/workforce-admin.tf';
+  const failed = v?.failedProbes ?? 3;
+  const total = v?.totalProbes ?? 4;
 
   return (
     <div className="w-full h-full rounded-xl border border-[#0079D5]/25 bg-dark-surface overflow-hidden flex flex-col">
@@ -44,20 +46,20 @@ export function ViolationSummary({ error, onReset, onViewZscaler }: ViolationSum
 
       {/* Body */}
       <div className="p-4 space-y-4 flex-1 overflow-y-auto">
-        {/* Endpoint */}
+        {/* TF file */}
         <div>
           <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-wider mb-1.5">
-            Affected app segment
+            ZPA module · IaC source of truth
           </p>
           <div className="p-2.5 rounded-md bg-dark-bg font-mono text-xs text-[#65B5F2] break-words">
-            workforce-admin → GET {endpoint}
+            {tfFile}
           </div>
         </div>
 
         {/* Posture donut */}
         <div>
           <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-wider mb-1.5">
-            Device posture across in-scope users
+            Device posture · across in-scope users
           </p>
           <div className="relative p-3 rounded-md bg-dark-bg overflow-hidden flex items-center gap-3">
             <PostureDonut />
@@ -76,17 +78,30 @@ export function ViolationSummary({ error, onReset, onViewZscaler }: ViolationSum
           <Stat label="Over" value={ratio} color="text-accent-amber" />
         </div>
 
-        {/* Policy summary */}
+        {/* Conformance probe summary */}
         <div>
           <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-wider mb-1.5">
-            Offending policy
+            Conformance probe · {failed}/{total} failed
+          </p>
+          <div className="p-2.5 rounded-md bg-dark-bg font-mono text-[11px] space-y-1">
+            <ProbeRow label="security-admin · compliant · corp" expected="ALLOW" actual="ALLOW" pass />
+            <ProbeRow label="security-admin · noncompliant · corp" expected="DENY" actual="ALLOW" />
+            <ProbeRow label="employee · compliant · corp" expected="DENY" actual="ALLOW" />
+            <ProbeRow label="anon · unmanaged · public" expected="DENY" actual="ALLOW" />
+          </div>
+        </div>
+
+        {/* Missing conditions */}
+        <div>
+          <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-wider mb-1.5">
+            Missing rule conditions
           </p>
           <div className="p-2.5 rounded-md bg-dark-bg font-mono text-[11px] text-text-secondary space-y-0.5">
-            <div className="text-[#65B5F2]">access-policy.ts :: ADMIN_AUDIT_LOG_POLICY</div>
-            <div>└─ roles: <span className="text-accent-amber">[&apos;*&apos;]</span></div>
-            <div>└─ postureRequired: <span className="text-accent-amber">false</span></div>
-            <div>└─ allowedLocations: <span className="text-accent-amber">[&apos;*&apos;]</span></div>
-            <div>└─ allowedIdps: <span className="text-accent-amber">[&apos;*&apos;]</span></div>
+            <div className="text-[#65B5F2]">zpa_policy_access_rule.workforce_admin_audit_logs_allow</div>
+            <div>└─ <span className="text-accent-amber">SCIM_GROUP</span> · not declared</div>
+            <div>└─ <span className="text-accent-amber">POSTURE</span> · not declared</div>
+            <div>└─ <span className="text-accent-amber">TRUSTED_NETWORK</span> · not declared</div>
+            <div>└─ <span className="text-accent-amber">CLIENT_TYPE</span> · not declared</div>
             <div className="text-text-tertiary">└─ regression commit b7c91d2</div>
           </div>
         </div>
@@ -135,7 +150,34 @@ function Legend({ color, label }: { color: string; label: string }) {
   );
 }
 
-// Deterministic posture donut: 50/38/12 split (unmanaged / noncompliant / compliant)
+function ProbeRow({
+  label,
+  expected,
+  actual,
+  pass,
+}: {
+  label: string;
+  expected: string;
+  actual: string;
+  pass?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={`shrink-0 w-12 text-[9px] font-bold ${pass ? 'text-accent-green' : 'text-[#FF4757]'}`}
+      >
+        {pass ? 'PASS' : 'FAIL'}
+      </span>
+      <span className="flex-1 text-text-tertiary truncate">{label}</span>
+      <span className="text-text-tertiary text-[10px]">
+        exp <span className={pass ? 'text-accent-green' : 'text-text-secondary'}>{expected}</span> /
+        got{' '}
+        <span className={pass ? 'text-accent-green' : 'text-[#FF4757]'}>{actual}</span>
+      </span>
+    </div>
+  );
+}
+
 function PostureDonut() {
   const size = 70;
   const cx = size / 2;

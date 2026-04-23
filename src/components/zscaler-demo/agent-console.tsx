@@ -11,6 +11,7 @@ type Channel =
   | 'github'
   | 'jira'
   | 'shell'
+  | 'terraform'
   | 'opus'
   | 'composer'
   | 'codex'
@@ -28,63 +29,67 @@ const CHANNEL_STYLES: Record<
   Channel,
   { label: string; color: string; bg: string; border: string }
 > = {
-  zscaler:  { label: 'zscaler-mcp',     color: 'text-[#65B5F2]',    bg: 'bg-[#0079D5]/15',     border: 'border-[#0079D5]/35' },
-  okta:     { label: 'okta-mcp',        color: 'text-[#5BB7E2]',    bg: 'bg-[#007DC1]/10',     border: 'border-[#007DC1]/30' },
-  github:   { label: 'github-mcp',      color: 'text-text-primary', bg: 'bg-text-primary/10',  border: 'border-text-primary/20' },
-  jira:     { label: 'jira-mcp',        color: 'text-[#4C9AFF]',    bg: 'bg-[#0052CC]/15',     border: 'border-[#4C9AFF]/30' },
-  shell:    { label: 'shell',           color: 'text-accent-green', bg: 'bg-accent-green/10',  border: 'border-accent-green/20' },
-  opus:     { label: 'opus · triage',   color: 'text-[#D97757]',    bg: 'bg-[#D97757]/10',     border: 'border-[#D97757]/30' },
-  composer: { label: 'composer · edit', color: 'text-accent-blue',  bg: 'bg-accent-blue/10',   border: 'border-accent-blue/30' },
-  codex:    { label: 'codex · review',  color: 'text-[#10a37f]',    bg: 'bg-[#10a37f]/10',     border: 'border-[#10a37f]/30' },
-  codegen:  { label: 'codegen',         color: 'text-accent-blue',  bg: 'bg-accent-blue/10',   border: 'border-accent-blue/20' },
-  done:     { label: 'complete',        color: 'text-accent-green', bg: 'bg-accent-green/10',  border: 'border-accent-green/20' },
+  zscaler:   { label: 'zscaler-mcp',     color: 'text-[#65B5F2]',    bg: 'bg-[#0079D5]/15',    border: 'border-[#0079D5]/35' },
+  okta:      { label: 'okta-mcp',        color: 'text-[#5BB7E2]',    bg: 'bg-[#007DC1]/10',    border: 'border-[#007DC1]/30' },
+  github:    { label: 'github-mcp',      color: 'text-text-primary', bg: 'bg-text-primary/10', border: 'border-text-primary/20' },
+  jira:      { label: 'jira-mcp',        color: 'text-[#4C9AFF]',    bg: 'bg-[#0052CC]/15',    border: 'border-[#4C9AFF]/30' },
+  shell:     { label: 'shell',           color: 'text-accent-green', bg: 'bg-accent-green/10', border: 'border-accent-green/20' },
+  terraform: { label: 'terraform',       color: 'text-[#7B42BC]',    bg: 'bg-[#7B42BC]/10',    border: 'border-[#7B42BC]/30' },
+  opus:      { label: 'opus · triage',   color: 'text-[#D97757]',    bg: 'bg-[#D97757]/10',    border: 'border-[#D97757]/30' },
+  composer:  { label: 'composer · edit', color: 'text-accent-blue',  bg: 'bg-accent-blue/10',  border: 'border-accent-blue/30' },
+  codex:     { label: 'codex · review',  color: 'text-[#10a37f]',    bg: 'bg-[#10a37f]/10',    border: 'border-[#10a37f]/30' },
+  codegen:   { label: 'codegen',         color: 'text-accent-blue',  bg: 'bg-accent-blue/10',  border: 'border-accent-blue/20' },
+  done:      { label: 'complete',        color: 'text-accent-green', bg: 'bg-accent-green/10', border: 'border-accent-green/20' },
 };
 
 const SCRIPT: Step[] = [
   // Zscaler intake
-  { channel: 'zscaler',  delayMs: 400,  label: 'Fetching ZPA risk event evt-21794',     detail: 'app-segment workforce-admin · policy ZTA-pol-9921 · severity Critical (92/100)' },
-  { channel: 'zscaler',  delayMs: 600,  label: 'ZIA web log slice (last 60m)',          detail: '312 hits · 4 unmanaged devices · 2 kiosks · 51 unique users with employee role' },
-  { channel: 'zscaler',  delayMs: 600,  label: 'Scope vs intent diff',                  detail: '4,287 users in scope · least-privilege intent 18 users · 238x over scope' },
-  { channel: 'zscaler',  delayMs: 500,  label: 'Posture distribution captured',         detail: 'unmanaged 50% · mgd-noncompliant 38% · mgd-compliant 12%' },
+  { channel: 'zscaler',   delayMs: 400,  label: 'Fetching ZPA risk event evt-21794',           detail: 'segment workforce-admin-audit-logs · severity Critical (92/100)' },
+  { channel: 'zscaler',   delayMs: 600,  label: 'ZIA web log slice (last 60m)',                detail: '312 hits · 4 unmanaged-device sessions · 51 unique users with employee role' },
+  { channel: 'zscaler',   delayMs: 600,  label: 'Scope vs intent diff',                        detail: '4,287 users in scope · least-privilege intent 18 · 238x over scope' },
+  { channel: 'zscaler',   delayMs: 500,  label: 'Cross-referencing IaC owner',                 detail: 'segment marker → terraform-managed · module: infrastructure/zscaler' },
 
   // Identity context
-  { channel: 'okta',     delayMs: 600,  label: 'Reconciling Okta group claims',         detail: 'sec-admin (12 users) + compliance-officer (6 users) = 18 users · matches intent' },
+  { channel: 'okta',      delayMs: 600,  label: 'Resolving SCIM groups for least-privilege',   detail: 'security-admin (12) + compliance-officer (6) = 18 users' },
 
   // Incident management
-  { channel: 'jira',     delayMs: 600,  label: 'Creating security incident ticket',     detail: 'Project: CUR · Type: Sec-Incident · Priority: Sec-P1 · Zero Trust violation' },
-  { channel: 'jira',     delayMs: 500,  label: 'Ticket CUR-5712 created',               detail: 'Linked to Zscaler risk evt-21794 · ZPA segment workforce-admin' },
+  { channel: 'jira',      delayMs: 600,  label: 'Creating security incident ticket',           detail: 'Project: CUR · Type: Sec-Incident · Priority: Sec-P1 · Zero Trust' },
+  { channel: 'jira',      delayMs: 500,  label: 'Ticket CUR-5712 created',                     detail: 'Linked to Zscaler risk evt-21794' },
 
   // Opus triages
-  { channel: 'opus',     delayMs: 1000, label: 'Claude Opus: triaging',                 detail: 'Model selected for long-context reasoning over policy + ZPA logs + identity claims' },
-  { channel: 'github',   delayMs: 700,  label: 'Pulling commit history',                detail: 'git log --since=14.days -- src/lib/demo/access-policy.ts' },
-  { channel: 'github',   delayMs: 600,  label: 'Regression found: b7c91d2',             detail: '"wip: open audit logs for QA" · 3 days ago · author qa-bot' },
-  { channel: 'opus',     delayMs: 1100, label: 'Root-cause hypothesis formed',          detail: 'wildcard roles + posture skip + wildcard locations · 4 widening edits in one commit' },
-  { channel: 'codegen',  delayMs: 900,  label: 'Generating triage report',              detail: 'docs/triage/2026-04-23-zerotrust-violation-audit-logs.md' },
+  { channel: 'opus',      delayMs: 1000, label: 'Claude Opus: triaging',                       detail: 'long-context reasoning over .tf module + Okta claims + ZPA event' },
+  { channel: 'github',    delayMs: 700,  label: 'git log infrastructure/zscaler/',             detail: '--since=14.days · author + message + file scope' },
+  { channel: 'github',    delayMs: 600,  label: 'Regression found: b7c91d2',                   detail: '"wip: open audit logs for QA" · 3 days ago · qa-bot · widened conditions' },
+  { channel: 'opus',      delayMs: 1100, label: 'Root cause hypothesis',                       detail: 'rule has APP condition only · SCIM_GROUP / POSTURE / TRUSTED_NETWORK / CLIENT_TYPE missing' },
+  { channel: 'codegen',   delayMs: 900,  label: 'Generating triage report',                    detail: 'docs/triage/2026-04-23-zerotrust-violation-workforce-admin.md' },
 
-  // Composer writes
-  { channel: 'composer', delayMs: 1100, label: 'Composer: writing the patch',           detail: 'Model selected for speed on scoped policy edits' },
-  { channel: 'shell',    delayMs: 500,  label: 'Reading access-policy.ts',              detail: '1 file · 24 lines loaded · evaluator unchanged' },
-  { channel: 'composer', delayMs: 900,  label: 'Replaced wildcard roles with allow-list', detail: "roles: ['security-admin', 'compliance-officer']" },
-  { channel: 'composer', delayMs: 800,  label: 'Enabled posture requirement',           detail: 'postureRequired: true · only managed-compliant devices' },
-  { channel: 'composer', delayMs: 800,  label: 'Restricted location + idp',             detail: "allowedLocations: ['sf-hq', 'nyc-hq'] · allowedIdps: ['okta-prod']" },
+  // Composer writes the .tf
+  { channel: 'composer',  delayMs: 1100, label: 'Composer: editing the policy',                detail: 'opening infrastructure/zscaler/workforce-admin.tf' },
+  { channel: 'shell',     delayMs: 500,  label: 'cat workforce-admin.tf',                      detail: '38 lines · 2 resources · 1 conditions block (APP only)' },
+  { channel: 'composer',  delayMs: 900,  label: 'Adding SCIM_GROUP condition',                 detail: 'security-admin OR compliance-officer · resolved via data sources' },
+  { channel: 'composer',  delayMs: 800,  label: 'Adding POSTURE condition',                    detail: 'managed-compliant-corp posture profile · rhs = "true"' },
+  { channel: 'composer',  delayMs: 800,  label: 'Adding TRUSTED_NETWORK condition',            detail: 'corp-egress trusted network · rhs = "true"' },
+  { channel: 'composer',  delayMs: 700,  label: 'Adding CLIENT_TYPE condition',                detail: 'zpn_client_type_zapp only · blocks browser/exporter clients' },
 
   // Codex reviews
-  { channel: 'codex',    delayMs: 1100, label: 'Codex: reviewing patch before PR',      detail: 'Model selected for code review depth · least-privilege check' },
-  { channel: 'codex',    delayMs: 800,  label: 'No contract change',                    detail: 'evaluateAccess unchanged · same return shape · same callers' },
-  { channel: 'codex',    delayMs: 700,  label: 'Style + lint review: ✓',                detail: 'matches existing project conventions' },
+  { channel: 'codex',     delayMs: 1100, label: 'Codex: reviewing the diff',                   detail: 'least-privilege check · no resource recreation · operator AND across blocks' },
+  { channel: 'codex',     delayMs: 800,  label: 'No destructive plan changes',                 detail: 'app segment unchanged · only conditions added · no resource ids change' },
+  { channel: 'codex',     delayMs: 700,  label: 'Style + provider conventions: ✓',             detail: 'matches infrastructure/zscaler/* idioms' },
 
   // Verification
-  { channel: 'shell',    delayMs: 700,  label: 'npx tsc --noEmit',                      detail: '✓ no type errors' },
-  { channel: 'shell',    delayMs: 700,  label: 'npm run lint',                          detail: '✓ clean' },
-  { channel: 'shell',    delayMs: 900,  label: 'Policy conformance probe (4 requests)', detail: 'admin/compliant ✓ · admin/noncompliant ✗ · employee/compliant ✗ · anon/unmanaged ✗' },
-  { channel: 'shell',    delayMs: 500,  label: 'Scope recompute',                       detail: '4,287 → 18 users · 238.2x narrower · 0 unmanaged-device paths' },
+  { channel: 'shell',     delayMs: 600,  label: 'terraform fmt -check',                        detail: '✓ no formatting changes' },
+  { channel: 'terraform', delayMs: 800,  label: 'terraform validate',                          detail: '✓ Success! The configuration is valid.' },
+  { channel: 'terraform', delayMs: 1100, label: 'terraform plan -out=tfplan',                  detail: '~ 1 to change · 0 to destroy · 0 to add · zero blast on app segment' },
+  { channel: 'terraform', delayMs: 700,  label: 'tfsec + checkov · IaC linters',               detail: 'AVD-ZPA-001 (broad scope) → resolved · 0 high · 0 medium' },
+  { channel: 'shell',     delayMs: 900,  label: 'Replaying conformance probe (4 reqs)',        detail: 'sec-admin/compliant ✓ · sec-admin/noncompliant ✗ · employee/compliant ✗ · anon/unmanaged ✗' },
+  { channel: 'shell',     delayMs: 500,  label: 'Scope recompute',                             detail: '4,287 → 18 users · 238.2x narrower · 0 unmanaged-device paths' },
 
   // PR submission
-  { channel: 'github',   delayMs: 600,  label: 'Creating branch sec/scope-down-audit-log-policy', detail: 'base: main' },
-  { channel: 'github',   delayMs: 600,  label: 'Committing & pushing',                  detail: '1 file changed · +14 −5 · signed-off-by: cursor-agent' },
-  { channel: 'github',   delayMs: 800,  label: 'Opening pull request #213',             detail: 'sec: scope down audit-log policy (4,287 → 18 users in scope)' },
-  { channel: 'jira',     delayMs: 500,  label: 'CUR-5712 → In Review',                  detail: 'PR #213 linked to ticket · ZPA risk evt-21794 cross-referenced' },
-  { channel: 'done',     delayMs: 500,  label: 'Artifacts ready for review',            detail: 'Zscaler ZPA console · Triage report · Jira ticket · Pull request' },
+  { channel: 'github',    delayMs: 600,  label: 'Creating branch sec/scope-down-workforce-admin-zpa', detail: 'base: main' },
+  { channel: 'github',    delayMs: 600,  label: 'Committing & pushing',                        detail: '1 file changed · +24 −1 · signed-off-by: cursor-agent · plan attached' },
+  { channel: 'github',    delayMs: 800,  label: 'Opening pull request #213',                   detail: 'sec(zpa): scope down workforce-admin-audit-logs ALLOW rule (4,287 → 18)' },
+  { channel: 'jira',      delayMs: 500,  label: 'CUR-5712 → In Review',                        detail: 'PR #213 + tfplan + ZPA risk evt-21794 cross-referenced' },
+  { channel: 'done',      delayMs: 500,  label: 'Artifacts ready for review',                  detail: 'Zscaler ZPA console · Triage report · Jira ticket · Pull request' },
 ];
 
 interface AgentConsoleProps {

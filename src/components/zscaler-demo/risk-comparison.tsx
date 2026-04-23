@@ -32,10 +32,10 @@ const METRICS: Metric[] = [
   },
   {
     label: 'Time to PR',
-    before: '3+ business days',
+    before: '2-3 business days',
     after: '2:14',
     delta: '−99%',
-    note: '(median sec-incident → fix PR)',
+    note: '(ZPA event → triaged Terraform PR)',
   },
 ];
 
@@ -119,8 +119,8 @@ export function RiskComparison() {
       </div>
 
       <p className="text-xs text-text-tertiary text-center mt-4">
-        Scales to every ZPA segment, every flagged policy. Cursor becomes the layer where Zero Trust
-        controls and the codebase converge.
+        Scales to every ZPA segment your team manages in Terraform. Cursor becomes the layer where
+        Zero Trust controls and the IaC repo converge.
       </p>
     </div>
   );

@@ -1,45 +1,66 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ShieldAlert, FileLock2, Loader2 } from 'lucide-react';
+import { ShieldAlert, FileCode2, Loader2 } from 'lucide-react';
 
 export class ZeroTrustViolationError extends Error {
-  endpoint: string;
+  appSegment: string;
+  policyResource: string;
   inScope: number;
   intent: number;
   scopeRatio: string;
   unmanagedDevicePaths: number;
-  policyApp: string;
+  hasScimCondition: boolean;
+  hasPostureCondition: boolean;
+  hasTrustedNetworkCondition: boolean;
+  hasClientTypeCondition: boolean;
+  failedProbes: number;
+  totalProbes: number;
+  tfFile: string;
   elapsedMs: number;
 
   constructor(args: {
-    endpoint: string;
+    appSegment: string;
+    policyResource: string;
     inScope: number;
     intent: number;
     scopeRatio: string;
     unmanagedDevicePaths: number;
-    policyApp: string;
+    hasScimCondition: boolean;
+    hasPostureCondition: boolean;
+    hasTrustedNetworkCondition: boolean;
+    hasClientTypeCondition: boolean;
+    failedProbes: number;
+    totalProbes: number;
+    tfFile: string;
     elapsedMs: number;
   }) {
     super(
-      `Broad-scope access on ${args.endpoint} — ${args.inScope.toLocaleString()} users in scope vs intent ${args.intent} (${args.scopeRatio} over scope).`
+      `Policy conformance failed for ${args.policyResource} - ${args.failedProbes}/${args.totalProbes} probes failed, ${args.inScope.toLocaleString()} users in scope vs intent ${args.intent}.`
     );
     this.name = 'ZeroTrustViolationError';
-    this.endpoint = args.endpoint;
+    this.appSegment = args.appSegment;
+    this.policyResource = args.policyResource;
     this.inScope = args.inScope;
     this.intent = args.intent;
     this.scopeRatio = args.scopeRatio;
     this.unmanagedDevicePaths = args.unmanagedDevicePaths;
-    this.policyApp = args.policyApp;
+    this.hasScimCondition = args.hasScimCondition;
+    this.hasPostureCondition = args.hasPostureCondition;
+    this.hasTrustedNetworkCondition = args.hasTrustedNetworkCondition;
+    this.hasClientTypeCondition = args.hasClientTypeCondition;
+    this.failedProbes = args.failedProbes;
+    this.totalProbes = args.totalProbes;
+    this.tfFile = args.tfFile;
     this.elapsedMs = args.elapsedMs;
   }
 }
 
 const LOADING_STEPS = [
-  'Negotiating ZPA segment…',
-  'Resolving identity claim…',
-  'Evaluating access policy…',
-  'Streaming audit log page…',
+  'terraform init',
+  'terraform validate',
+  'parsing zpa_policy_access_rule.workforce_admin_audit_logs_allow',
+  'running policy-conformance probe (4 simulated requests)',
 ] as const;
 
 export function AuditCard() {
@@ -54,34 +75,45 @@ export function AuditCard() {
 
     const interval = setInterval(() => {
       setStepIdx(i => Math.min(i + 1, LOADING_STEPS.length - 1));
-    }, 250);
+    }, 320);
 
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/admin/audit-logs', { cache: 'no-store' });
+        const res = await fetch('/api/zscaler/policy-conformance', { cache: 'no-store' });
         const json = await res.json();
         if (cancelled) return;
 
         const elapsedMs = Math.round(performance.now() - startRef.current);
-
-        // The buggy policy returns 200 with a permissive scope.
-        // Throw a deterministic violation so the boundary fires regardless.
         const scope = json?.scope ?? {
           inScope: 4287,
           intent: 18,
           ratio: '238.2x',
           unmanagedDevicePaths: 1,
+          hasScimCondition: false,
+          hasPostureCondition: false,
+          hasTrustedNetworkCondition: false,
+          hasClientTypeCondition: false,
         };
+        const probe: Array<{ pass: boolean }> = json?.probe ?? [];
+        const failed = probe.filter(p => !p.pass).length;
+        const total = probe.length || 4;
 
         setShouldThrow(
           new ZeroTrustViolationError({
-            endpoint: '/api/admin/audit-logs',
+            appSegment: 'workforce-admin-audit-logs',
+            policyResource: 'zpa_policy_access_rule.workforce_admin_audit_logs_allow',
             inScope: scope.inScope,
             intent: scope.intent,
             scopeRatio: scope.ratio,
             unmanagedDevicePaths: scope.unmanagedDevicePaths,
-            policyApp: 'workforce-admin/audit-logs',
+            hasScimCondition: scope.hasScimCondition,
+            hasPostureCondition: scope.hasPostureCondition,
+            hasTrustedNetworkCondition: scope.hasTrustedNetworkCondition,
+            hasClientTypeCondition: scope.hasClientTypeCondition,
+            failedProbes: failed,
+            totalProbes: total,
+            tfFile: json?.tfFile ?? 'infrastructure/zscaler/workforce-admin.tf',
             elapsedMs,
           })
         );
@@ -90,12 +122,19 @@ export function AuditCard() {
         const elapsedMs = Math.round(performance.now() - startRef.current);
         setShouldThrow(
           new ZeroTrustViolationError({
-            endpoint: '/api/admin/audit-logs',
+            appSegment: 'workforce-admin-audit-logs',
+            policyResource: 'zpa_policy_access_rule.workforce_admin_audit_logs_allow',
             inScope: 4287,
             intent: 18,
             scopeRatio: '238.2x',
             unmanagedDevicePaths: 1,
-            policyApp: 'workforce-admin/audit-logs',
+            hasScimCondition: false,
+            hasPostureCondition: false,
+            hasTrustedNetworkCondition: false,
+            hasClientTypeCondition: false,
+            failedProbes: 3,
+            totalProbes: 4,
+            tfFile: 'infrastructure/zscaler/workforce-admin.tf',
             elapsedMs,
           })
         );
@@ -123,11 +162,11 @@ export function AuditCard() {
         <div className="px-6 py-4 border-b border-dark-border bg-dark-bg">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#0079D5]/15 border border-[#0079D5]/35 flex items-center justify-center">
-              <FileLock2 className="w-4 h-4 text-[#65B5F2]" />
+              <FileCode2 className="w-4 h-4 text-[#65B5F2]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-text-primary">Workforce Admin</p>
-              <p className="text-xs text-text-tertiary">Internal app · Zero Trust enforced via ZPA</p>
+              <p className="text-sm font-medium text-text-primary">ZPA-as-Code · Conformance</p>
+              <p className="text-xs text-text-tertiary">Cron: nightly · CI: every PR</p>
             </div>
           </div>
         </div>
@@ -135,38 +174,61 @@ export function AuditCard() {
         {/* Body */}
         <div className="p-6 space-y-4">
           <div>
-            <p className="text-sm font-medium text-text-primary mb-1">Open employee audit logs</p>
+            <p className="text-sm font-medium text-text-primary mb-1">
+              Run policy conformance probe
+            </p>
             <p className="text-xs text-text-tertiary leading-relaxed">
-              Reads the access log for the last 24 hours.
-              Endpoint: <span className="font-mono text-text-secondary">/api/admin/audit-logs</span>
+              Reads the ZPA Terraform module, parses{' '}
+              <span className="font-mono text-text-secondary">zpa_policy_access_rule.workforce_admin_audit_logs_allow</span>
+              , replays four canonical access requests through it, and asserts deny-by-default.
             </p>
           </div>
 
-          {/* Posture chips */}
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { label: 'role: any', warn: true },
-              { label: 'posture: skip', warn: true },
-              { label: 'location: any', warn: true },
-              { label: 'idp: any', warn: true },
-            ].map(c => (
-              <span
-                key={c.label}
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-dark-bg border text-[10px] font-mono ${
-                  c.warn
-                    ? 'border-accent-amber/30 text-accent-amber'
-                    : 'border-dark-border text-text-tertiary'
-                }`}
-              >
-                <span
-                  className={`w-1 h-1 rounded-full ${c.warn ? 'bg-accent-amber' : 'bg-[#65B5F2]'}`}
-                />
-                {c.label}
+          {/* Module summary */}
+          <div className="p-3 rounded-lg bg-dark-bg space-y-1.5 font-mono text-[11px]">
+            <div className="text-text-tertiary">module:</div>
+            <div className="text-[#65B5F2] truncate">infrastructure/zscaler/</div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              <span className="px-1.5 py-0.5 rounded bg-[#0079D5]/10 border border-[#0079D5]/30 text-[10px] text-[#65B5F2]">
+                provider: zscaler/zpa ~&gt; 4.4
               </span>
-            ))}
+              <span className="px-1.5 py-0.5 rounded bg-dark-border text-[10px] text-text-tertiary">
+                resources: 2
+              </span>
+            </div>
           </div>
 
-          {/* Intent vs scope */}
+          {/* Conditions chips - what the rule SHOULD have */}
+          <div>
+            <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-wider mb-1.5">
+              Required conditions (per least-privilege baseline)
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: 'SCIM_GROUP', missing: true },
+                { label: 'POSTURE', missing: true },
+                { label: 'TRUSTED_NETWORK', missing: true },
+                { label: 'CLIENT_TYPE', missing: true },
+              ].map(c => (
+                <span
+                  key={c.label}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-dark-bg border text-[10px] font-mono ${
+                    c.missing
+                      ? 'border-accent-amber/30 text-accent-amber'
+                      : 'border-dark-border text-text-tertiary'
+                  }`}
+                >
+                  <span
+                    className={`w-1 h-1 rounded-full ${c.missing ? 'bg-accent-amber' : 'bg-[#65B5F2]'}`}
+                  />
+                  {c.missing ? 'missing: ' : ''}
+                  {c.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Intent */}
           <div className="flex items-center justify-between p-3 rounded-lg bg-dark-bg">
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-3.5 h-3.5 text-text-tertiary" />
@@ -175,7 +237,7 @@ export function AuditCard() {
                   Least-privilege intent
                 </p>
                 <p className="text-[10px] text-text-tertiary">
-                  security-admin + compliance-officer (HQ, managed-compliant)
+                  security-admin + compliance-officer · managed-compliant · corp-egress
                 </p>
               </div>
             </div>
@@ -186,7 +248,7 @@ export function AuditCard() {
           {processing && (
             <div className="px-3 py-2 rounded-md border border-[#0079D5]/20 bg-[#0079D5]/5 font-mono text-[11px] text-text-secondary min-h-[28px] flex items-center gap-2">
               <span className="w-1 h-1 rounded-full bg-[#65B5F2] animate-pulse" />
-              <span className="truncate">{LOADING_STEPS[stepIdx]}</span>
+              <span className="truncate">$ {LOADING_STEPS[stepIdx]}</span>
             </div>
           )}
 
@@ -202,15 +264,15 @@ export function AuditCard() {
             {processing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Opening audit logs...
+                Running probe...
               </>
             ) : (
-              'Open audit logs'
+              'Run policy conformance probe'
             )}
           </button>
 
           <p className="text-[11px] text-text-tertiary text-center">
-            Calls the real endpoint, evaluates the real policy.
+            Reads the real .tf file, runs the real probe.
           </p>
         </div>
       </div>

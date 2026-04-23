@@ -6,22 +6,22 @@ const GUARDRAILS = [
   {
     icon: FolderLock,
     label: 'Scoped file access',
-    detail: 'Agent can only modify `src/lib/demo/access-policy.ts`. No infra, no IAM, no SCIM scripts.',
+    detail: 'Agent can only modify `infrastructure/zscaler/**`. No SCIM provisioning, no IdP edits, no app-segment churn.',
   },
   {
     icon: CheckCircle2,
-    label: 'Policy conformance gate',
-    detail: 'PR only opens when 4 simulated requests pass the deny-by-default probe.',
+    label: 'terraform plan + conformance gate',
+    detail: 'PR only opens when `terraform plan` is in-place-only AND 4 simulated requests pass deny-by-default.',
   },
   {
     icon: UserCheck,
-    label: 'Human approval gate',
-    detail: 'Agent proposes, never merges. A reviewer ships the change.',
+    label: 'Human approval + Atlantis apply',
+    detail: 'Agent proposes the .tf change. A reviewer approves. Atlantis runs `terraform apply` on merge.',
   },
   {
     icon: ScrollText,
-    label: 'Full audit trail',
-    detail: 'Every MCP call, ZPA event, prompt, and diff is attached to the PR.',
+    label: 'Full audit trail in the PR',
+    detail: 'Every MCP call, ZPA event, terraform plan, conformance probe row, prompt, and diff is attached.',
   },
 ] as const;
 

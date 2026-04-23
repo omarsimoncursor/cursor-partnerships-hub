@@ -96,9 +96,10 @@ export default function ZscalerDemoPage() {
                 Watch Cursor close a Zero Trust violation in real time
               </h1>
               <p className="text-sm md:text-base text-text-secondary max-w-xl mx-auto">
-                A real internal endpoint is wide open to 4,287 users instead of 18. Zscaler ZPA
-                catches the broad-scope policy, Cursor coordinates Opus, Composer, Codex, and four
-                MCPs, and submits a tested PR. The page never escalates.
+                A real ZPA application access rule (managed via the official zscaler/zpa Terraform
+                provider) is missing its SCIM, posture, network, and client conditions. Zscaler ZPA
+                flags the segment, Cursor reads the .tf, writes the missing conditions, runs
+                terraform plan, replays the conformance probe, and submits a verified PR.
               </p>
             </div>
 
@@ -107,7 +108,7 @@ export default function ZscalerDemoPage() {
               <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#0079D5]/10 border border-[#0079D5]/30 shadow-[0_0_24px_rgba(0,121,213,0.15)]">
                 <MousePointerClick className="w-3.5 h-3.5 text-[#65B5F2]" />
                 <span className="text-xs md:text-sm text-text-primary font-medium">
-                  Click <span className="text-[#65B5F2] font-semibold">Open audit logs</span> to start the demo
+                  Click <span className="text-[#65B5F2] font-semibold">Run policy conformance probe</span> to start the demo
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-[#65B5F2] animate-bounce" />
               </div>
@@ -129,9 +130,10 @@ export default function ZscalerDemoPage() {
 
             <div className="mt-20 text-center max-w-2xl mx-auto px-6">
               <p className="text-sm text-text-tertiary">
-                One click. Four MCPs coordinated. Three models, one PR ready for review.
+                One click. Four MCPs coordinated. Three models, one Terraform PR ready for review.
                 <span className="text-text-secondary ml-1">
-                  This is what Cursor as the orchestration layer between security and the codebase looks like.
+                  This is what Cursor as the orchestration layer between Zscaler, Okta, the IaC repo,
+                  and the platform team looks like.
                 </span>
               </p>
             </div>

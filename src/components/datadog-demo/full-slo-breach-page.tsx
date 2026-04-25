@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Activity, ArrowRight, RotateCcw } from 'lucide-react';
+import { Activity, ArrowRight, ExternalLink, RotateCcw } from 'lucide-react';
 import type { SloBreachError } from './reports-card';
 
 interface FullSloBreachPageProps {
   error: Error;
   onGo: () => void;
   onReset: () => void;
+  onViewDatadog?: () => void;
 }
 
 function asSloError(error: Error): SloBreachError | null {
@@ -17,7 +18,7 @@ function asSloError(error: Error): SloBreachError | null {
   return null;
 }
 
-export function FullSloBreachPage({ error, onGo, onReset }: FullSloBreachPageProps) {
+export function FullSloBreachPage({ error, onGo, onReset, onViewDatadog }: FullSloBreachPageProps) {
   const goRef = useRef<HTMLButtonElement>(null);
   const slo = asSloError(error);
   const p99 = slo?.p99Ms ?? 7412;
@@ -97,7 +98,7 @@ export function FullSloBreachPage({ error, onGo, onReset }: FullSloBreachPagePro
             Watch a Cursor agent triage, patch, and ship a verified fix in under two minutes.
           </p>
 
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               ref={goRef}
               onClick={onGo}
@@ -109,6 +110,18 @@ export function FullSloBreachPage({ error, onGo, onReset }: FullSloBreachPagePro
               Watch Cursor triage this
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </button>
+
+            {onViewDatadog && (
+              <button
+                onClick={onViewDatadog}
+                className="px-5 py-3 rounded-full border border-[#632CA6]/40 text-[#A689D4] font-medium text-sm
+                           hover:bg-[#632CA6]/10 hover:border-[#632CA6]/60 transition-colors cursor-pointer
+                           flex items-center gap-2"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                View issue in Datadog
+              </button>
+            )}
 
             <button
               onClick={onReset}

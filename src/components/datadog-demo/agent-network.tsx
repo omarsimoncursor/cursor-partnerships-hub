@@ -515,9 +515,7 @@ function OrbitalView({
         {onViewDatadog && (
           <button
             onClick={onViewDatadog}
-            className="absolute bottom-3 right-3 z-30 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md
-                       bg-[#632CA6]/15 border border-[#632CA6]/35 text-[#A689D4] text-[11px] font-medium
-                       hover:bg-[#632CA6]/25 transition-colors cursor-pointer"
+            className="absolute bottom-3 right-3 z-30 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#632CA6]/15 border border-[#632CA6]/35 text-[#A689D4] text-[11px] font-medium hover:bg-[#632CA6]/25 transition-colors cursor-pointer"
           >
             <ExternalLink className="w-3 h-3" />
             View in Datadog

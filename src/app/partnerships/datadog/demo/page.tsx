@@ -3,10 +3,8 @@
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronDown, MousePointerClick, RotateCcw } from 'lucide-react';
-import { DemoPerfBoundary } from '@/components/datadog-demo/demo-perf-boundary';
 import { ReportsCard } from '@/components/datadog-demo/reports-card';
-import { LatencyComparison } from '@/components/datadog-demo/latency-comparison';
-import { GuardrailsPanel } from '@/components/datadog-demo/guardrails-panel';
+import type { SloBreachError } from '@/components/datadog-demo/reports-card';
 import { FullSloBreachPage } from '@/components/datadog-demo/full-slo-breach-page';
 import { AgentNetwork } from '@/components/datadog-demo/agent-network';
 import { TimeToResolution } from '@/components/datadog-demo/time-to-resolution';
@@ -23,9 +21,9 @@ export default function DatadogDemoPage() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<Error | null>(null);
   const [artifact, setArtifact] = useState<Artifact | null>(null);
-  const [boundaryKey, setBoundaryKey] = useState(0);
+  const [reportsKey, setReportsKey] = useState(0);
 
-  const handleError = useCallback((e: Error) => {
+  const handleBreach = useCallback((e: SloBreachError) => {
     setError(e);
     setPhase('error');
   }, []);
@@ -42,7 +40,7 @@ export default function DatadogDemoPage() {
     setPhase('idle');
     setError(null);
     setArtifact(null);
-    setBoundaryKey(k => k + 1);
+    setReportsKey(k => k + 1);
   }, []);
 
   const openArtifact = useCallback((a: Artifact) => setArtifact(a), []);
@@ -112,27 +110,8 @@ export default function DatadogDemoPage() {
               </div>
             </div>
 
-            <DemoPerfBoundary key={boundaryKey} onError={handleError}>
-              <div className="flex justify-center">
-                <ReportsCard />
-              </div>
-            </DemoPerfBoundary>
-
-            <section className="mt-24">
-              <LatencyComparison />
-            </section>
-
-            <section className="mt-16">
-              <GuardrailsPanel />
-            </section>
-
-            <div className="mt-20 text-center max-w-2xl mx-auto px-6">
-              <p className="text-sm text-text-tertiary">
-                One click. Six MCPs coordinated. Three models, one PR ready for review.
-                <span className="text-text-secondary ml-1">
-                  This is what Cursor as an orchestration layer looks like.
-                </span>
-              </p>
+            <div className="flex justify-center">
+              <ReportsCard key={reportsKey} onBreach={handleBreach} />
             </div>
           </div>
         )}

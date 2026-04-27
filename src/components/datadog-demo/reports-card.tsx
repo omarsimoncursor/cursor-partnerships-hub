@@ -21,49 +21,62 @@ export class SloBreachError extends Error {
 }
 
 const LOADING_STEPS = [
-  'Querying orders across regions…',
-  'Aggregating us-east, us-west…',
-  'Aggregating eu, apac…',
-  'Aggregating latam, uk…',
-  'Computing regional tax…',
-  'Compiling Q4 revenue report…',
+  'Pulling orders for us-east and us-west…',
+  'Pulling orders for eu and apac…',
+  'Pulling orders for latam and uk…',
+  'Calculating tax across regions…',
+  'Building the revenue chart…',
+  'This is taking longer than 500ms…',
+  'Datadog is watching the latency climb…',
 ] as const;
 
-export function ReportsCard() {
+interface ReportsCardProps {
+  /**
+   * Called once the simulated request completes and the SLO breach is detected.
+   * Replaces the older throw-and-catch error-boundary handshake.
+   */
+  onBreach?: (error: SloBreachError) => void;
+}
+
+export function ReportsCard({ onBreach }: ReportsCardProps = {}) {
   const [processing, setProcessing] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
-  const [shouldThrow, setShouldThrow] = useState<SloBreachError | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const startRef = useRef<number>(0);
+  const firedRef = useRef(false);
 
   useEffect(() => {
     if (!processing) return;
     startRef.current = performance.now();
+    firedRef.current = false;
 
-    const interval = setInterval(() => {
+    const stepInterval = setInterval(() => {
       setStepIdx(i => Math.min(i + 1, LOADING_STEPS.length - 1));
     }, 1100);
+
+    const elapsedInterval = setInterval(() => {
+      setElapsedMs(performance.now() - startRef.current);
+    }, 50);
 
     let cancelled = false;
     (async () => {
       try {
         await fetch('/api/reports/generate', { cache: 'no-store' });
       } catch {
-        // swallow — demo still fires the SLO breach
+        // Swallow — the demo still fires the SLO breach below.
       }
-      if (cancelled) return;
-      const elapsedMs = Math.round(performance.now() - startRef.current);
-      setShouldThrow(new SloBreachError(elapsedMs));
+      if (cancelled || firedRef.current) return;
+      firedRef.current = true;
+      const elapsed = Math.round(performance.now() - startRef.current);
+      onBreach?.(new SloBreachError(elapsed));
     })();
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      clearInterval(stepInterval);
+      clearInterval(elapsedInterval);
     };
-  }, [processing]);
-
-  if (shouldThrow) {
-    throw shouldThrow;
-  }
+  }, [processing, onBreach]);
 
   function handleRun() {
     setProcessing(true);
@@ -120,27 +133,21 @@ export function ReportsCard() {
             <span className="text-xs text-accent-green font-mono">&lt; 500ms</span>
           </div>
 
-          {/* Loading ticker */}
+          {/* Live progress while running */}
           {processing && (
-            <div className="px-3 py-2 rounded-md border border-[#632CA6]/20 bg-[#632CA6]/5 font-mono text-[11px] text-text-secondary min-h-[28px] flex items-center gap-2">
-              <span className="w-1 h-1 rounded-full bg-[#A689D4] animate-pulse" />
-              <span className="truncate">{LOADING_STEPS[stepIdx]}</span>
-            </div>
+            <LiveProgress elapsedMs={elapsedMs} step={LOADING_STEPS[stepIdx]} />
           )}
 
           {/* CTA */}
           <button
             onClick={handleRun}
             disabled={processing}
-            className="w-full py-3 px-4 rounded-lg bg-[#632CA6] text-white font-medium text-sm
-                       hover:bg-[#7339C0] transition-all duration-200 flex items-center justify-center gap-2
-                       disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer
-                       shadow-[0_0_24px_rgba(99,44,166,0.25)]"
+            className="w-full py-3 px-4 rounded-lg bg-[#632CA6] text-white font-medium text-sm hover:bg-[#7339C0] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer shadow-[0_0_24px_rgba(99,44,166,0.25)]"
           >
             {processing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Generating report...
+                Generating report ({(elapsedMs / 1000).toFixed(1)}s)
               </>
             ) : (
               'Run report'
@@ -148,9 +155,68 @@ export function ReportsCard() {
           </button>
 
           <p className="text-[11px] text-text-tertiary text-center">
-            Calls the real endpoint — latency is not simulated
+            {processing
+              ? 'Hold on — this is a real request, hitting a real (slow) endpoint.'
+              : 'Calls the real endpoint, latency is not simulated.'}
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Live progress UI shown while the request is in flight. Designed to make it
+// crystal-clear that the demo is doing something — a moving bar, ticking
+// elapsed counter, and a plain-English description of the current step.
+function LiveProgress({ elapsedMs, step }: { elapsedMs: number; step: string }) {
+  // Cap the bar at ~8s for visual headroom; SLO line sits at 500ms.
+  const CAP = 8000;
+  const SLO = 500;
+  const pct = Math.min(100, (elapsedMs / CAP) * 100);
+  const sloPct = (SLO / CAP) * 100;
+  const overBudget = elapsedMs > SLO;
+
+  return (
+    <div className="space-y-2.5 rounded-lg border border-[#632CA6]/30 bg-[#632CA6]/[0.06] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className={`shrink-0 w-1.5 h-1.5 rounded-full ${
+              overBudget ? 'bg-accent-amber' : 'bg-[#A689D4]'
+            } animate-pulse`}
+          />
+          <span className="text-[12px] font-medium text-text-primary truncate">{step}</span>
+        </div>
+        <span
+          className={`shrink-0 font-mono text-[11px] tabular-nums ${
+            overBudget ? 'text-accent-amber' : 'text-[#A689D4]'
+          }`}
+        >
+          {(elapsedMs / 1000).toFixed(2)}s
+        </span>
+      </div>
+
+      {/* Progress bar with a visible SLO marker line */}
+      <div className="relative h-2 rounded-full bg-dark-bg overflow-hidden">
+        <div
+          className="absolute inset-y-0 left-0 transition-[width] duration-100 ease-linear"
+          style={{
+            width: `${pct}%`,
+            background: overBudget
+              ? 'linear-gradient(90deg, #A689D4 0%, #F5A623 80%)'
+              : '#A689D4',
+          }}
+        />
+        {/* SLO target line */}
+        <div
+          className="absolute inset-y-0 w-px bg-accent-green/60"
+          style={{ left: `${sloPct}%` }}
+        />
+      </div>
+
+      <div className="flex items-center justify-between text-[10px] font-mono text-text-tertiary">
+        <span className="text-accent-green">SLO &lt; 500ms</span>
+        <span>{overBudget ? `${(elapsedMs / SLO).toFixed(1)}× over budget` : 'within budget'}</span>
       </div>
     </div>
   );

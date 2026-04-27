@@ -9,6 +9,7 @@ import {
   Brain,
   Check,
   CheckCircle2,
+  ChevronDown,
   ExternalLink,
   Github,
   Moon,
@@ -308,6 +309,62 @@ export function AgentNetwork({ onComplete, onViewDatadog }: AgentNetworkProps) {
       <div className="block md:hidden">
         <VerticalTimeline currentLabel={agentLabel} agentState={agentState} elapsedMs={elapsedMs} phase={phase} />
       </div>
+
+      {/* Scroll-down hint, shown after the run completes */}
+      <ScrollHint visible={finished} />
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// ScrollHint — animated "scroll to see results" indicator that auto-hides
+// once the user actually scrolls.
+// --------------------------------------------------------------------------
+
+function ScrollHint({ visible }: { visible: boolean }) {
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (typeof window === 'undefined') return;
+
+    // Wait one frame for any layout-settling scroll to land before recording
+    // the baseline scroll position.
+    const startYRef = { current: window.scrollY };
+    const baselineFrame = requestAnimationFrame(() => {
+      startYRef.current = window.scrollY;
+    });
+
+    const onScroll = () => {
+      if (Math.abs(window.scrollY - startYRef.current) > 32) {
+        setDismissed(true);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(baselineFrame);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [visible]);
+
+  const show = visible && !dismissed;
+
+  return (
+    <div
+      aria-hidden={!show}
+      className="w-full max-w-[860px] mx-auto mt-5 flex justify-center transition-opacity duration-500"
+      style={{
+        opacity: show ? 1 : 0,
+        pointerEvents: show ? 'auto' : 'none',
+      }}
+    >
+      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent-green/10 border border-accent-green/30 shadow-[0_0_24px_rgba(74,222,128,0.18)]">
+        <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+        <span className="text-[12px] font-medium text-text-primary">
+          Scroll to see the results
+        </span>
+        <ChevronDown className="w-3.5 h-3.5 text-accent-green animate-bounce" />
+      </div>
     </div>
   );
 }
@@ -429,6 +486,7 @@ function OrbitalView({
     <div className="w-full max-w-[860px] mx-auto">
       <div
         ref={containerRef}
+        data-orbital-container
         className="relative w-full rounded-xl border border-dark-border bg-dark-surface overflow-hidden"
         style={{ aspectRatio: '16 / 11' }}
       >
@@ -554,8 +612,8 @@ function OrbitalView({
           to { stroke-dashoffset: -22; }
         }
         @keyframes agentBreath {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); }
-          50% { transform: translate(-50%, -50%) scale(1.025); }
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.025); }
         }
         @keyframes agentRingPulse {
           0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.65; }

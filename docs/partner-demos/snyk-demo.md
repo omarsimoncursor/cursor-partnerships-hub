@@ -4,15 +4,19 @@
 > live security-fix demo at `/partnerships/snyk/demo`, patterned on the existing
 > Sentry and Datadog demos. Read end-to-end before writing any code.
 >
-> **v2 (current):** The demo has been re-imagined around the **Cursor SDK**
-> (`@cursor/february/agent`) and a **shift-left AppSec organization**. The
-> v1 reactive "production webhook" framing is preserved as Stage 5 — the
-> production safety net — but the headline surface is now a **pre-merge
-> security gate** that calls `Agent.create({ cloud: { repos } })` and streams
-> `SDKMessage` events back into the UI. Visualizations borrowed from the
-> Datadog demo: flame graph (now used for the vulnerability data flow + the
-> SDK tool-call timeline), top-nav/sub-nav/status-bar/sidebar chrome, and the
-> dark-mode telemetry aesthetic. See section 13 for the full v2 brief.
+> **v3 (current):** The v2 build was visually overwhelming for non-technical
+> buyers. v3 rebuilds the running phase as a single, full-width animated
+> **agent stage** that plays a 6-chapter story with universal metaphors
+> (vault, customer cards, taint pulse, diff card, package upgrade,
+> exploit bouncing off a wall, PR with checks ticking). The SDK is kept
+> as a "Powered by Cursor SDK" caption on the demo and as a code block on
+> the narrative page only — no `bc-…` / `run-…` identifiers, no flame
+> graphs, no MCP tables on the demo surface. See section 14 for the v3
+> brief.
+>
+> **v2:** Reimagined around the Cursor SDK (`@cursor/february/agent`) and a
+> shift-left AppSec org, with Datadog-style flame graph and trace chrome.
+> Replaced by v3. See section 13 for the v2 brief.
 
 ---
 
@@ -626,3 +630,106 @@ The vulnerable code (`src/lib/demo/customer-profile.ts`,
 `src/lib/demo/customer-store.ts`), the API route, the four artifact modals,
 the webhook route, and the reset script are all unchanged. The exploit is
 still real, the artifact set is unchanged, and the demo is still repeatable.
+
+---
+
+## 14. v3 — plain-English visualization rebuild
+
+### 14.1 Why v3
+
+The v2 surface was visually overwhelming for the actual buyer of a Snyk
+co-sell motion: an AppSec leader, a CISO, or a security-aware procurement
+champion who is not a working developer. The dense panels (SDK orchestration
+with 4 tabs, two flame graphs, code panel, MCP tables, identifier badges,
+file:line citations) read as a developer's terminal, not a story.
+
+v3 keeps the bones of the demo (state machine, real exploit, real artifact
+modals, webhook + reset) and rebuilds the running phase as a single,
+full-width animated **agent stage** that plays a 6-chapter story. The SDK
+remains the value prop but moves into a small "Powered by Cursor SDK"
+caption — it is not the visual language anymore.
+
+### 14.2 The 6 chapters
+
+Each chapter is ~3.5s of real wall time and uses universal metaphors. There
+is one persistent "agent" avatar in the corner of the stage with a single
+plain-English verb that updates per chapter ("Looking", "Tracing",
+"Patching", "Upgrading", "Replaying", "Opening").
+
+| # | Title (plain English)            | Visual                                                                                                          |
+| - | -------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1 | Looking at the leak              | Customer database vault opens, customer cards fly out, red shield arrives, "12 records leaked" counter ticks up |
+| 2 | Tracing the path                 | Tainted-input pulse travels through 4 connected boxes (Request → Lookup → Selector → Database)                  |
+| 3 | Writing the patch                | One big "diff card" with the bad line struck through and the safe lines typing in green                         |
+| 4 | Bumping the dependency           | `mongoose` package box, `5.13.7` strikes through, `5.13.20` types in, "+ secure" badge lands                    |
+| 5 | Re-running the exploit           | Vault opens again but a wall blocks cards bouncing back, counter ticks `12 → 0`, "Exploit blocked" stamp lands  |
+| 6 | Opening the pull request         | PR card slides in, files & checks tick green one at a time, "Ready for review" stamp lands                      |
+
+The Snyk findings, the chapter titles, the bad/good code, and the package
+versions are real: same `customer-profile.ts`, same `mongoose@5.13.7 →
+5.13.20` upgrade, same exploit replay numbers as v1/v2. Only the
+*presentation* has been rebuilt for legibility.
+
+### 14.3 What gets simpler in v3
+
+- **Idle hero:** one-line headline, one card, a 3-step plain-English diagram,
+  the comparison table. No 5-stage spine on the hero.
+- **Trigger card (`SDKPipelineCard`):** a clean PR card with one button.
+  The shift-left spine, the SDK code line, and the icon row are gone.
+- **Full-screen takeover (`FullVulnPage`):** big shield, one number ("12
+  customer records leaked"), one sentence, two buttons. Nothing else.
+- **Running phase:** the entire canvas becomes the `AgentStage`. No left
+  panel, no code panel, no orchestration chrome.
+
+The narrative page (`/partnerships/snyk`) keeps the SDK code block — that
+audience *is* developers / devsecops, and the code is the proof point.
+
+### 14.4 Files added / changed in v3
+
+```
+docs/partner-demos/snyk-demo.md                                   APPENDED v3 section
+
+src/components/snyk-demo/agent-stage.tsx                          NEW  (chapter clock + scene mount + caption strip)
+src/components/snyk-demo/agent-avatar.tsx                         NEW  (persistent agent chip with current verb)
+src/components/snyk-demo/scenes/leak-scene.tsx                    NEW  (chapter 1)
+src/components/snyk-demo/scenes/path-scene.tsx                    NEW  (chapter 2)
+src/components/snyk-demo/scenes/patch-scene.tsx                   NEW  (chapter 3)
+src/components/snyk-demo/scenes/upgrade-scene.tsx                 NEW  (chapter 4)
+src/components/snyk-demo/scenes/replay-scene.tsx                  NEW  (chapter 5)
+src/components/snyk-demo/scenes/pr-scene.tsx                      NEW  (chapter 6)
+
+src/components/snyk-demo/sdk-pipeline-card.tsx                    REWRITTEN (clean PR card + one button)
+src/components/snyk-demo/full-vuln-page.tsx                       REWRITTEN (icon + number + 2 buttons)
+src/app/partnerships/snyk/demo/page.tsx                           REWRITTEN (full-bleed AgentStage in running phase)
+src/app/partnerships/snyk/page.tsx                                TRIMMED  (kept SDK code block; tightened hero)
+
+src/components/snyk-demo/sdk-orchestration-panel.tsx              REMOVED  (replaced by AgentStage)
+src/components/snyk-demo/sdk-code-panel.tsx                       REMOVED  (only the narrative page shows code now)
+src/components/snyk-demo/sdk-run-summary.tsx                      REMOVED  (replaced by AgentStage)
+src/components/snyk-demo/vuln-flow-graph.tsx                      REMOVED  (replaced by chapter-2 path-scene)
+src/lib/cursor-sdk/types.ts                                       REMOVED  (no longer rendered live)
+src/lib/cursor-sdk/mock-events.ts                                 REMOVED  (replaced by chapter clock)
+src/lib/cursor-sdk/example-snippets.ts                            REMOVED  (snippet inlined in narrative page)
+src/components/snyk-demo/shift-left-stages.tsx                    KEPT (used only by the narrative page now)
+```
+
+The vulnerable code, API route, four artifact modals, webhook route, and
+reset script remain unchanged. The exploit is still real before the user
+clicks the button.
+
+### 14.5 Visual rules for v3
+
+- **No identifiers** on screen. No `bc-…`, no `run-…`, no `trace_id`, no
+  `commit 5e9d3c2`. The only proper noun on the stage is "Cursor SDK" in a
+  small caption.
+- **No code on the demo surface.** The patch scene shows code, but it's a
+  single, slowly-typing diff card — not a panel of dense source.
+- **One verb per chapter.** The agent avatar shows one short verb at a time
+  ("Looking", "Tracing", "Patching", "Upgrading", "Replaying", "Opening").
+- **Universal metaphors only.** Vault → leaked cards. Pulse along a line.
+  Strike-through then green type-in. Wall blocks bouncing card. Stamp.
+- **One color per state.** Red = exposure. Amber = work in progress. Green
+  = patched. Indigo = the agent.
+- **Minimum motion.** Each scene has at most 3 simultaneous moving things.
+- **Plain English.** "Customer records leaked", not "P99 latency". "Bad
+  pattern", not "tainted-input flow". "Pull request opened", not "PR #214".

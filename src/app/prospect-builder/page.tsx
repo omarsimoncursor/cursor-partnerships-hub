@@ -6,12 +6,12 @@ import { ArrowLeft, ArrowRight, Check, Copy, Eye, Globe2, Sparkles } from 'lucid
 import { VENDORS, type Vendor } from '@/lib/prospect/vendors';
 import {
   buildShareUrl,
-  clearbitLogoUrl,
   deriveAccountName,
   encodeConfig,
   normalizeDomain,
   type ProspectConfig,
 } from '@/lib/prospect/config';
+import { AccountLogo } from '@/components/prospect/account-logo';
 
 const ACCENT_PRESETS = [
   { name: 'Cigna Blue', value: '#0072CE' },
@@ -38,7 +38,6 @@ export default function ProspectBuilderPage() {
     'aws',
     'github',
   ]);
-  const [logoOk, setLogoOk] = useState(true);
   const [origin, setOrigin] = useState('');
   const [copied, setCopied] = useState(false);
   const copyTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -56,7 +55,6 @@ export default function ProspectBuilderPage() {
     const derived = deriveAccountName(domain);
     setAccount(prev => (prev === lastDerivedRef.current || !prev ? derived : prev));
     lastDerivedRef.current = derived;
-    setLogoOk(true);
   }, [domain]);
 
   const config: ProspectConfig = useMemo(
@@ -320,21 +318,7 @@ export default function ProspectBuilderPage() {
                     Live preview
                   </p>
                   <div className="flex items-center gap-3">
-                    {logoOk && domain ? (
-                      <img
-                        src={clearbitLogoUrl(domain)}
-                        alt={`${account} logo`}
-                        className="w-12 h-12 rounded-lg bg-white/95 object-contain p-1.5"
-                        onError={() => setLogoOk(false)}
-                      />
-                    ) : (
-                      <div
-                        className="w-12 h-12 rounded-lg flex items-center justify-center text-base font-bold"
-                        style={{ background: `${accent}25`, color: accent }}
-                      >
-                        {(account || 'A').charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <AccountLogo domain={domain} account={account || 'A'} accent={accent} size={48} />
                     <div>
                       <p className="text-base font-semibold text-text-primary">
                         Cursor for {account || 'this account'}

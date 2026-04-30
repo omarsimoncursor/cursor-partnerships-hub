@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -12,11 +12,11 @@ import {
   Sparkles,
 } from 'lucide-react';
 import {
-  clearbitLogoUrl,
   getVendorsFor,
   resolvedAccent,
   type ProspectConfig,
 } from '@/lib/prospect/config';
+import { AccountLogo } from '@/components/prospect/account-logo';
 import { VendorDemoCard } from '@/components/prospect/vendor-demo-card';
 import { SdkComposer } from '@/components/prospect/sdk-composer';
 import { RoiCalculator } from '@/components/prospect/roi-calculator';
@@ -28,11 +28,6 @@ type Props = {
 export function ProspectPage({ config }: Props) {
   const accent = resolvedAccent(config);
   const vendors = getVendorsFor(config);
-  const [logoOk, setLogoOk] = useState(true);
-
-  useEffect(() => {
-    setLogoOk(true);
-  }, [config.domain]);
 
   // Inject the brand accent as a CSS variable so children can pull it
   // through Tailwind arbitrary values when convenient.
@@ -75,21 +70,7 @@ export function ProspectPage({ config }: Props) {
           {/* Hero */}
           <header className="grid md:grid-cols-[auto_1fr] gap-6 items-start mb-16">
             <div className="flex items-center gap-4">
-              {logoOk && config.domain ? (
-                <img
-                  src={clearbitLogoUrl(config.domain)}
-                  alt={`${config.account} logo`}
-                  className="w-16 h-16 rounded-xl bg-white/95 object-contain p-2"
-                  onError={() => setLogoOk(false)}
-                />
-              ) : (
-                <div
-                  className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold"
-                  style={{ background: `${accent}25`, color: accent }}
-                >
-                  {config.account.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <AccountLogo domain={config.domain} account={config.account} accent={accent} size={64} />
               <span
                 className="hidden md:flex w-px h-12 self-center"
                 style={{ background: 'rgba(237,236,236,0.12)' }}

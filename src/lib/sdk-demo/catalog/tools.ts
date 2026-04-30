@@ -8,6 +8,8 @@ export const TOOLS: Tool[] = [
     blurb: 'Secret detection across every commit, PR, and Slack message.',
     letter: 'GG',
     category: 'secrets',
+    plainEnglish:
+      'Watches your code for accidentally-committed passwords, API keys, and database credentials. Alerts you the second one is exposed.',
   },
   {
     id: 'wiz',
@@ -16,6 +18,8 @@ export const TOOLS: Tool[] = [
     blurb: 'CSPM + CNAPP across AWS, Azure, and GCP.',
     letter: 'W',
     category: 'cspm',
+    plainEnglish:
+      'Scans your cloud accounts for misconfigurations: public buckets holding sensitive data, over-permissive admin roles, exposed databases.',
   },
   {
     id: 'snyk',
@@ -24,6 +28,8 @@ export const TOOLS: Tool[] = [
     blurb: 'SAST + SCA + container + IaC vulnerability detection.',
     letter: 'S',
     category: 'sast',
+    plainEnglish:
+      'Scans your dependencies and code for known vulnerabilities. Tells you which version of a library is safe to upgrade to.',
   },
   {
     id: 'crowdstrike',
@@ -32,6 +38,8 @@ export const TOOLS: Tool[] = [
     blurb: 'Endpoint detection + response (Falcon).',
     letter: 'CS',
     category: 'edr',
+    plainEnglish:
+      'Watches every laptop and server for malicious activity. Flags suspicious processes the second they run.',
   },
   {
     id: 'okta',
@@ -40,6 +48,8 @@ export const TOOLS: Tool[] = [
     blurb: 'Identity + access. System Log streams every auth.',
     letter: 'O',
     category: 'identity',
+    plainEnglish:
+      'Logs every employee sign-in. Catches impossible-travel patterns, MFA fatigue, and compromised accounts.',
   },
   {
     id: 'splunk',
@@ -48,6 +58,8 @@ export const TOOLS: Tool[] = [
     blurb: 'SIEM + SOAR (Phantom). Correlation searches and playbooks.',
     letter: 'SP',
     category: 'siem',
+    plainEnglish:
+      'The central log-aggregation system most security teams already run. Correlates events from every other tool to spot patterns.',
   },
   {
     id: 'zscaler',
@@ -56,6 +68,8 @@ export const TOOLS: Tool[] = [
     blurb: 'Zero-trust + DLP across egress traffic.',
     letter: 'Z',
     category: 'network',
+    plainEnglish:
+      'Inspects every byte leaving your network. Blocks employees from sending sensitive files to unauthorized destinations.',
   },
   {
     id: 'vanta',
@@ -64,6 +78,8 @@ export const TOOLS: Tool[] = [
     blurb: 'GRC + continuous-control monitoring.',
     letter: 'V',
     category: 'grc',
+    plainEnglish:
+      'Continuously checks the controls you need for SOC 2 / ISO 27001 audits. Flags failed controls before the auditor sees them.',
   },
 ];
 

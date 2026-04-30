@@ -1,4 +1,4 @@
-import type { RuntimeStep, ScriptId, Workflow } from '../types';
+import type { RuntimeChannel, RuntimePhase, RuntimeStep, ScriptId, Workflow } from '../types';
 import { GITGUARDIAN_SECRET_SCRIPT } from './gitguardian-secret';
 import { WIZ_PUBLIC_BUCKET_SCRIPT } from './wiz-public-bucket';
 import { OKTA_ANOMALY_SCRIPT } from './okta-anomaly';
@@ -166,13 +166,70 @@ const SCRIPTS: Record<ScriptId, ResolvedScript> = {
 
 export function pickScript(workflow: Workflow): ResolvedScript {
   const t = workflow.toolId;
-  if (t === 'wiz') return SCRIPTS['wiz-public-bucket'];
-  if (t === 'okta') return SCRIPTS['okta-anomaly'];
-  if (t === 'snyk') return SCRIPTS['snyk-vuln'];
-  if (t === 'crowdstrike') return SCRIPTS['crowdstrike-detection'];
-  return SCRIPTS['gitguardian-secret'];
+  let raw: ResolvedScript;
+  if (t === 'wiz') raw = SCRIPTS['wiz-public-bucket'];
+  else if (t === 'okta') raw = SCRIPTS['okta-anomaly'];
+  else if (t === 'snyk') raw = SCRIPTS['snyk-vuln'];
+  else if (t === 'crowdstrike') raw = SCRIPTS['crowdstrike-detection'];
+  else raw = SCRIPTS['gitguardian-secret'];
+  return { ...raw, steps: raw.steps.map(annotateDefaults) };
 }
 
 export function getScript(id: ScriptId): ResolvedScript {
-  return SCRIPTS[id];
+  const raw = SCRIPTS[id];
+  return { ...raw, steps: raw.steps.map(annotateDefaults) };
+}
+
+const CHANNEL_DEFAULT_PHASE: Partial<Record<RuntimeChannel, RuntimePhase>> = {
+  sdk: 'identified',
+  gitguardian: 'context',
+  wiz: 'context',
+  snyk: 'context',
+  okta: 'context',
+  crowdstrike: 'context',
+  splunk: 'audit',
+  zscaler: 'containment',
+  aws: 'containment',
+  stripe: 'containment',
+  vault: 'containment',
+  composer: 'remediation',
+  codex: 'remediation',
+  shell: 'remediation',
+  github: 'remediation',
+  jira: 'audit',
+  slack: 'audit',
+  opus: 'context',
+  codegen: 'remediation',
+  done: 'resolved',
+};
+
+function annotateDefaults(step: RuntimeStep): RuntimeStep {
+  return {
+    ...step,
+    phase: step.phase ?? CHANNEL_DEFAULT_PHASE[step.channel] ?? 'context',
+    plainEnglish: step.plainEnglish ?? defaultPlainEnglish(step),
+  };
+}
+
+function defaultPlainEnglish(step: RuntimeStep): string {
+  const ch = step.channel;
+  if (ch === 'sdk') return 'Cursor SDK orchestrates the next step.';
+  if (ch === 'opus') return 'A reasoning model thinks through the next move.';
+  if (ch === 'composer' || ch === 'codex') return 'AI edits or reviews the code.';
+  if (ch === 'shell') return 'Runs a real command line check.';
+  if (ch === 'github') return 'Talks to GitHub: branch, commit, or pull request.';
+  if (ch === 'jira') return 'Updates Jira so the security team can track it.';
+  if (ch === 'slack') return 'Posts to Slack so a human is in the loop.';
+  if (ch === 'splunk') return 'Writes a structured audit event to the SIEM.';
+  if (ch === 'aws') return 'Calls AWS to make a real change in your cloud.';
+  if (ch === 'stripe') return 'Calls Stripe to roll a payment-processing key.';
+  if (ch === 'vault') return 'Saves new secrets to HashiCorp Vault.';
+  if (ch === 'okta') return 'Asks Okta to enforce identity controls.';
+  if (ch === 'crowdstrike') return 'Talks to CrowdStrike to contain the endpoint.';
+  if (ch === 'zscaler') return 'Updates a Zscaler policy to block bad traffic.';
+  if (ch === 'wiz') return 'Asks Wiz for cloud-posture context.';
+  if (ch === 'snyk') return 'Asks Snyk for vulnerability detail.';
+  if (ch === 'gitguardian') return 'Asks GitGuardian for incident detail.';
+  if (ch === 'done') return 'Run finished. Artifacts ready for review.';
+  return 'Agent action.';
 }

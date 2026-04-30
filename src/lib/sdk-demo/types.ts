@@ -48,6 +48,7 @@ export interface Tool {
   blurb: string;
   letter: string;
   category: 'secrets' | 'cspm' | 'sast' | 'edr' | 'identity' | 'siem' | 'network' | 'grc';
+  plainEnglish: string;
 }
 
 export interface ToolEvent {
@@ -57,6 +58,7 @@ export interface ToolEvent {
   severity: 'P0' | 'P1' | 'P2' | 'INFO';
   description: string;
   payloadType: string;
+  plainEnglish: string;
 }
 
 export interface Action {
@@ -66,6 +68,7 @@ export interface Action {
   blurb: string;
   mcpsRequired: McpId[];
   promptFragment: string;
+  plainEnglish: string;
 }
 
 export interface Mcp {
@@ -119,7 +122,17 @@ export interface RuntimeStep {
   detail?: string;
   delayMs: number;
   sdkEvent?: SdkEvent;
+  plainEnglish?: string;
+  phase?: RuntimePhase;
 }
+
+export type RuntimePhase =
+  | 'identified'
+  | 'context'
+  | 'containment'
+  | 'remediation'
+  | 'audit'
+  | 'resolved';
 
 export type SdkEventType =
   | 'agent.create'

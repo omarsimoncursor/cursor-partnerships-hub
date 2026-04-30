@@ -64,8 +64,8 @@ export function SdkEventStream({ steps, script, finished }: SdkEventStreamProps)
             <p className="text-sm font-medium text-text-primary leading-none mb-0.5">
               SDK Run Events
             </p>
-            <p className="text-[11px] text-text-tertiary font-mono">
-              <code>for await (const event of run.stream())</code>
+            <p className="text-[10px] text-text-tertiary leading-snug">
+              The structured stream your code receives from <span className="font-mono text-accent-blue">run.stream()</span>.
             </p>
           </div>
         </div>
@@ -77,14 +77,14 @@ export function SdkEventStream({ steps, script, finished }: SdkEventStreamProps)
             )}
           />
           <span className="text-[11px] text-text-tertiary font-mono">
-            {totalEvents} events · {billed.toFixed(1)}s billed
+            {totalEvents} events
           </span>
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 font-mono text-[11px] space-y-1 min-h-[280px]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[280px]">
         {events.length === 0 && (
-          <p className="text-text-tertiary italic px-1 py-2">
+          <p className="text-text-tertiary italic px-1 py-2 text-[11px] font-mono">
             agent.send() pending…
           </p>
         )}
@@ -95,18 +95,27 @@ export function SdkEventStream({ steps, script, finished }: SdkEventStreamProps)
           return (
             <div
               key={i}
-              className="flex items-start gap-2 leading-snug"
+              className="flex items-start gap-2 leading-snug font-mono text-[11px]"
               style={{ animation: 'sdkFadeIn 0.18s ease-out' }}
             >
-              <span className="text-text-tertiary/60 shrink-0 w-[68px]">
+              <span className="text-text-tertiary/60 shrink-0 w-[60px]">
                 {formatTime(time)}
               </span>
-              <span className={cn('shrink-0 w-[112px] truncate font-medium', style)}>
-                {ev.type}
-              </span>
-              <span className="text-text-secondary truncate flex-1 min-w-0">
-                {ev.payload}
-              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <span className={cn('shrink-0 font-semibold truncate max-w-[120px]', style)}>
+                    {ev.type}
+                  </span>
+                  <span className="text-text-secondary truncate flex-1 min-w-0">
+                    {ev.payload}
+                  </span>
+                </div>
+                {step.plainEnglish && (
+                  <p className="font-sans text-[10.5px] text-text-tertiary leading-snug mt-0.5 pl-0.5">
+                    {step.plainEnglish}
+                  </p>
+                )}
+              </div>
             </div>
           );
         })}

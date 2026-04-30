@@ -21,8 +21,8 @@ export function JiraStage({ activeStep, status, account, brand }: StageProps) {
   const heroCol = isComplete ? 3 : Math.min(3, Math.max(0, activeStep));
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -49,7 +49,7 @@ export function JiraStage({ activeStep, status, account, brand }: StageProps) {
               {/* Hero ticket — moves to heroCol */}
               {i === heroCol && (
                 <div
-                  className="rounded-md border bg-dark-surface/60 p-2 transition-all"
+                  className="rounded-md border bg-dark-surface p-2 transition-all"
                   style={{
                     borderColor: brand,
                     boxShadow: `0 0 14px ${brand}55`,
@@ -72,7 +72,7 @@ export function JiraStage({ activeStep, status, account, brand }: StageProps) {
               )}
               {/* Static tickets */}
               {TICKETS.filter(t => t.col === i && t.key !== 'PLT-4218').map(t => (
-                <div key={t.key} className="rounded-md border border-dark-border bg-dark-surface/30 p-2">
+                <div key={t.key} className="rounded-md border border-dark-border bg-dark-surface p-2">
                   <p className="text-[10px] font-mono mb-1 text-text-tertiary">{t.key}</p>
                   <p className="text-[11px] text-text-secondary leading-tight">{t.summary}</p>
                 </div>

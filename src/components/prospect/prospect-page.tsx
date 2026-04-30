@@ -47,7 +47,7 @@ export function ProspectPage({ config }: Props) {
     <div className="min-h-screen relative">
       <AuroraBackdrop accent={accent} />
 
-      <nav className="fixed top-0 left-0 right-0 z-30 py-4 px-6 bg-dark-bg/80 backdrop-blur-xl border-b border-dark-border">
+      <nav className="fixed top-0 left-0 right-0 z-30 py-4 px-6 bg-dark-bg backdrop-blur-xl border-b border-dark-border">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link
             href="/prospect-builder"
@@ -300,15 +300,15 @@ function HeroStat({
 }) {
   return (
     <div
-      className="rounded-xl border p-4 transition-colors hover:bg-dark-surface/40"
-      style={{ borderColor: `${accent}33`, background: `${accent}08` }}
+      className="rounded-xl border p-4 transition-colors hover:bg-dark-surface-hover bg-dark-surface"
+      style={{ borderColor: `${accent}33` }}
     >
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-mono mb-1.5" style={{ color: accent }}>
         {icon}
         {label}
       </div>
       <p className="text-3xl font-bold text-text-primary tabular-nums">{value}</p>
-      <p className="text-xs text-text-tertiary mt-1 leading-snug">{hint}</p>
+      <p className="text-xs text-text-secondary mt-1 leading-snug">{hint}</p>
     </div>
   );
 }

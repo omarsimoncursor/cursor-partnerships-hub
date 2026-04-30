@@ -15,8 +15,8 @@ export function SentryStage({ activeStep, status, account, brand }: StageProps) 
   const showPatch = activeStep >= 3 || isComplete;
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -51,7 +51,7 @@ export function SentryStage({ activeStep, status, account, brand }: StageProps) 
         </div>
 
         {/* Stack trace */}
-        <div className="rounded-lg border border-dark-border bg-dark-surface/40">
+        <div className="rounded-lg border border-dark-border bg-dark-surface">
           <div className="px-3 py-1.5 border-b border-dark-border text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
             Stack trace
           </div>
@@ -80,8 +80,8 @@ export function SentryStage({ activeStep, status, account, brand }: StageProps) 
 
         {/* Failing test that the agent generated */}
         {showFailingTest && (
-          <div className="rounded-lg border border-dark-border bg-dark-bg/80 overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-1.5 border-b border-dark-border bg-dark-surface/60">
+          <div className="rounded-lg border border-dark-border bg-dark-bg overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-1.5 border-b border-dark-border bg-dark-surface">
               <p className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
                 generated regression test {showPatch ? '· passing' : '· failing'}
               </p>
@@ -106,8 +106,8 @@ export function SentryStage({ activeStep, status, account, brand }: StageProps) 
 
         {/* Diff patch */}
         {showPatch && (
-          <div className="rounded-lg border border-dark-border bg-dark-bg/80 overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-1.5 border-b border-dark-border bg-dark-surface/60">
+          <div className="rounded-lg border border-dark-border bg-dark-bg overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-1.5 border-b border-dark-border bg-dark-surface">
               <p className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
                 lib/billing/normalize.ts
               </p>

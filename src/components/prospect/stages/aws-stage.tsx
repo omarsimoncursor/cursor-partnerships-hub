@@ -18,8 +18,8 @@ export function AwsStage({ activeStep, status, account, brand }: StageProps) {
   const showCdk = activeStep >= 2 || isComplete;
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -39,7 +39,7 @@ export function AwsStage({ activeStep, status, account, brand }: StageProps) {
           <p className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary mb-2">
             websphere monolith {'\u2192'} aws-native services
           </p>
-          <div className="relative h-56 rounded-lg border border-dark-border bg-dark-surface/40 overflow-hidden">
+          <div className="relative h-56 rounded-lg border border-dark-border bg-dark-surface overflow-hidden">
             {/* Monolith blob */}
             <div
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl flex items-center justify-center transition-all duration-700 ease-out"
@@ -122,8 +122,8 @@ export function AwsStage({ activeStep, status, account, brand }: StageProps) {
         </div>
 
         {/* RIGHT: CDK code preview */}
-        <div className="bg-dark-bg/90">
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-dark-border bg-dark-surface/60">
+        <div className="bg-dark-bg">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-dark-border bg-dark-surface">
             <span className="text-[9px] font-mono uppercase tracking-wider text-text-tertiary">
               {showCdk ? 'cursor / orders-stack.ts' : 'awaiting plan…'}
             </span>

@@ -66,13 +66,13 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
   return (
     <article
       id={`vendor-${vendor.id}`}
-      className="rounded-2xl border overflow-hidden"
-      style={{ borderColor: `${accent}33`, background: `${accent}08` }}
+      className="rounded-2xl border overflow-hidden bg-dark-surface"
+      style={{ borderColor: `${accent}38` }}
     >
-      {/* Header */}
+      {/* Header — keep a brand-tinted band but on a solid base so text stays high-contrast */}
       <header
-        className="px-6 py-5 border-b flex flex-wrap items-center gap-4"
-        style={{ borderColor: `${accent}26`, background: `${accent}12` }}
+        className="px-6 py-5 border-b flex flex-wrap items-center gap-4 bg-dark-surface-hover"
+        style={{ borderColor: `${accent}26`, backgroundImage: `linear-gradient(180deg, ${accent}1c 0%, transparent 100%)` }}
       >
         <div
           className="w-12 h-12 rounded-xl flex items-center justify-center text-base font-bold shrink-0 overflow-hidden"
@@ -197,7 +197,7 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
                     {applyAccountName(step.detail, account)}
                   </p>
                   <pre
-                    className="ml-7 text-[10.5px] font-mono px-2 py-1 rounded bg-dark-bg/60 border border-dark-border overflow-x-auto"
+                    className="ml-7 text-[10.5px] font-mono px-2 py-1 rounded bg-dark-bg border border-dark-border overflow-x-auto"
                     style={{ color: status === 'done' ? accent : '#a3a3a3' }}
                   >
                     {step.code}

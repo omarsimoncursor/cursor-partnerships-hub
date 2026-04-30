@@ -43,8 +43,8 @@ export function SnowflakeStage({ activeStep, status, account, brand }: StageProp
   const verified = activeStep >= 3 || isComplete;
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -61,7 +61,7 @@ export function SnowflakeStage({ activeStep, status, account, brand }: StageProp
       <div className="grid grid-cols-2 divide-x divide-dark-border">
         {/* LEFT: legacy SQL */}
         <div>
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-dark-border bg-dark-surface/60">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-dark-border bg-dark-surface">
             <span className="text-[9px] font-mono uppercase tracking-wider text-text-tertiary">legacy / teradata bteq</span>
             <span className="ml-auto text-[9px] font-mono text-[#f87171]">retiring</span>
           </div>
@@ -72,7 +72,7 @@ export function SnowflakeStage({ activeStep, status, account, brand }: StageProp
 
         {/* RIGHT: dbt + Snowflake */}
         <div>
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-dark-border bg-dark-surface/60">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-dark-border bg-dark-surface">
             <span className="text-[9px] font-mono uppercase tracking-wider text-text-tertiary">{showRight ? 'dbt / mart_daily_revenue.sql' : 'awaiting agent…'}</span>
             <span className="ml-auto text-[9px] font-mono" style={{ color: brand }}>snowflake-native</span>
           </div>

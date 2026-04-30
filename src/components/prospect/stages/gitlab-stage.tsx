@@ -25,8 +25,8 @@ export function GitLabStage({ activeStep, status, account, brand }: StageProps) 
   const retried = isComplete || activeStep >= 4;
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -82,8 +82,8 @@ export function GitLabStage({ activeStep, status, account, brand }: StageProps) 
         </div>
 
         {/* Job log preview */}
-        <div className="rounded-lg border border-dark-border bg-black/40 overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-dark-border bg-dark-surface/60 text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
+        <div className="rounded-lg border border-dark-border bg-black overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-dark-border bg-dark-surface text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
             <span>job · jest:integration · log</span>
             <span style={{ color: fixed ? '#4ade80' : '#f87171' }}>{fixed ? 'pass' : 'fail'}</span>
           </div>

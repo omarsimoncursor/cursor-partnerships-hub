@@ -14,29 +14,32 @@ export function AuroraBackdrop({ accent }: Props) {
 
   return (
     <>
+      {/* Aurora is intentionally subtle: it only colors the very top
+          of the page so body content below stays high-contrast. */}
       <div
         aria-hidden
-        className="fixed inset-0 -z-20 pointer-events-none overflow-hidden"
+        className="fixed inset-x-0 top-0 -z-20 pointer-events-none overflow-hidden"
+        style={{ height: '70vh' }}
       >
         <div
-          className="absolute -top-1/3 left-1/2 -translate-x-1/2 w-[120vw] h-[80vh] rounded-full blur-[120px] opacity-60"
+          className="absolute -top-[40%] left-1/2 -translate-x-1/2 w-[120vw] h-[80vh] rounded-full blur-[140px] opacity-50"
           style={{
-            background: `radial-gradient(closest-side, ${accent}3a 0%, ${accent}14 40%, transparent 75%)`,
-            animation: `aurora-${id} 18s ease-in-out infinite`,
+            background: `radial-gradient(closest-side, ${accent}33 0%, ${accent}10 40%, transparent 75%)`,
+            animation: `aurora-${id} 22s ease-in-out infinite`,
           }}
         />
         <div
-          className="absolute top-1/4 -left-32 w-[60vw] h-[60vh] rounded-full blur-[120px] opacity-40"
+          className="absolute -top-[20%] -left-24 w-[55vw] h-[55vh] rounded-full blur-[140px] opacity-25"
           style={{
-            background: `radial-gradient(closest-side, ${accent}28 0%, transparent 70%)`,
-            animation: `aurora-${id}-b 24s ease-in-out infinite`,
+            background: `radial-gradient(closest-side, ${accent}1f 0%, transparent 70%)`,
+            animation: `aurora-${id}-b 28s ease-in-out infinite`,
           }}
         />
         <div
-          className="absolute top-1/3 -right-32 w-[55vw] h-[55vh] rounded-full blur-[120px] opacity-40"
+          className="absolute -top-[20%] -right-24 w-[55vw] h-[55vh] rounded-full blur-[140px] opacity-25"
           style={{
-            background: `radial-gradient(closest-side, ${accent}22 0%, transparent 70%)`,
-            animation: `aurora-${id}-c 26s ease-in-out infinite`,
+            background: `radial-gradient(closest-side, ${accent}1f 0%, transparent 70%)`,
+            animation: `aurora-${id}-c 30s ease-in-out infinite`,
           }}
         />
       </div>

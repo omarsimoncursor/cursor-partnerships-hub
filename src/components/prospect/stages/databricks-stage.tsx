@@ -27,8 +27,8 @@ export function DatabricksStage({ activeStep, status, account, brand }: StagePro
   const showLineage = activeStep >= 3 || isComplete;
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -44,7 +44,7 @@ export function DatabricksStage({ activeStep, status, account, brand }: StagePro
 
       <div className="grid grid-cols-2 divide-x divide-dark-border">
         <div>
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-dark-border bg-dark-surface/60">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-dark-border bg-dark-surface">
             <span className="text-[9px] font-mono uppercase tracking-wider text-text-tertiary">
               {showCode ? 'notebook · bronze_orders.py' : 'awaiting agent…'}
             </span>

@@ -25,8 +25,8 @@ export function SnykStage({ activeStep, status, account, brand }: StageProps) {
   const fixedCount = isComplete ? VULNS.length : Math.max(0, visibleCount - 2);
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -48,7 +48,7 @@ export function SnykStage({ activeStep, status, account, brand }: StageProps) {
         </div>
 
         <div className="rounded-lg border border-dark-border overflow-hidden">
-          <div className="grid grid-cols-[100px_1fr_120px_90px] px-3 py-1.5 bg-dark-surface/50 border-b border-dark-border text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
+          <div className="grid grid-cols-[100px_1fr_120px_90px] px-3 py-1.5 bg-dark-surface border-b border-dark-border text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
             <span>Severity</span>
             <span>Package · CVE</span>
             <span>Repo</span>
@@ -108,7 +108,7 @@ export function SnykStage({ activeStep, status, account, brand }: StageProps) {
 
 function Stat({ label, value, delta, color }: { label: string; value: string; delta: string | null; color: string }) {
   return (
-    <div className="rounded-lg border border-dark-border bg-dark-surface/40 px-3 py-2">
+    <div className="rounded-lg border border-dark-border bg-dark-surface px-3 py-2">
       <p className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary">{label}</p>
       <div className="flex items-baseline gap-2 mt-0.5">
         <p className="text-xl font-bold tabular-nums" style={{ color }}>{value}</p>

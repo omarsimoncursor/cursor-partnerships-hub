@@ -101,7 +101,7 @@ export function RoiCalculator({ account, accent }: Props) {
           hint="In practice, fewer than 10% of queries actually need the frontier. The rest can route to Composer."
         />
 
-        <div className="rounded-lg border border-dark-border bg-dark-surface/50 p-4 text-xs text-text-tertiary leading-relaxed">
+        <div className="rounded-lg border border-dark-border bg-dark-surface p-4 text-xs text-text-tertiary leading-relaxed">
           <p className="font-mono uppercase tracking-wider text-[11px] text-text-tertiary mb-1">Pricing assumptions</p>
           <p>
             Frontier model priced at ${FRONTIER_INPUT_PER_MTOK} / 1M input + ${FRONTIER_OUTPUT_PER_MTOK} / 1M output;
@@ -160,7 +160,7 @@ export function RoiCalculator({ account, accent }: Props) {
           />
         </div>
 
-        <div className="rounded-lg border border-dark-border p-4 bg-dark-surface/40">
+        <div className="rounded-lg border border-dark-border p-4 bg-dark-surface">
           <div className="flex items-start gap-3">
             <Calculator className="w-4 h-4 text-text-tertiary mt-0.5 shrink-0" />
             <p className="text-xs text-text-secondary leading-relaxed">

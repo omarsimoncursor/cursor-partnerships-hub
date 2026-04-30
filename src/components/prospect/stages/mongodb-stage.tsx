@@ -15,8 +15,8 @@ export function MongoDbStage({ activeStep, status, account, brand }: StageProps)
   const validated = isComplete || activeStep >= 3;
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -32,7 +32,7 @@ export function MongoDbStage({ activeStep, status, account, brand }: StageProps)
 
       <div className="p-4 space-y-3">
         <div className="rounded-lg border border-dark-border overflow-hidden">
-          <div className="grid grid-cols-[100px_1fr_80px_80px] px-3 py-1.5 bg-dark-surface/50 border-b border-dark-border text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
+          <div className="grid grid-cols-[100px_1fr_80px_80px] px-3 py-1.5 bg-dark-surface border-b border-dark-border text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
             <span>Collection</span>
             <span>Filter</span>
             <span className="text-right">Mean</span>
@@ -61,8 +61,8 @@ export function MongoDbStage({ activeStep, status, account, brand }: StageProps)
         </div>
 
         {proposed && (
-          <div className="rounded-lg border border-dark-border bg-dark-bg/80 overflow-hidden">
-            <div className="px-3 py-1.5 border-b border-dark-border bg-dark-surface/60 text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
+          <div className="rounded-lg border border-dark-border bg-dark-bg overflow-hidden">
+            <div className="px-3 py-1.5 border-b border-dark-border bg-dark-surface text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
               proposed migration · 2025_04_index_orders_eu_open.js
             </div>
             <pre className="p-3 text-[10.5px] font-mono text-text-secondary overflow-x-auto whitespace-pre">

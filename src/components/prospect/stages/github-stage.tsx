@@ -22,8 +22,8 @@ export function GitHubStage({ activeStep, status, account, brand }: StageProps) 
   const ready = isComplete || activeStep >= 4;
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -55,10 +55,10 @@ export function GitHubStage({ activeStep, status, account, brand }: StageProps) 
               return (
                 <div
                   key={i}
-                  className="rounded-lg border border-dark-border bg-dark-bg/80 overflow-hidden transition-all"
+                  className="rounded-lg border border-dark-border bg-dark-bg overflow-hidden transition-all"
                   style={{ opacity: visible ? 1 : 0.2, transform: visible ? 'translateY(0)' : 'translateY(4px)' }}
                 >
-                  <div className="px-3 py-1.5 border-b border-dark-border bg-dark-surface/40 text-[10px] font-mono text-text-tertiary flex items-center justify-between">
+                  <div className="px-3 py-1.5 border-b border-dark-border bg-dark-surface text-[10px] font-mono text-text-tertiary flex items-center justify-between">
                     <span>{hunk.file}</span>
                     <span>
                       <span className="text-accent-green mr-2">+{hunk.additions.length}</span>
@@ -87,7 +87,7 @@ export function GitHubStage({ activeStep, status, account, brand }: StageProps) 
             return (
               <div
                 key={i}
-                className="rounded-md border border-dark-border bg-dark-surface/40 p-2 transition-all"
+                className="rounded-md border border-dark-border bg-dark-surface p-2 transition-all"
                 style={{ opacity: resolved ? 0.65 : 1 }}
               >
                 <div className="flex items-center gap-1.5 mb-0.5">

@@ -48,9 +48,9 @@ export function DatadogStage({ totalSteps, activeStep, status, account, brand }:
   const highlightFlameFrom = activeStep >= 1 ? 4 : -1;
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
       {/* Browser-ish chrome */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -89,7 +89,7 @@ export function DatadogStage({ totalSteps, activeStep, status, account, brand }:
         </div>
 
         {/* p99 timeline chart */}
-        <div className="relative h-28 rounded-lg bg-dark-surface/40 border border-dark-border overflow-hidden">
+        <div className="relative h-28 rounded-lg bg-dark-surface border border-dark-border overflow-hidden">
           {/* SLO target line at 300ms */}
           <div
             className="absolute left-0 right-0 border-t border-dashed"

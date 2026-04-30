@@ -114,7 +114,7 @@ export function AccountLogo({
         <span
           aria-label={`${account} logo`}
           role="img"
-          className="block w-full h-full p-[12%] [&>svg]:w-full [&>svg]:h-full [&>svg]:block"
+          className="block w-full h-full p-[10%] [&>svg]:w-full [&>svg]:h-full [&>svg]:block"
           dangerouslySetInnerHTML={{ __html: sanitizeSvgForEmbed(logo.svg!) }}
         />
       )}
@@ -126,7 +126,7 @@ export function AccountLogo({
           decoding="async"
           referrerPolicy="no-referrer"
           onError={() => setImgErrored(true)}
-          className="absolute inset-0 w-full h-full object-contain p-[12%]"
+          className="absolute inset-0 w-full h-full object-contain p-[6%]"
         />
       )}
     </span>

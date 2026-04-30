@@ -12,8 +12,8 @@ export function FigmaStage({ activeStep, status, account, brand, pageAccent }: S
   const previewAccent = pageAccent;
 
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-bg/70 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface/60">
+    <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-dark-border bg-dark-surface">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -82,8 +82,8 @@ export function FigmaStage({ activeStep, status, account, brand, pageAccent }: S
         </div>
 
         {/* RIGHT: Cursor editor with generated code */}
-        <div className="bg-dark-bg/90">
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-dark-border bg-dark-surface/60">
+        <div className="bg-dark-bg">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-dark-border bg-dark-surface">
             <span className="text-[9px] font-mono uppercase tracking-wider text-text-tertiary">
               {showJsx ? 'cursor / Checkout.tsx' : 'cursor / awaiting plan…'}
             </span>

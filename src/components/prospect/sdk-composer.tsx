@@ -233,7 +233,7 @@ export function SdkComposer({ account, accent, vendorIds }: Props) {
               <button
                 key={p.name}
                 onClick={() => loadPreset(p)}
-                className="w-full text-left rounded-md border border-dark-border hover:border-dark-border-hover bg-dark-surface/60 hover:bg-dark-surface px-3 py-2 transition-colors"
+                className="w-full text-left rounded-md border border-dark-border hover:border-dark-border-hover bg-dark-surface hover:bg-dark-surface px-3 py-2 transition-colors"
               >
                 <p className="text-xs font-medium text-text-primary mb-0.5 leading-tight">{p.name}</p>
                 <p className="text-[11px] text-text-tertiary leading-snug">{p.description}</p>
@@ -251,7 +251,7 @@ export function SdkComposer({ account, accent, vendorIds }: Props) {
                 <button
                   key={`${v.id}-${i}`}
                   onClick={() => addStep(v.id, i)}
-                  className="w-full text-left rounded-md border border-dark-border hover:border-dark-border-hover bg-dark-surface/40 hover:bg-dark-surface px-2.5 py-2 transition-colors"
+                  className="w-full text-left rounded-md border border-dark-border hover:border-dark-border-hover bg-dark-surface hover:bg-dark-surface px-2.5 py-2 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-0.5">
                     <span
@@ -354,7 +354,7 @@ export function SdkComposer({ account, accent, vendorIds }: Props) {
                     </div>
                     <p className="text-sm font-medium text-text-primary leading-tight">{s.label}</p>
                     <p className="text-[11px] text-text-tertiary mb-1.5">{applyAccountName(s.detail, account)}</p>
-                    <pre className="text-[11px] font-mono px-2 py-1 rounded bg-dark-bg/70 border border-dark-border overflow-x-auto" style={{ color: s.vendorBrand }}>
+                    <pre className="text-[11px] font-mono px-2 py-1 rounded bg-dark-bg border border-dark-border overflow-x-auto" style={{ color: s.vendorBrand }}>
                       {s.code}
                     </pre>
                   </div>
@@ -389,8 +389,8 @@ export function SdkComposer({ account, accent, vendorIds }: Props) {
           </ol>
         )}
 
-        <div className="rounded-xl border border-dark-border bg-dark-bg/50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-dark-border bg-dark-surface/50">
+        <div className="rounded-xl border border-dark-border bg-dark-bg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-dark-border bg-dark-surface">
             <span className="text-[11px] uppercase tracking-wider font-mono text-text-tertiary inline-flex items-center gap-1.5">
               <Code2 className="w-3 h-3" /> Generated SDK workflow
             </span>

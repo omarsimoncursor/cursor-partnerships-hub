@@ -57,7 +57,7 @@ export default function SnykPartnership() {
 
       {/* Hero */}
       <section className="min-h-screen flex items-center justify-center px-6 pt-24 pb-12">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-4 mb-8">
             <div className="w-12 h-12 rounded-xl bg-[#4C44CB]/20 border border-[#4C44CB]/30 flex items-center justify-center text-lg font-bold text-[#9F98FF]">
               S
@@ -67,23 +67,13 @@ export default function SnykPartnership() {
               C
             </div>
           </div>
-          <p className="text-[11px] font-mono uppercase tracking-[0.22em] mb-3" style={{ color: '#9F98FF' }}>
-            Shift left, with the Cursor SDK · @cursor/february v1.0.7
-          </p>
           <h1 className="text-4xl md:text-6xl font-bold text-text-primary mb-6">
-            One SDK call. Five stages of coverage.
+            Snyk catches it.<br />Cursor ships the fix.
           </h1>
-          <p className="text-lg text-text-secondary mb-3 max-w-2xl mx-auto">
-            Snyk finds the vulnerability. The Cursor SDK ships the verified fix. The same{' '}
-            <code className="font-mono text-[#9F98FF]">Agent.create({'{...}'})</code> + <code className="font-mono text-[#9F98FF]">agent.send(...)</code>{' '}
-            embeds in every stage of the AppSec lifecycle, from the developer&apos;s editor to the
-            production safety net.
-          </p>
-          <p className="text-sm text-text-tertiary mb-8 max-w-2xl mx-auto">
-            Built on the{' '}
-            <code className="font-mono text-[#9F98FF]">@cursor/february/agent</code>{' '}
-            SDK and the v1 Cloud Agents REST API, with first-class support for cloud agents,
-            durable resume, MCP servers, and run streaming.
+          <p className="text-lg text-text-secondary mb-8 max-w-xl mx-auto">
+            A pre-merge security gate calls a Cursor agent the moment a critical Snyk finding lands.
+            The agent patches the code, re-runs the exploit, and opens a pull request for a human to
+            review &mdash; all before the developer&apos;s next coffee.
           </p>
 
           <div className="flex justify-center gap-3 flex-wrap">
@@ -102,7 +92,7 @@ export default function SnykPartnership() {
               href="#stages"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-dark-border text-text-secondary font-medium text-sm hover:bg-dark-surface-hover hover:text-text-primary transition-colors"
             >
-              See the five stages
+              See where it runs
             </a>
           </div>
         </div>
@@ -113,14 +103,15 @@ export default function SnykPartnership() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-[11px] font-mono uppercase tracking-[0.22em] mb-2" style={{ color: '#9F98FF' }}>
-              The shift-left spine
+              Where the agent runs
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-3">
-              The same SDK call, embedded everywhere.
+              Five places. One agent.
             </h2>
             <p className="text-text-secondary max-w-2xl mx-auto">
-              No five different security automation systems. One SDK, five integration points,
-              the same MCP servers and the same prompts at every stage.
+              The same Cursor agent embeds in every stage of the pipeline, from the developer&apos;s
+              editor through the production safety net. The interactive demo is stage 3 — the
+              pre-merge security gate.
             </p>
           </div>
 

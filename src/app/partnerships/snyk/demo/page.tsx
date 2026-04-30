@@ -2,16 +2,21 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, ChevronDown, MousePointerClick, RotateCcw } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  MousePointerClick,
+  RotateCcw,
+  ShieldAlert,
+  Bot,
+  GitPullRequest,
+} from 'lucide-react';
 import { DemoVulnBoundary } from '@/components/snyk-demo/demo-vuln-boundary';
 import { SDKPipelineCard } from '@/components/snyk-demo/sdk-pipeline-card';
-import { ShiftLeftStages } from '@/components/snyk-demo/shift-left-stages';
 import { SeverityComparison } from '@/components/snyk-demo/severity-comparison';
 import { GuardrailsPanel } from '@/components/snyk-demo/guardrails-panel';
 import { FullVulnPage } from '@/components/snyk-demo/full-vuln-page';
-import { SDKRunSummary } from '@/components/snyk-demo/sdk-run-summary';
-import { SDKOrchestrationPanel } from '@/components/snyk-demo/sdk-orchestration-panel';
-import { SDKCodePanel } from '@/components/snyk-demo/sdk-code-panel';
+import { AgentStage } from '@/components/snyk-demo/agent-stage';
 import { ArtifactCards } from '@/components/snyk-demo/artifact-cards';
 import { TriageReport } from '@/components/snyk-demo/artifacts/triage-report';
 import { JiraTicket } from '@/components/snyk-demo/artifacts/jira-ticket';
@@ -36,7 +41,7 @@ export default function SnykDemoPage() {
     setPhase('running');
   }, []);
 
-  const handleConsoleComplete = useCallback(() => {
+  const handleStageComplete = useCallback(() => {
     setPhase('complete');
   }, []);
 
@@ -93,31 +98,22 @@ export default function SnykDemoPage() {
                   C
                 </div>
               </div>
-              <p className="text-[11px] font-mono uppercase tracking-[0.22em] mb-3" style={{ color: '#9F98FF' }}>
-                Snyk × Cursor SDK · @cursor/february v1.0.7
-              </p>
-              <h1 className="text-2xl md:text-4xl font-bold text-text-primary mb-3">
-                Watch the Cursor SDK block a merge and ship the fix.
+              <h1 className="text-2xl md:text-4xl font-bold text-text-primary mb-3 max-w-3xl mx-auto">
+                Watch a Cursor agent fix a security flaw, end to end.
               </h1>
-              <p className="text-sm md:text-base text-text-secondary max-w-2xl mx-auto">
-                A pre-merge security gate calls{' '}
-                <code className="font-mono text-[#9F98FF]">Agent.create({'{'}cloud:{'{'}repos: [{'{'}url, prUrl{'}'}]{'}'}{'}'})</code>{' '}
-                from CI. Snyk catches the vulnerability, Cursor orchestrates the patch, and the merge
-                stays blocked until the exploit replay reports zero leaked rows. Same SDK call, every
-                stage of the pipeline.
+              <p className="text-sm md:text-base text-text-secondary max-w-xl mx-auto">
+                Snyk catches the vulnerability. The Cursor agent writes the patch, re-runs the
+                exploit to prove it&apos;s gone, and opens a pull request for a human to review.
+                You&apos;ll see every step.
               </p>
             </div>
 
-            {/* Shift-left spine on the hero */}
-            <div className="max-w-4xl mx-auto mb-10">
-              <ShiftLeftStages active="pr-gate" covered={['ide', 'commit']} />
-            </div>
-
+            {/* CTA pill above the trigger */}
             <div className="flex justify-center mb-6">
               <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#4C44CB]/10 border border-[#4C44CB]/30 shadow-[0_0_24px_rgba(76,68,203,0.2)]">
                 <MousePointerClick className="w-3.5 h-3.5 text-[#9F98FF]" />
                 <span className="text-xs md:text-sm text-text-primary font-medium">
-                  Click <span className="text-[#9F98FF] font-semibold">Run pre-merge security check</span> to start the demo
+                  Click <span className="text-[#9F98FF] font-semibold">Run security check</span> to start the demo
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-[#9F98FF] animate-bounce" />
               </div>
@@ -129,26 +125,50 @@ export default function SnykDemoPage() {
               </div>
             </DemoVulnBoundary>
 
-            <section className="mt-24">
+            {/* Plain-English 3-step explainer */}
+            <section className="mt-20 max-w-4xl mx-auto">
+              <p className="text-center text-[11px] font-mono uppercase tracking-[0.22em] mb-3" style={{ color: '#9F98FF' }}>
+                What you&apos;re about to watch
+              </p>
+              <h2 className="text-center text-xl md:text-2xl font-semibold text-text-primary mb-8">
+                Three things, in plain English.
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <SimpleStep
+                  number="1"
+                  icon={<ShieldAlert className="w-5 h-5" />}
+                  title="Snyk catches the bug"
+                  body="A real attack returns the entire customer table. Snyk identifies the bad pattern in the code."
+                  tone="red"
+                />
+                <SimpleStep
+                  number="2"
+                  icon={<Bot className="w-5 h-5" />}
+                  title="The agent fixes it"
+                  body="It rewrites the unsafe line, upgrades the vulnerable library, and re-runs the same attack to prove the fix works."
+                  tone="indigo"
+                />
+                <SimpleStep
+                  number="3"
+                  icon={<GitPullRequest className="w-5 h-5" />}
+                  title="A human reviews"
+                  body="A pull request lands with the patch and the proof. The agent never merges code on its own."
+                  tone="green"
+                />
+              </div>
+            </section>
+
+            <section className="mt-20">
               <SeverityComparison />
             </section>
 
             <section className="mt-16">
               <GuardrailsPanel />
             </section>
-
-            <div className="mt-20 text-center max-w-2xl mx-auto px-6">
-              <p className="text-sm text-text-tertiary">
-                One SDK call. Five stages of coverage. Three models, one PR ready for review.
-                <span className="text-text-secondary ml-1">
-                  This is what Cursor as the security automation layer looks like.
-                </span>
-              </p>
-            </div>
           </div>
         )}
 
-        {/* ERROR */}
+        {/* ERROR (full takeover) */}
         {phase === 'error' && error && (
           <FullVulnPage error={error} onGo={handleGo} onReset={handleReset} />
         )}
@@ -157,55 +177,34 @@ export default function SnykDemoPage() {
         {isActive && error && (
           <div className="px-6 pb-24">
             <div className="text-center mb-6 mt-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E11D48]/10 border border-[#E11D48]/25 mb-3">
+              <div
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3"
+                style={{
+                  background: phase === 'complete' ? 'rgba(74,222,128,0.10)' : 'rgba(76,68,203,0.10)',
+                  border: phase === 'complete' ? '1px solid rgba(74,222,128,0.30)' : '1px solid rgba(76,68,203,0.30)',
+                }}
+              >
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
-                    phase === 'complete' ? 'bg-accent-green' : 'bg-[#FB7185] animate-pulse'
+                    phase === 'complete' ? 'bg-accent-green' : 'bg-[#9F98FF] animate-pulse'
                   }`}
                 />
                 <span
-                  className={`text-[11px] font-mono uppercase tracking-wider ${
-                    phase === 'complete' ? 'text-accent-green' : 'text-[#FB7185]'
-                  }`}
+                  className="text-[11px] font-mono uppercase tracking-wider"
+                  style={{ color: phase === 'complete' ? '#4ADE80' : '#9F98FF' }}
                 >
-                  {phase === 'complete' ? 'Run finished · gate clear' : 'SDK run · streaming'}
+                  {phase === 'complete' ? 'Done · ready for review' : 'Agent at work'}
                 </span>
               </div>
               <h2 className="text-xl md:text-2xl font-semibold text-text-primary">
                 {phase === 'complete'
-                  ? 'Patch proposed · all artifacts ready for review.'
-                  : 'Cursor SDK is orchestrating the fix on PR #214'}
+                  ? 'The fix is ready. Inspect what the agent produced.'
+                  : 'Six steps. About two minutes of agent work, replayed in real time.'}
               </h2>
             </div>
 
-            <div className="w-full max-w-6xl mx-auto space-y-4">
-              {/* SDK code panel up top */}
-              <SDKCodePanel active={isActive} />
-
-              {/* Split: Left = vuln + SDK identity, Right = SDK orchestration panel */}
-              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.3fr)] gap-4 items-stretch">
-                <div className="min-h-[640px]">
-                  <SDKRunSummary
-                    error={error}
-                    onReset={handleReset}
-                    onViewSnyk={() => openArtifact('snyk')}
-                  />
-                </div>
-
-                <div className="hidden md:flex items-center justify-center">
-                  <div className="bg-dark-bg rounded-full w-8 h-8 flex items-center justify-center border border-dark-border">
-                    <ArrowRight className="w-3.5 h-3.5 text-text-tertiary" />
-                  </div>
-                </div>
-
-                <div className="min-h-[640px] max-h-[calc(100vh-240px)]">
-                  <SDKOrchestrationPanel
-                    onComplete={handleConsoleComplete}
-                    forcedStatus={phase === 'complete' ? 'FINISHED' : undefined}
-                  />
-                </div>
-              </div>
-
+            <div className="w-full max-w-5xl mx-auto">
+              <AgentStage onComplete={handleStageComplete} />
               {phase === 'complete' && <ArtifactCards onOpen={openArtifact} />}
             </div>
           </div>
@@ -216,6 +215,46 @@ export default function SnykDemoPage() {
       {artifact === 'jira' && <JiraTicket onClose={closeArtifact} />}
       {artifact === 'pr' && <PrModal onClose={closeArtifact} />}
       {artifact === 'snyk' && <SnykModal onClose={closeArtifact} />}
+    </div>
+  );
+}
+
+function SimpleStep({
+  number,
+  icon,
+  title,
+  body,
+  tone,
+}: {
+  number: string;
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  tone: 'red' | 'indigo' | 'green';
+}) {
+  const accent =
+    tone === 'red'
+      ? { color: '#FB7185', bg: 'rgba(225,29,72,0.10)', border: 'rgba(225,29,72,0.30)' }
+      : tone === 'green'
+        ? { color: '#4ADE80', bg: 'rgba(74,222,128,0.10)', border: 'rgba(74,222,128,0.30)' }
+        : { color: '#9F98FF', bg: 'rgba(76,68,203,0.10)', border: 'rgba(76,68,203,0.30)' };
+
+  return (
+    <div
+      className="rounded-xl border p-5"
+      style={{ background: 'rgb(var(--dark-surface))', borderColor: 'rgb(var(--dark-border))' }}
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <span
+          className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
+          style={{ background: accent.bg, color: accent.color, border: `1px solid ${accent.border}` }}
+        >
+          {number}
+        </span>
+        <div style={{ color: accent.color }}>{icon}</div>
+        <p className="text-sm font-semibold text-text-primary">{title}</p>
+      </div>
+      <p className="text-[13px] text-text-secondary leading-relaxed">{body}</p>
     </div>
   );
 }

@@ -60,9 +60,9 @@ export function SdkCodePanel({ workflow }: SdkCodePanelProps) {
       <div className="px-3 py-2 border-b border-dark-border bg-dark-surface/60 shrink-0">
         <p className="text-[11px] text-text-secondary leading-snug">
           <span className="text-accent-blue font-semibold">This is real, runnable code.</span>{' '}
-          A customer drops it into their existing API server. When the chosen tool fires a webhook,
-          this handler launches a Cursor agent with the right MCPs and the right prompt to do exactly
-          what you picked.
+          Drop this into an API server. When the chosen tool fires a webhook, this handler
+          launches a Cursor agent with the right MCPs and prompt to automatically resolve an
+          incident.
         </p>
       </div>
 

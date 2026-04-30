@@ -1,23 +1,23 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { GitPullRequest, Loader2, ShieldAlert, ShieldCheck, Play } from 'lucide-react';
+import { GitPullRequest, Loader2, Play, ShieldAlert, ShieldCheck } from 'lucide-react';
 import type { CustomerRecord } from '@/lib/demo/customer-store';
-import { ShiftLeftStages } from './shift-left-stages';
 import { VulnerabilityExposureError } from './customer-profile-card';
 
 /**
- * Pre-merge security gate trigger card. Replaces v1's `CustomerProfileCard`
- * visual framing — but uses the same exploit fetch under the hood, so the
- * leak is still real.
+ * The trigger card. Visually a clean GitHub-style PR row with one button.
  *
- * The card looks like a CI status panel in a code-review UI: PR header,
- * 5-stage shift-left progress, the SDK call that runs Stage 3, and a
- * `Run pre-merge security check` button.
+ * Under the hood it still hits the real exploit endpoint so the leak is
+ * real, but everything visually noisy in v2 (the 5-stage spine, the SDK
+ * code line, the icon row) is gone. The only thing the buyer sees is:
+ *
+ *   PR #214 · feat: add internal customer lookup
+ *   [ Run security check ]
  */
 
 const INJECTION_PAYLOAD = `' || '1'=='1`;
-const HOLD_AFTER_LEAK_MS = 1800;
+const HOLD_AFTER_LEAK_MS = 1600;
 
 interface LookupResponse {
   matched: number;
@@ -65,9 +65,9 @@ export function SDKPipelineCard() {
   }
 
   return (
-    <div className="w-full max-w-xl mx-auto">
+    <div className="w-full max-w-md mx-auto">
       <div
-        className="rounded-xl border overflow-hidden"
+        className="rounded-2xl border overflow-hidden shadow-[0_8px_32px_-12px_rgba(0,0,0,0.5)]"
         style={{ background: 'rgb(var(--dark-surface))', borderColor: 'rgb(var(--dark-border))' }}
       >
         {/* PR header */}
@@ -76,93 +76,44 @@ export function SDKPipelineCard() {
           style={{ background: 'rgb(var(--dark-bg))', borderColor: 'rgb(var(--dark-border))' }}
         >
           <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            className="w-9 h-9 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(76,68,203,0.15)', border: '1px solid rgba(76,68,203,0.30)' }}
           >
             <GitPullRequest className="w-4 h-4" style={{ color: '#9F98FF' }} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-[11px] mb-0.5" style={{ color: '#7C7CA0' }}>
-              <span className="font-mono truncate">cursor-demos/cursor-for-enterprise</span>
-              <span>·</span>
-              <span className="font-mono">PR #214</span>
-            </div>
+            <p className="text-[11px] font-mono mb-0.5" style={{ color: '#7C7CA0' }}>
+              Pull request #214
+            </p>
             <p className="text-sm font-medium text-text-primary truncate">
               feat: add internal customer lookup
             </p>
           </div>
-          <span
-            className="px-2 py-0.5 rounded-full text-[10px] font-medium"
-            style={{ background: 'rgba(76,68,203,0.15)', border: '1px solid rgba(76,68,203,0.30)', color: '#9F98FF' }}
-          >
-            opened by marcus.a
-          </span>
         </div>
 
         {/* Body */}
         <div className="p-5 space-y-4">
-          {/* 5-stage spine */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10.5px] font-mono uppercase tracking-wider" style={{ color: '#9F98FF' }}>
-                Shift-left CI pipeline
-              </p>
-              <p className="text-[10.5px] font-mono" style={{ color: '#7C7CA0' }}>
-                Stage 3 of 5
-              </p>
-            </div>
-            <ShiftLeftStages
-              active="pr-gate"
-              covered={['ide', 'commit']}
-              variant="card"
-            />
-          </div>
-
-          {/* SDK call line */}
-          <div
-            className="rounded-md border overflow-hidden"
-            style={{ background: '#0A0B23', borderColor: '#23264F' }}
-          >
-            <div
-              className="px-3 py-1.5 border-b flex items-center justify-between"
-              style={{ background: '#13142F', borderColor: '#23264F' }}
-            >
-              <span className="text-[10.5px] font-mono uppercase tracking-wider" style={{ color: '#9F98FF' }}>
-                Stage 3 · Cursor SDK call
-              </span>
-              <span className="text-[10px] font-mono" style={{ color: '#7C7CA0' }}>
-                ci/security-gate.ts
-              </span>
-            </div>
-            <pre
-              className="px-3 py-2 text-[11.5px] font-mono leading-relaxed whitespace-pre-wrap break-words"
-              style={{ color: '#C9C9E5' }}
-            >
-{`Agent.create({
-  cloud: { repos: [{ url, prUrl }] },
-  mcpServers: { snyk, jira },
-}).send(buildSecurityGatePrompt(...));`}
-            </pre>
-          </div>
-
-          {/* CI check status row */}
+          {/* Live status */}
           {response ? (
             <CheckRow
               icon={<ShieldAlert className="w-4 h-4" />}
               tone="red"
-              title={`security-gate · failed (${response.matched} records exposed)`}
-              detail="Snyk Code · NoSQL injection (CWE-943) confirmed by exploit replay. Merge blocked."
+              title="Security check failed"
+              detail={`The new lookup leaked ${response.matched} customer records to a single crafted request.`}
+            />
+          ) : processing ? (
+            <CheckRow
+              icon={<Loader2 className="w-4 h-4 animate-spin" />}
+              tone="amber"
+              title="Running security check"
+              detail="Cursor is replaying the AppSec test against this pull request."
             />
           ) : (
             <CheckRow
-              icon={processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-              tone={processing ? 'amber' : 'neutral'}
-              title={processing ? 'security-gate · running' : 'security-gate · idle'}
-              detail={
-                processing
-                  ? 'POST /v1/agents · Cursor SDK provisioning a cloud agent for the PR…'
-                  : 'Click below to run Stage 3 against this PR.'
-              }
+              icon={<ShieldCheck className="w-4 h-4" />}
+              tone="neutral"
+              title="Security check pending"
+              detail="Click below to run the pre-merge security check before this PR can merge."
             />
           )}
 
@@ -178,18 +129,18 @@ export function SDKPipelineCard() {
             {processing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Running pre-merge security check...
+                Running security check...
               </>
             ) : (
               <>
                 <Play className="w-4 h-4" />
-                Run pre-merge security check
+                Run security check
               </>
             )}
           </button>
 
           <p className="text-[11px] text-center" style={{ color: '#7C7CA0' }}>
-            Calls the real endpoint &mdash; the leak is not simulated
+            The leak is real, not simulated.
           </p>
         </div>
       </div>
@@ -217,17 +168,17 @@ function CheckRow({
 
   return (
     <div
-      className="rounded-md border p-3 flex gap-3"
+      className="rounded-lg border p-3.5 flex gap-3"
       style={{ background: accent.bg, borderColor: accent.border }}
     >
       <div className="shrink-0 mt-0.5" style={{ color: accent.color }}>
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[12.5px] font-medium" style={{ color: accent.color }}>
+        <p className="text-sm font-medium" style={{ color: accent.color }}>
           {title}
         </p>
-        <p className="text-[11.5px] mt-0.5" style={{ color: '#9FA0BC' }}>
+        <p className="text-[12.5px] mt-0.5" style={{ color: '#9FA0BC' }}>
           {detail}
         </p>
       </div>

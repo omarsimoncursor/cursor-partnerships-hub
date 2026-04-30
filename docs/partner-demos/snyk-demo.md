@@ -3,6 +3,16 @@
 > **Purpose of this document:** Self-contained spec for building an interactive
 > live security-fix demo at `/partnerships/snyk/demo`, patterned on the existing
 > Sentry and Datadog demos. Read end-to-end before writing any code.
+>
+> **v2 (current):** The demo has been re-imagined around the **Cursor SDK**
+> (`@cursor/february/agent`) and a **shift-left AppSec organization**. The
+> v1 reactive "production webhook" framing is preserved as Stage 5 — the
+> production safety net — but the headline surface is now a **pre-merge
+> security gate** that calls `Agent.create({ cloud: { repos } })` and streams
+> `SDKMessage` events back into the UI. Visualizations borrowed from the
+> Datadog demo: flame graph (now used for the vulnerability data flow + the
+> SDK tool-call timeline), top-nav/sub-nav/status-bar/sidebar chrome, and the
+> dark-mode telemetry aesthetic. See section 13 for the full v2 brief.
 
 ---
 
@@ -420,3 +430,199 @@ Required steps in order (enforced in `buildAgentPrompt`):
 | `src/lib/demo/region-store.ts`           | `src/lib/demo/customer-store.ts`              |
 | `src/app/api/datadog-webhook/route.ts`   | `src/app/api/snyk-webhook/route.ts`           |
 | `scripts/reset-datadog-demo.sh`          | `scripts/reset-snyk-demo.sh`                  |
+
+---
+
+## 13. v2 — Cursor SDK + shift-left rebuild
+
+### 13.1 Why v2
+
+Two requests, one rebuild:
+
+1. **Showcase the Cursor SDK** (`@cursor/february/agent` v1.0.7, plus the v1
+   Cloud Agents REST API) as the primary integration surface, not just an
+   abstract "background agent" that disappears behind a webhook.
+2. **Re-frame the buyer.** Snyk's enterprise audience is the AppSec org and
+   their devsecops platform team. They've already bought "shift left" as an
+   org chart. The demo should show the SDK embedded across **every** lifecycle
+   stage (IDE → pre-commit → PR → pre-merge gate → nightly → production), with
+   the headline interactive surface being the **pre-merge security gate** that
+   blocks the merge until Cursor ships a tested fix.
+
+The original v1 webhook flow remains, re-cast as **Stage 5: production safety
+net** for the production-incident case where shift-left didn't catch the bug
+in time.
+
+### 13.2 Visualization heritage from the Datadog demo
+
+The Datadog demo's strongest visual ideas are reused, with their semantics
+re-pointed at security:
+
+| Datadog visualization                              | Snyk v2 reuse                                                                                                            |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Flame graph (parent + stacked serial child spans)  | **VulnFlowGraph** — tainted source as parent, every hop down to the sink as stacked colored bars; sink row marked danger |
+| Flame graph (second use)                           | **SDKToolCallGraph** — each `tool_call` from the SDK stream as a stacked row, colored by tool kind, durations real       |
+| TopNav + SubNav + StatusBar + TabBar + sidebar     | **SDKOrchestrationPanel** chrome around the live SDK run                                                                 |
+| Latency sparkline w/ SLO marker                    | **ShiftLeftStages** strip — five stages with a moving "where this fix landed" marker                                     |
+| Right-sidebar KV + Tags + Related sections         | **SDKRunSummary** — `agent.agentId` (`bc-…`), `run.id`, `run.status`, model, tools-used, MCP servers, settingSources     |
+| Bottom timeline summary strip                      | Reused verbatim under both flame graphs to summarize critical path                                                       |
+| Datadog dark slate `#17171F` + indigo accent       | Replaced with Snyk navy `#0E0F2C` + indigo `#4C44CB` — same chrome, partner-correct palette                              |
+
+### 13.3 The five shift-left stages
+
+The narrative page renders these as the spine of the partnership; the demo
+page renders Stage 3 as the live interactive surface, with Stage 5 cited as
+the safety net (and the existing webhook route stays wired up).
+
+| Stage | Where                       | SDK call                                                                            | Outcome                                                                  |
+| ----- | --------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1     | IDE (developer's laptop)    | `Agent.create({ local: { cwd } })` — Snyk Code MCP loaded via `local.settingSources`| Snyk CWE finding becomes an inline Cursor suggestion as the dev types    |
+| 2     | Pre-commit hook             | Same, run from `husky` / `lefthook`                                                 | The dev cannot commit a tainted-input flow — the agent rewrites it first |
+| 3     | **Pre-merge security gate** | `Agent.create({ cloud: { repos: [{ url, prUrl }] } })` from CI                      | **The interactive surface.** Blocks the merge until the fix lands       |
+| 4     | Nightly Snyk re-scan        | `Agent.resume(agentId).send(...)` from a scheduled job                              | New advisories on existing dependencies become PRs the next morning      |
+| 5     | Production safety net       | `/api/snyk-webhook` -> `POST /v1/agents`                                            | Reactive fallback when something slipped past stages 1–4                 |
+
+### 13.4 The pre-merge gate trigger surface
+
+Replaces v1's "Customer Profile API" card with a **Pre-Merge Security Gate**
+card that renders like a CI status panel:
+
+- Repo / branch / PR badge: `cursor-demos/cursor-for-enterprise · #214 ·
+  feat: add internal customer lookup`.
+- Five-stage shift-left progress bar (stages 1, 2, 4 green; 3 spinning;
+  5 dimmed = "no production incident").
+- A small `[Run pre-merge security check]` button. Clicking it:
+  1. Hits `/api/customer-profile/lookup` with the canonical injection payload
+     so the leak is real (unchanged from v1 — same vulnerable code).
+  2. Surfaces the leak as a "PR check failure" pane for ~1.5s.
+  3. Pivots to the full-screen takeover, now framed as **"Merge blocked by
+     Snyk × Cursor SDK security gate"** instead of a generic vulnerability
+     page.
+
+### 13.5 The SDK orchestration panel (running phase)
+
+Three stacked surfaces inside the right-side area, in this order:
+
+1. **`SDKCodePanel`** (top, ~240px tall) — the actual TypeScript code the
+   customer's CI runs, syntax-highlighted, with the same chrome as the
+   Datadog code-frame:
+
+   ```ts
+   import { Agent } from "@cursor/february/agent";
+
+   const agent = Agent.create({
+     apiKey: process.env.CURSOR_API_KEY!,
+     model: { id: "composer-2" },
+     cloud: {
+       repos: [
+         {
+           url: "https://github.com/cursor-demos/cursor-for-enterprise",
+           prUrl: "https://github.com/cursor-demos/cursor-for-enterprise/pull/214",
+         },
+       ],
+     },
+     mcpServers: {
+       snyk: { type: "http", url: "https://mcp.snyk.io/v1" },
+       jira: { type: "http", url: "https://mcp.atlassian.com/v1" },
+     },
+   });
+
+   const run = await agent.send(buildSecurityGatePrompt({ ... }), {
+     onStep: ({ step }) => emitToCI(step),
+   });
+
+   for await (const event of run.stream()) {
+     if (event.type === "tool_call") recordToolSpan(event);
+     if (event.type === "status") updateGate(event.status);
+   }
+   ```
+
+   A tiny header pill shows `agent.agentId = bc-7c09...` and
+   `run.id = run-9a4d...` populating live as the run starts.
+
+2. **`SDKOrchestrationPanel`** (middle) — a Datadog-trace-chrome wrapper
+   around the agent console. TopNav shows `cursor-sdk · @cursor/february
+   v1.0.7`. SubNav shows `Agents > bc-7c09... > runs > run-9a4d...`. A
+   StatusBar with five cells: `Status (RUNNING/FINISHED)`, `Tool calls`,
+   `Tokens`, `Elapsed`, `Model`. Tabs: `Stream`, `Tool calls`, `Conversation`,
+   `Artifacts`. The live console is the `Stream` tab content.
+
+3. **`SDKToolCallGraph`** (bottom, accessible via the `Tool calls` tab) —
+   reuses the Datadog flame-graph component pattern. Each row is one
+   `SDKToolUseMessage`, indented by depth, colored by tool kind:
+   - `mcp:snyk-code/*` indigo,
+   - `mcp:github/*` neutral,
+   - `mcp:jira/*` blue,
+   - `shell:*` green,
+   - `read_file`, `edit`, `write_file` violet.
+
+### 13.6 The vulnerability flow graph (left split panel)
+
+Replaces v1's `VulnSummary` "tainted-flow text block" with **`VulnFlowGraph`**:
+a Datadog-style flame graph where the parent bar is the tainted **source**
+(`request.query.username`) and each child is one hop down to the sink
+(`CUSTOMERS.filter(matchesSelector)`). The sink row gets a red border and a
+"⚠ sink" tag. The graph header shows the CWE/CVSS chips just like the
+Datadog status bar.
+
+### 13.7 SDK telemetry types (real, not invented)
+
+`src/lib/cursor-sdk/types.ts` re-exports a *subset* of the SDK's public types,
+typed locally to match the v1.0.7 shape:
+
+```ts
+export type SDKMessage =
+  | { type: 'user'; message: { content: Array<{ type: 'text'; text: string }> } }
+  | { type: 'assistant'; message: { content: Array<{ type: 'text'; text: string }> } }
+  | { type: 'thinking'; text: string }
+  | {
+      type: 'tool_call';
+      call_id: string;
+      name: string;
+      status: 'started' | 'completed' | 'failed';
+      args?: unknown;
+      result?: unknown;
+      truncated?: boolean;
+    }
+  | { type: 'status'; status: 'CREATING' | 'RUNNING' | 'FINISHED' | 'ERROR' | 'CANCELLED' }
+  | { type: 'task'; text: string }
+  | { type: 'system'; text?: string };
+```
+
+The mock-events file in `src/lib/cursor-sdk/mock-events.ts` produces a
+deterministic ~28-event stream of these messages that drives the agent
+console and the SDK tool-call graph. `mock-events` deliberately does **not**
+import from `@cursor/february` — the SDK is a private alpha and the
+demo must build cleanly without that package installed. The types are
+mirrored.
+
+### 13.8 Files added / changed in v2
+
+```
+docs/partner-demos/snyk-demo.md                                   APPENDED v2 section
+
+src/lib/cursor-sdk/types.ts                                       NEW (mirrored SDKMessage types)
+src/lib/cursor-sdk/mock-events.ts                                 NEW (deterministic event stream)
+src/lib/cursor-sdk/example-snippets.ts                            NEW (the SDK code shown in the panel)
+
+src/components/snyk-demo/sdk-pipeline-card.tsx                    NEW (replaces customer-profile-card visually; same trigger)
+src/components/snyk-demo/sdk-orchestration-panel.tsx              NEW (Datadog-trace chrome around the SDK live run)
+src/components/snyk-demo/sdk-code-panel.tsx                       NEW (the Agent.create + agent.send snippet)
+src/components/snyk-demo/sdk-run-summary.tsx                      NEW (left split panel with SDK run state)
+src/components/snyk-demo/vuln-flow-graph.tsx                      NEW (Datadog-style flame graph for the taint flow)
+src/components/snyk-demo/shift-left-stages.tsx                    NEW (5-stage spine)
+src/components/snyk-demo/agent-console.tsx                        REWRITTEN (SDKMessage channels, agent/run header, no fixed labels)
+src/components/snyk-demo/full-vuln-page.tsx                       REWRITTEN (pre-merge gate framing)
+
+src/app/partnerships/snyk/page.tsx                                REWRITTEN (5 stages + SDK code)
+src/app/partnerships/snyk/demo/page.tsx                           REWRITTEN (state machine wires the new components)
+
+src/components/snyk-demo/customer-profile-card.tsx                KEPT (re-exports VulnerabilityExposureError used by the new card)
+src/components/snyk-demo/vuln-summary.tsx                         REMOVED (replaced by SDKRunSummary)
+src/components/snyk-demo/agent-console.tsx                        REMOVED (replaced by SDKOrchestrationPanel)
+```
+
+The vulnerable code (`src/lib/demo/customer-profile.ts`,
+`src/lib/demo/customer-store.ts`), the API route, the four artifact modals,
+the webhook route, and the reset script are all unchanged. The exploit is
+still real, the artifact set is unchanged, and the demo is still repeatable.

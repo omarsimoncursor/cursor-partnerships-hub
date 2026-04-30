@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ChevronRight, Cpu, Play, RotateCcw } from 'lucide-react';
 import { applyAccountName, type Vendor } from '@/lib/prospect/vendors';
+import { VendorStage } from './stages';
+import type { StageStatus } from './stages/types';
 
-const STEP_INTERVAL_MS = 1100;
+const STEP_INTERVAL_MS = 1300;
 
 type Props = {
   vendor: Vendor;
@@ -55,11 +57,11 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
     };
   }, [running, activeStep, scenario.steps.length]);
 
-  const visibleSteps = scenario.steps.slice(0, Math.max(0, completed ? scenario.steps.length : activeStep + 1));
-
   const accent = vendor.brand;
   const headline = applyAccountName(scenario.headline, account);
   const subheadline = applyAccountName(scenario.subheadline, account);
+
+  const stageStatus: StageStatus = completed ? 'complete' : running ? 'running' : 'idle';
 
   return (
     <article
@@ -67,6 +69,7 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
       className="rounded-2xl border overflow-hidden"
       style={{ borderColor: `${accent}33`, background: `${accent}08` }}
     >
+      {/* Header */}
       <header
         className="px-6 py-5 border-b flex flex-wrap items-center gap-4"
         style={{ borderColor: `${accent}26`, background: `${accent}12` }}
@@ -103,14 +106,14 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
         </span>
       </header>
 
-      <div className="grid lg:grid-cols-[1.1fr_1fr]">
-        <div className="p-6 border-b lg:border-b-0 lg:border-r border-dark-border space-y-4">
-          <div>
-            <h4 className="text-base font-semibold text-text-primary leading-snug">{headline}</h4>
-            <p className="text-sm text-text-secondary mt-2 leading-relaxed">{subheadline}</p>
+      {/* Headline + controls */}
+      <div className="px-6 py-5 border-b border-dark-border">
+        <div className="flex flex-wrap items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <h4 className="text-base md:text-lg font-semibold text-text-primary leading-snug">{headline}</h4>
+            <p className="text-sm text-text-secondary mt-1.5 leading-relaxed">{subheadline}</p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={start}
               disabled={running}
@@ -118,7 +121,7 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
               style={{ background: accent, color: '#0a0a0a' }}
             >
               <Play className="w-3.5 h-3.5" />
-              {running ? 'Running...' : completed ? 'Replay agent' : 'Run agent'}
+              {running ? 'Running...' : completed ? 'Replay' : 'Run agent'}
             </button>
             {(running || completed) && (
               <button
@@ -130,29 +133,28 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
               </button>
             )}
           </div>
+        </div>
+      </div>
 
-          {completed && (
-            <div className="rounded-lg border border-accent-green/25 bg-accent-green/5 p-4">
-              <p className="text-[11px] uppercase tracking-wider font-mono text-accent-green mb-2 inline-flex items-center gap-1.5">
-                <CheckCircle2 className="w-3 h-3" /> Outcome for {account}
-              </p>
-              <ul className="space-y-1.5">
-                {scenario.outcomes.map((o, i) => (
-                  <li key={i} className="text-sm text-text-secondary flex gap-2">
-                    <ChevronRight className="w-3.5 h-3.5 text-accent-green shrink-0 mt-0.5" />
-                    <span>{applyAccountName(o, account)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+      {/* Stage + step timeline */}
+      <div className="grid lg:grid-cols-[1.5fr_1fr]">
+        <div className="p-6 lg:border-r border-dark-border">
+          <VendorStage
+            vendor={vendor}
+            totalSteps={scenario.steps.length}
+            activeStep={activeStep}
+            status={stageStatus}
+            account={account}
+            brand={accent}
+            pageAccent={pageAccent}
+          />
         </div>
 
-        <div className="p-6">
+        <div className="p-6 border-t lg:border-t-0 border-dark-border">
           <p className="text-[11px] uppercase tracking-wider font-mono text-text-tertiary mb-3 inline-flex items-center gap-1.5">
-            <Cpu className="w-3 h-3" /> Cursor agent run
+            <Cpu className="w-3 h-3" /> Cursor agent timeline
           </p>
-          <ol className="space-y-2.5">
+          <ol className="space-y-2">
             {scenario.steps.map((step, i) => {
               const status = completed
                 ? 'done'
@@ -161,18 +163,16 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
                   : i === activeStep && running
                     ? 'active'
                     : 'pending';
-              const visible = visibleSteps.length > i;
               return (
                 <li
                   key={i}
-                  className="rounded-lg border px-3 py-2.5 transition-all"
+                  className="rounded-lg border px-3 py-2 transition-all"
                   style={{
                     borderColor: status === 'active' ? `${accent}66` : status === 'done' ? `${accent}33` : 'rgba(237,236,236,0.06)',
                     background: status === 'active' ? `${accent}14` : status === 'done' ? `${accent}08` : 'rgba(237,236,236,0.02)',
-                    opacity: visible ? 1 : 0.45,
                   }}
                 >
-                  <div className="flex items-center gap-3 mb-1">
+                  <div className="flex items-center gap-2.5 mb-0.5">
                     <span
                       className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono shrink-0"
                       style={{
@@ -183,7 +183,7 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
                     >
                       {status === 'done' ? '\u2713' : i + 1}
                     </span>
-                    <p className="text-sm font-medium text-text-primary">{step.label}</p>
+                    <p className="text-[13px] font-medium text-text-primary leading-tight">{step.label}</p>
                     {status === 'active' && (
                       <span
                         className="ml-auto text-[10px] font-mono uppercase tracking-wider animate-pulse"
@@ -193,9 +193,11 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-text-secondary mb-1.5 ml-8">{applyAccountName(step.detail, account)}</p>
+                  <p className="text-[11.5px] text-text-secondary mb-1 ml-7 leading-snug">
+                    {applyAccountName(step.detail, account)}
+                  </p>
                   <pre
-                    className="ml-8 text-[11px] font-mono px-2.5 py-1.5 rounded bg-dark-bg/60 border border-dark-border overflow-x-auto"
+                    className="ml-7 text-[10.5px] font-mono px-2 py-1 rounded bg-dark-bg/60 border border-dark-border overflow-x-auto"
                     style={{ color: status === 'done' ? accent : '#a3a3a3' }}
                   >
                     {step.code}
@@ -206,6 +208,23 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
           </ol>
         </div>
       </div>
+
+      {/* Outcomes footer */}
+      {completed && (
+        <div className="px-6 py-5 border-t border-accent-green/20 bg-accent-green/5">
+          <p className="text-[11px] uppercase tracking-wider font-mono text-accent-green mb-2 inline-flex items-center gap-1.5">
+            <CheckCircle2 className="w-3 h-3" /> Outcome for {account}
+          </p>
+          <ul className="grid sm:grid-cols-3 gap-2">
+            {scenario.outcomes.map((o, i) => (
+              <li key={i} className="text-[13px] text-text-secondary flex gap-2">
+                <ChevronRight className="w-3.5 h-3.5 text-accent-green shrink-0 mt-0.5" />
+                <span>{applyAccountName(o, account)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </article>
   );
 }

@@ -8,8 +8,11 @@ import {
   ChevronDown,
   Code2,
   ExternalLink,
+  Gauge,
   Layers,
+  Plug,
   Sparkles,
+  Workflow,
 } from 'lucide-react';
 import {
   getVendorsFor,
@@ -17,6 +20,7 @@ import {
   type ProspectConfig,
 } from '@/lib/prospect/config';
 import { AccountLogo } from '@/components/prospect/account-logo';
+import { AuroraBackdrop } from '@/components/prospect/aurora-backdrop';
 import { VendorDemoCard } from '@/components/prospect/vendor-demo-card';
 import { SdkComposer } from '@/components/prospect/sdk-composer';
 import { RoiCalculator } from '@/components/prospect/roi-calculator';
@@ -40,15 +44,8 @@ export function ProspectPage({ config }: Props) {
   }, [accent]);
 
   return (
-    <div className="min-h-screen">
-      {/* Light brand wash so the page feels owned by the prospect */}
-      <div
-        aria-hidden
-        className="fixed inset-0 -z-10 pointer-events-none"
-        style={{
-          background: `radial-gradient(60% 40% at 50% 0%, ${accent}1f 0%, transparent 70%)`,
-        }}
-      />
+    <div className="min-h-screen relative">
+      <AuroraBackdrop accent={accent} />
 
       <nav className="fixed top-0 left-0 right-0 z-30 py-4 px-6 bg-dark-bg/80 backdrop-blur-xl border-b border-dark-border">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -68,64 +65,95 @@ export function ProspectPage({ config }: Props) {
       <main className="pt-24 pb-24 px-6">
         <div className="max-w-6xl mx-auto">
           {/* Hero */}
-          <header className="grid md:grid-cols-[auto_1fr] gap-6 items-start mb-16">
-            <div className="flex items-center gap-4">
-              <AccountLogo domain={config.domain} account={config.account} accent={accent} size={64} />
-              <span
-                className="hidden md:flex w-px h-12 self-center"
-                style={{ background: 'rgba(237,236,236,0.12)' }}
-              />
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="px-2 py-1 rounded-md text-xs font-mono uppercase tracking-wider"
-                  style={{ background: `${accent}1a`, color: accent }}
-                >
-                  Cursor
-                </span>
-                <span className="text-text-tertiary">x</span>
-                <span className="px-2 py-1 rounded-md text-xs font-mono uppercase tracking-wider bg-dark-surface text-text-secondary border border-dark-border">
-                  {config.account}
-                </span>
-              </div>
+          <header className="mb-14">
+            <div className="flex items-center gap-3 mb-8">
+              <AccountLogo domain={config.domain} account={config.account} accent={accent} size={56} />
+              <span className="text-text-tertiary text-2xl font-thin">{'\u00d7'}</span>
+              <AccountLogo domain="cursor.com" account="Cursor" accent="#edecec" size={56} />
             </div>
-            <div>
+            <span
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] uppercase tracking-wider font-mono mb-5 border"
+              style={{
+                background: `${accent}14`,
+                color: accent,
+                borderColor: `${accent}33`,
+              }}
+            >
+              <Sparkles className="w-3 h-3" />
+              Prepared for {config.account}
+            </span>
+            <h1 className="text-4xl md:text-6xl font-bold leading-[1.05] tracking-tight max-w-4xl">
+              <span className="text-text-primary">What Cursor unlocks across </span>
               <span
-                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] uppercase tracking-wider font-mono mb-4"
-                style={{ background: `${accent}1a`, color: accent }}
+                style={{
+                  backgroundImage: `linear-gradient(120deg, ${accent} 0%, ${accent}c0 60%, ${accent}80 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
               >
-                <Sparkles className="w-3 h-3" />
-                Prepared for {config.account}
+                {config.account}&apos;s
               </span>
-              <h1 className="text-3xl md:text-5xl font-bold text-text-primary leading-tight mb-3">
-                What Cursor unlocks across {config.account}&apos;s existing stack.
-              </h1>
-              <p className="text-base text-text-secondary max-w-2xl mb-2">
-                {config.tagline ||
-                  `An interactive demo of Cursor's MCP integrations and SDK automations against the tools ${config.account} already uses. Every workflow below is playable; the SDK composer and ROI calculator are scoped to ${config.account} specifically.`}
+              <span className="text-text-primary"> existing stack.</span>
+            </h1>
+            <p className="text-base md:text-lg text-text-secondary max-w-2xl mt-5">
+              {config.tagline ||
+                `An interactive demo of Cursor's MCP integrations and SDK automations against the tools ${config.account} already uses. Every workflow below is playable; the SDK composer and ROI calculator are scoped to ${config.account} specifically.`}
+            </p>
+            {config.rep && (
+              <p className="text-xs text-text-tertiary font-mono mt-2">
+                Prepared by {config.rep} {'\u2022'} Cursor Partnerships
               </p>
-              {config.rep && (
-                <p className="text-xs text-text-tertiary font-mono">
-                  Prepared by {config.rep} {'\u2022'} Cursor Partnerships
-                </p>
-              )}
-              <div className="flex flex-wrap items-center gap-3 mt-5">
-                <a
-                  href="#integrations"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all"
-                  style={{ background: accent, color: '#0a0a0a' }}
-                >
-                  Run the demos
-                  <ChevronDown className="w-4 h-4" />
-                </a>
-                <a
-                  href="#roi"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border transition-colors"
-                  style={{ borderColor: `${accent}55`, color: accent }}
-                >
-                  Jump to ROI for {config.account}
-                  <Calculator className="w-4 h-4" />
-                </a>
-              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-3 mt-6">
+              <a
+                href="#integrations"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold transition-all hover:scale-[1.02]"
+                style={{ background: accent, color: '#0a0a0a', boxShadow: `0 0 32px ${accent}55` }}
+              >
+                Run the demos
+                <ChevronDown className="w-4 h-4" />
+              </a>
+              <a
+                href="#composer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium border transition-colors hover:bg-dark-surface"
+                style={{ borderColor: `${accent}55`, color: accent }}
+              >
+                Compose a workflow
+                <Workflow className="w-4 h-4" />
+              </a>
+              <a
+                href="#roi"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium border border-dark-border text-text-secondary transition-colors hover:bg-dark-surface hover:text-text-primary"
+              >
+                ROI for {config.account}
+                <Calculator className="w-4 h-4" />
+              </a>
+            </div>
+
+            {/* Headline metric band */}
+            <div className="mt-10 grid sm:grid-cols-3 gap-3">
+              <HeroStat
+                icon={<Plug className="w-3.5 h-3.5" />}
+                label="Integrations live"
+                value={String(vendors.length)}
+                hint={`MCP + SDK against ${config.account}'s stack`}
+                accent={accent}
+              />
+              <HeroStat
+                icon={<Workflow className="w-3.5 h-3.5" />}
+                label="Workflows playable"
+                value={String(vendors.length + 5)}
+                hint="Per-vendor demos + SDK composer presets"
+                accent={accent}
+              />
+              <HeroStat
+                icon={<Gauge className="w-3.5 h-3.5" />}
+                label="Token cost ceiling"
+                value="−84%"
+                hint="Auto router vs. all-frontier (default sliders)"
+                accent={accent}
+              />
             </div>
           </header>
 
@@ -194,7 +222,7 @@ export function ProspectPage({ config }: Props) {
           </section>
 
           {/* SDK Composer */}
-          <section className="mb-20">
+          <section id="composer" className="mb-20">
             <SectionHeader
               icon={<Code2 className="w-4 h-4" />}
               eyebrow="SDK workflow composer"
@@ -253,6 +281,34 @@ export function ProspectPage({ config }: Props) {
           </section>
         </div>
       </main>
+    </div>
+  );
+}
+
+function HeroStat({
+  icon,
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint: string;
+  accent: string;
+}) {
+  return (
+    <div
+      className="rounded-xl border p-4 transition-colors hover:bg-dark-surface/40"
+      style={{ borderColor: `${accent}33`, background: `${accent}08` }}
+    >
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-mono mb-1.5" style={{ color: accent }}>
+        {icon}
+        {label}
+      </div>
+      <p className="text-3xl font-bold text-text-primary tabular-nums">{value}</p>
+      <p className="text-xs text-text-tertiary mt-1 leading-snug">{hint}</p>
     </div>
   );
 }

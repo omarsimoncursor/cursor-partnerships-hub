@@ -259,24 +259,10 @@ export function GitHubPRPreview() {
               </section>
 
               <section>
-                <h3 className="font-semibold text-[15px] mb-1">Provenance</h3>
-                <div className="rounded-md border border-[#30363d] bg-[#0d1117] p-3 text-[12.5px] font-mono leading-relaxed">
-                  <div className="text-[#7d8590] mb-1">Authored by Cursor SDK run via the Stage 3 pre-merge security gate.</div>
-                  <div className="grid grid-cols-[120px_1fr] gap-y-0.5">
-                    <span className="text-[#7d8590]">sdk</span>
-                    <span className="text-[#a371f7]">@cursor/february v1.0.7</span>
-                    <span className="text-[#7d8590]">agent.agentId</span>
-                    <span className="text-[#a371f7]">bc-7c09a4d2-1f48-4c1e-9c3f-0a5e4b8d3210</span>
-                    <span className="text-[#7d8590]">run.id</span>
-                    <span className="text-[#a371f7]">run-9a4d3f17-6e2b-4d09-a5e1-c08f4b7d2f55</span>
-                    <span className="text-[#7d8590]">model</span>
-                    <span className="text-[#a371f7]">composer-2</span>
-                    <span className="text-[#7d8590]">tool calls</span>
-                    <span className="text-[#e6edf3]">20 (snyk·5, github·4, jira·2, shell·5, edit·3, read·2)</span>
-                    <span className="text-[#7d8590]">stage</span>
-                    <span className="text-[#e6edf3]">3 of 5 (IDE → commit → <span className="text-[#a371f7]">PR gate</span> → nightly → prod)</span>
-                  </div>
-                </div>
+                <h3 className="font-semibold text-[15px] mb-1">Authored by</h3>
+                <p className="text-[#7d8590]">
+                  Opened by the Cursor agent via the pre-merge security gate. The agent never merges code on its own — review and merge belong to a human.
+                </p>
               </section>
 
               <section>

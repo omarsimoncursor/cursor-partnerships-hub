@@ -321,10 +321,10 @@ function IssueHeader() {
         <span className="font-mono">commit 5e9d3c2</span>
         <span>·</span>
         <span
-          className="px-1.5 py-0.5 rounded text-[10.5px] font-mono"
+          className="px-1.5 py-0.5 rounded text-[10.5px] font-mono inline-flex items-center gap-1"
           style={{ background: 'rgba(76,68,203,0.15)', border: '1px solid rgba(76,68,203,0.30)', color: '#9F98FF' }}
         >
-          fix from cursor-sdk run · run-9a4d3f17…
+          patched by Cursor agent
         </span>
         <button
           className="ml-auto h-7 px-3 rounded text-[11.5px] flex items-center gap-1 border"

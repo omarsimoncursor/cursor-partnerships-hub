@@ -302,9 +302,6 @@ process.exit(result.status === "FINISHED" ? 0 : 1);`}
       {/* Footer */}
       <footer className="py-16 px-6 border-t border-dark-border">
         <div className="max-w-2xl mx-auto text-center">
-          <p className="text-sm text-text-tertiary mb-6">
-            This page demonstrates the type of co-branded content that could be produced for each partnership motion.
-          </p>
           <div className="flex items-center justify-center gap-8">
             <Link
               href="/partnerships"

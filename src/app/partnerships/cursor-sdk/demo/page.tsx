@@ -152,6 +152,12 @@ export default function CursorSdkDemoPage() {
           iconBorder="border-accent-blue/40"
           iconColor="text-accent-blue"
           url={`api.cursor.com/v1/agents/${script.meta.agentId}/runs`}
+          frame="macbook"
+          whatIsThis={{
+            what: 'A developer-facing trace of every SDK and MCP call the agent made.',
+            who: 'Platform engineers, security operations.',
+            why: 'Drop the run ID into Splunk and you can replay exactly what the agent did, with timing.',
+          }}
         >
           <SdkCallTrace script={script} agentId={script.meta.agentId} />
         </ArtifactModal>
@@ -167,6 +173,12 @@ export default function CursorSdkDemoPage() {
           iconBorder="border-[#0F62FE]/40"
           iconColor="text-[#0F62FE]"
           url={`docs/security-incidents/${script.meta.jiraId}.md`}
+          frame="document"
+          whatIsThis={{
+            what: 'A clean chronological document of the entire incident response.',
+            who: 'CISOs, GRC, external auditors.',
+            why: 'This is the document a CISO forwards unedited. SOC 2 and ISO 27001 evidence-grade.',
+          }}
         >
           <AuditTimeline script={script} />
         </ArtifactModal>
@@ -182,6 +194,12 @@ export default function CursorSdkDemoPage() {
           iconBorder="border-[#4C9AFF]/40"
           iconColor="text-[#4C9AFF]"
           url={`acme-corp.atlassian.net/browse/${script.meta.jiraId}`}
+          frame="browser"
+          whatIsThis={{
+            what: 'The Jira ticket the security team uses to track this incident.',
+            who: 'Security team leads, incident response coordinators.',
+            why: 'Linked to every artifact the agent produced. Closes the ticket-tracking loop the security team already runs in.',
+          }}
         >
           <JiraTicket script={script} />
         </ArtifactModal>
@@ -201,6 +219,12 @@ export default function CursorSdkDemoPage() {
               ? `github.com/${script.meta.prRepo}/pull/${script.meta.prNumber}`
               : `github.com/${script.meta.prRepo}`
           }
+          frame="browser"
+          whatIsThis={{
+            what: 'The actual code change the agent proposes to fix the underlying issue.',
+            who: 'Engineers, AppSec reviewers.',
+            why: 'A human reviews and merges. Cursor never auto-merges to main. Switch to the Files changed tab to see the diff.',
+          }}
         >
           <GithubPrPreview script={script} />
         </ArtifactModal>
@@ -216,6 +240,12 @@ export default function CursorSdkDemoPage() {
           iconBorder="border-[#4A154B]/50"
           iconColor="text-[#E4A6E0]"
           url="acme.slack.com/archives/C0SECURITY"
+          frame="browser"
+          whatIsThis={{
+            what: 'The structured incident summary the agent posts in #security-incidents.',
+            who: 'On-call humans, security leadership, engineering managers.',
+            why: 'A single message answers: what happened, what was done, where to look. The on-call ack in seconds.',
+          }}
         >
           <SlackThread script={script} />
         </ArtifactModal>

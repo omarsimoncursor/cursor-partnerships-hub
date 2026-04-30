@@ -1,5 +1,14 @@
 'use client';
 
+import {
+  Bug,
+  ChevronDown,
+  Link2,
+  MessageCircle,
+  MoreHorizontal,
+  Paperclip,
+  ThumbsUp,
+} from 'lucide-react';
 import type { ResolvedScript } from '@/lib/sdk-demo/scripts/pick-script';
 
 interface JiraTicketProps {
@@ -8,164 +17,358 @@ interface JiraTicketProps {
 
 export function JiraTicket({ script }: JiraTicketProps) {
   const meta = script.meta;
+  const project = meta.jiraId.split('-').slice(0, 2).join('-');
+
   return (
-    <div className="w-full h-full bg-[#FAFBFC] text-[#172B4D] overflow-y-auto">
-      <div className="border-b border-[#DFE1E6] bg-white px-6 py-3 flex items-center gap-3">
-        <div className="w-7 h-7 rounded bg-[#0052CC] text-white text-xs font-bold flex items-center justify-center">
-          J
+    <div className="w-full h-full bg-[#1D2125] text-[#B6C2CF] font-sans overflow-y-auto">
+      {/* Top Jira bar */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-[#2C333A] bg-[#161A1D] sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 rounded flex items-center justify-center bg-[#0052CC]">
+            <span className="text-white text-[11px] font-bold">J</span>
+          </div>
+          <span className="text-[13px] text-[#9FADBC] font-medium">Jira</span>
+          <span className="text-[#7C8A99] text-xs">/</span>
+          <span className="text-[13px] text-[#9FADBC]">{project}</span>
+          <span className="text-[#7C8A99] text-xs">/</span>
+          <span className="text-[13px] text-[#9FADBC]">{meta.jiraId}</span>
         </div>
-        <span className="text-[13px] text-[#5E6C84]">Projects / CUR-SEC / </span>
-        <span className="text-[13px] font-semibold text-[#172B4D]">{meta.jiraId}</span>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-[11px] px-2 py-0.5 rounded bg-[#FFEBE6] text-[#BF2600] font-semibold border border-[#FFBDAD]">
-            P0
-          </span>
-          <span className="text-[11px] px-2 py-0.5 rounded bg-[#E3FCEF] text-[#006644] font-semibold border border-[#ABF5D1]">
-            Awaiting Review
-          </span>
+        <div className="flex items-center gap-2">
+          <input
+            placeholder="Search"
+            className="bg-[#22272B] border border-[#2C333A] rounded text-[12px] px-2 py-1 text-[#B6C2CF] placeholder:text-[#7C8A99] w-40"
+          />
+          <div className="w-6 h-6 rounded-full bg-[#1F845A]/30 flex items-center justify-center text-[10px] font-bold text-[#57D9A3]">
+            JS
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_280px] gap-6 px-6 py-5 max-w-[1100px]">
-        <div>
-          <h1 className="text-[20px] font-semibold text-[#172B4D] mb-1">{meta.jiraSummary}</h1>
-          <p className="text-[12px] text-[#5E6C84] mb-5">
-            <span className="font-mono">{meta.jiraId}</span> · Type: Security incident · Created by{' '}
-            <span className="font-medium">cursor-agent</span> · 38 seconds ago
-          </p>
-
-          <SectionLabel>Status timeline</SectionLabel>
-          <div className="flex items-center gap-2 mb-5">
-            <Pill state="done">To Triage</Pill>
-            <Arrow />
-            <Pill state="done">In Progress</Pill>
-            <Arrow />
-            <Pill state="active">Awaiting Review</Pill>
-            <Arrow />
-            <Pill state="pending">Resolved</Pill>
-          </div>
-
-          <SectionLabel>Description</SectionLabel>
-          <p className="text-[13px] leading-relaxed text-[#172B4D] mb-5">
-            {meta.incidentSummary}
-          </p>
-
-          <SectionLabel>Root cause</SectionLabel>
-          <p className="text-[13px] leading-relaxed text-[#172B4D] mb-5">{meta.rootCause}</p>
-
-          <SectionLabel>Remediation</SectionLabel>
-          <p className="text-[13px] leading-relaxed text-[#172B4D] mb-5">{meta.remediation}</p>
-
-          <SectionLabel>Linked artifacts</SectionLabel>
-          <ul className="space-y-1 mb-5">
-            {meta.evidenceLinks.map((link, i) => (
-              <li
-                key={i}
-                className="text-[13px] flex items-baseline gap-2 px-3 py-1.5 rounded bg-white border border-[#DFE1E6]"
-              >
-                <span className="text-[#0052CC]">›</span>
-                <span className="font-medium text-[#172B4D]">{link.label}:</span>
-                <span className="font-mono text-[12px] text-[#5E6C84]">{link.ref}</span>
-              </li>
-            ))}
-          </ul>
-
-          <SectionLabel>Activity</SectionLabel>
-          <div className="space-y-2 mb-5">
-            <Activity actor="cursor-agent" time="38s ago" body={`Created ticket ${meta.jiraId}, severity P0, components security`} />
-            <Activity actor="cursor-agent" time="32s ago" body="Containment actions completed across MCPs" />
-            <Activity actor="cursor-agent" time="14s ago" body={`Linked PR ${meta.prNumber > 0 ? `#${meta.prNumber}` : ''} ${meta.prRepo}`} />
-            <Activity actor="cursor-agent" time="just now" body="Status → Awaiting Review" />
-          </div>
+      {/* Breadcrumb / issue key */}
+      <div className="px-8 pt-5 pb-2">
+        <div className="flex items-center gap-2 mb-2">
+          <Bug className="w-3.5 h-3.5 text-[#F87462]" />
+          <span className="text-[12px] text-[#7C8A99] hover:text-[#9FADBC] cursor-pointer">
+            {meta.jiraId}
+          </span>
         </div>
+        <h1 className="text-[22px] font-semibold text-[#B6C2CF] leading-tight">
+          {meta.jiraSummary}
+        </h1>
+      </div>
 
-        <div>
-          <SectionLabel>Details</SectionLabel>
-          <DetailRow label="Assignee" value="cursor-agent" />
-          <DetailRow label="Reporter" value="cursor-agent" />
-          <DetailRow label="Reviewer" value="@security-team" />
-          <DetailRow label="Priority" value="P0" />
-          <DetailRow label="Components" value="security, payments-service, IAM" />
-          <DetailRow label="Labels" value="cursor-sdk, mcp, automated" />
-          <DetailRow label="Created" value="38s ago" />
-          <DetailRow label="Updated" value="just now" />
+      {/* Action row */}
+      <div className="px-8 py-3 border-b border-[#2C333A] flex items-center gap-2 flex-wrap">
+        <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#1F845A] text-white text-[12px] font-medium hover:bg-[#22A06B]">
+          <span>Awaiting Review</span>
+          <ChevronDown className="w-3 h-3" />
+        </button>
+        <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] text-[#9FADBC] hover:bg-[#2C333A]">
+          <ThumbsUp className="w-3 h-3" />
+          Vote
+        </button>
+        <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] text-[#9FADBC] hover:bg-[#2C333A]">
+          <Paperclip className="w-3 h-3" />
+          Attach
+        </button>
+        <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] text-[#9FADBC] hover:bg-[#2C333A]">
+          <Link2 className="w-3 h-3" />
+          Link issue
+        </button>
+        <div className="ml-auto">
+          <button className="p-1 rounded text-[#9FADBC] hover:bg-[#2C333A]">
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
 
-          <SectionLabel className="mt-5">Linked PRs</SectionLabel>
-          {meta.prNumber > 0 ? (
-            <div className="text-[12px] text-[#172B4D] px-3 py-2 rounded bg-white border border-[#DFE1E6]">
-              <p className="font-mono text-[11px] text-[#0052CC]">#{meta.prNumber}</p>
-              <p className="leading-snug mt-0.5">{meta.prTitle}</p>
-              <p className="text-[11px] text-[#5E6C84] mt-1">awaiting review · {meta.prRepo}</p>
+      {/* Body: two columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8 px-8 py-6">
+        <div className="min-w-0">
+          {/* Description */}
+          <Section title="Description">
+            <div className="text-[13.5px] leading-relaxed space-y-3">
+              <p>{meta.incidentSummary}</p>
             </div>
-          ) : (
-            <p className="text-[12px] text-[#5E6C84] italic">No PR opened (containment-only run)</p>
-          )}
+          </Section>
+
+          {/* Root cause */}
+          <Section title="Root cause">
+            <p className="text-[13.5px] leading-relaxed">{meta.rootCause}</p>
+          </Section>
+
+          {/* Remediation */}
+          <Section title="Remediation taken">
+            <p className="text-[13.5px] leading-relaxed">{meta.remediation}</p>
+          </Section>
+
+          {/* Linked */}
+          <Section title="Linked artifacts">
+            <div className="space-y-1.5">
+              {meta.evidenceLinks.map((link, i) => (
+                <LinkRow
+                  key={i}
+                  type={link.label.toLowerCase().includes('pr') ? 'blocks' : 'relates to'}
+                  refLabel={link.ref}
+                  title={link.label}
+                  status={i === 0 ? 'Resolved' : 'Awaiting Review'}
+                  statusColor={i === 0 ? 'bg-[#1F845A]' : 'bg-[#0052CC]'}
+                />
+              ))}
+            </div>
+          </Section>
+
+          {/* Activity */}
+          <section className="mt-6">
+            <div className="flex items-center gap-6 border-b border-[#2C333A] mb-4">
+              <button className="pb-2 text-[13px] font-medium text-[#B6C2CF] border-b-2 border-[#4C9AFF]">
+                Comments
+              </button>
+              <button className="pb-2 text-[13px] text-[#7C8A99] hover:text-[#9FADBC]">
+                History
+              </button>
+              <button className="pb-2 text-[13px] text-[#7C8A99] hover:text-[#9FADBC]">
+                Work log
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <Comment
+                author="Cursor Agent"
+                pill="Automation"
+                time="38 seconds ago"
+                avatarBg="bg-accent-blue/20"
+                avatarColor="text-accent-blue"
+                avatarInitial="C"
+                body={`Opened from a webhook fired by ${webhookSourceFor(script)}. All containment actions complete. ${meta.prNumber > 0 ? `Cleanup change proposed in PR #${meta.prNumber}, awaiting human review.` : 'Awaiting human triage.'}`}
+              />
+              <Comment
+                author="Sarah Park"
+                pill="Security on-call"
+                time="12 seconds ago"
+                avatarBg="bg-[#3F2F77]/40"
+                avatarColor="text-[#C9A8E8]"
+                avatarInitial="SP"
+                body={
+                  meta.prNumber > 0
+                    ? `Thanks Cursor — reviewing PR #${meta.prNumber} now. Holding any history-purge until we coordinate the force-push window with the service owners.`
+                    : 'Reviewing the audit timeline now. Will reactivate the user once we confirm the device is clean.'
+                }
+              />
+            </div>
+          </section>
+        </div>
+
+        {/* Right column: details */}
+        <aside className="min-w-0 space-y-4">
+          <DetailsCard meta={meta} />
+          <AutomationCard script={script} />
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-6">
+      <h3 className="text-[11px] font-semibold text-[#9FADBC] uppercase tracking-wider mb-3">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function Comment({
+  author,
+  pill,
+  time,
+  avatarBg,
+  avatarColor,
+  avatarInitial,
+  body,
+}: {
+  author: string;
+  pill: string;
+  time: string;
+  avatarBg: string;
+  avatarColor: string;
+  avatarInitial: string;
+  body: string;
+}) {
+  return (
+    <div className="flex gap-3">
+      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${avatarBg}`}>
+        <span className={`text-xs font-semibold ${avatarColor}`}>{avatarInitial}</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <span className="text-[13px] font-semibold text-[#B6C2CF]">{author}</span>
+          <span className="text-[11px] px-1.5 py-0.5 rounded bg-[#2C333A] text-[#9FADBC]">
+            {pill}
+          </span>
+          <span className="text-[12px] text-[#7C8A99]">· {time}</span>
+        </div>
+        <div className="rounded-md border border-[#2C333A] bg-[#161A1D] p-3 text-[13px] leading-relaxed">
+          {body}
+        </div>
+        <div className="flex items-center gap-3 mt-1.5 text-[12px] text-[#7C8A99]">
+          <button className="hover:text-[#9FADBC] flex items-center gap-1">
+            <MessageCircle className="w-3 h-3" /> Reply
+          </button>
+          <button className="hover:text-[#9FADBC]">Edit</button>
+          <button className="hover:text-[#9FADBC]">Delete</button>
         </div>
       </div>
     </div>
   );
 }
 
-function SectionLabel({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+function DetailsCard({ meta }: { meta: ResolvedScript['meta'] }) {
   return (
-    <p className={`text-[10px] font-bold uppercase tracking-wider text-[#5E6C84] mb-2 ${className ?? ''}`}>
-      {children}
-    </p>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between text-[12px] py-1.5 border-b border-[#F4F5F7]">
-      <span className="text-[#5E6C84]">{label}</span>
-      <span className="text-[#172B4D] font-medium text-right truncate ml-3">{value}</span>
+    <div className="rounded-lg border border-[#2C333A] bg-[#161A1D] overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-[#2C333A]">
+        <p className="text-[11px] font-semibold text-[#9FADBC] uppercase tracking-wider">Details</p>
+      </div>
+      <dl className="p-4 space-y-3 text-[12.5px]">
+        <DetailRow label="Assignee" value="Cursor Agent" avatar="C" avatarBg="bg-accent-blue/20" avatarColor="text-accent-blue" />
+        <DetailRow label="Reporter" value="Cursor SDK Webhook" avatar="W" avatarBg="bg-[#1F845A]/30" avatarColor="text-[#57D9A3]" />
+        <DetailRow label="Reviewer" value="@security-team" avatar="S" avatarBg="bg-[#3F2F77]/40" avatarColor="text-[#C9A8E8]" />
+        <div>
+          <dt className="text-[#7C8A99] mb-1">Priority</dt>
+          <dd className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#C9372C]" />
+            <span className="text-[#B6C2CF]">P0 / Highest</span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[#7C8A99] mb-1">Issue type</dt>
+          <dd className="flex items-center gap-1.5">
+            <Bug className="w-3 h-3 text-[#F87462]" />
+            <span className="text-[#B6C2CF]">Security incident</span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[#7C8A99] mb-1">Labels</dt>
+          <dd className="flex flex-wrap gap-1.5">
+            <span className="px-1.5 py-0.5 rounded bg-[#2C333A] text-[#B6C2CF] text-[11px]">cursor-sdk</span>
+            <span className="px-1.5 py-0.5 rounded bg-[#2C333A] text-[#B6C2CF] text-[11px]">automated</span>
+            <span className="px-1.5 py-0.5 rounded bg-[#2C333A] text-[#B6C2CF] text-[11px]">mcp</span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[#7C8A99] mb-1">Components</dt>
+          <dd className="text-[#B6C2CF]">
+            {meta.prRepo.split('/')[1]}
+          </dd>
+        </div>
+      </dl>
     </div>
   );
 }
 
-function Pill({
-  children,
-  state,
-}: {
-  children: React.ReactNode;
-  state: 'done' | 'active' | 'pending';
-}) {
-  const cls =
-    state === 'done'
-      ? 'bg-[#E3FCEF] text-[#006644] border-[#ABF5D1]'
-      : state === 'active'
-        ? 'bg-[#DEEBFF] text-[#0747A6] border-[#B3D4FF]'
-        : 'bg-[#F4F5F7] text-[#5E6C84] border-[#DFE1E6]';
+function AutomationCard({ script }: { script: ResolvedScript }) {
+  const meta = script.meta;
+  const cumulative = script.steps.reduce((s, x) => s + x.delayMs, 0);
+  const billed = ((cumulative * 2.6) / 1000).toFixed(1);
   return (
-    <span className={`text-[11px] px-2 py-0.5 rounded border font-semibold ${cls}`}>
-      {children}
-    </span>
-  );
-}
-
-function Arrow() {
-  return <span className="text-[#5E6C84] text-[11px]">→</span>;
-}
-
-function Activity({ actor, time, body }: { actor: string; time: string; body: string }) {
-  return (
-    <div className="flex items-start gap-2 text-[12px]">
-      <div className="w-5 h-5 rounded-full bg-[#0052CC] text-white text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-        ✦
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[#172B4D]">
-          <span className="font-medium">{actor}</span>{' '}
-          <span className="text-[#5E6C84]">— {time}</span>
+    <div className="rounded-lg border border-[#2C333A] bg-[#161A1D] overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-[#2C333A]">
+        <p className="text-[11px] font-semibold text-[#9FADBC] uppercase tracking-wider">
+          Automation
         </p>
-        <p className="text-[#172B4D] leading-snug">{body}</p>
+      </div>
+      <div className="p-4 space-y-2 text-[12.5px]">
+        <p>
+          <span className="text-[#7C8A99]">Created by </span>
+          <span className="font-medium text-[#B6C2CF]">Cursor Background Agent</span>
+        </p>
+        <p>
+          <span className="text-[#7C8A99]">Run id </span>
+          <span className="font-mono text-[11.5px] text-[#4C9AFF]">{meta.agentId}</span>
+        </p>
+        <p>
+          <span className="text-[#7C8A99]">Triggered by </span>
+          <span className="font-mono text-[11.5px] text-[#B6C2CF]">{webhookSourceFor(script)}</span>
+        </p>
+        <p>
+          <span className="text-[#7C8A99]">Resolution time </span>
+          <span className="font-mono text-[#57D9A3]">{billed}s</span>
+        </p>
       </div>
     </div>
   );
+}
+
+function DetailRow({
+  label,
+  value,
+  avatar,
+  avatarBg,
+  avatarColor,
+}: {
+  label: string;
+  value: string;
+  avatar: string;
+  avatarBg: string;
+  avatarColor: string;
+}) {
+  return (
+    <div>
+      <dt className="text-[#7C8A99] mb-1">{label}</dt>
+      <dd className="flex items-center gap-2">
+        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${avatarBg}`}>
+          <span className={`text-[10px] font-semibold ${avatarColor}`}>{avatar}</span>
+        </div>
+        <span className="text-[#B6C2CF]">{value}</span>
+      </dd>
+    </div>
+  );
+}
+
+function LinkRow({
+  type,
+  refLabel,
+  title,
+  status,
+  statusColor,
+}: {
+  type: string;
+  refLabel: string;
+  title: string;
+  status: string;
+  statusColor: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-1.5 text-[13px]">
+      <span className="text-[11px] text-[#7C8A99] w-20 shrink-0">{type}</span>
+      <span className="text-[#4C9AFF] font-mono text-[12px] hover:underline cursor-pointer shrink-0">
+        {refLabel}
+      </span>
+      <span className="text-[#B6C2CF] truncate flex-1 min-w-0">{title}</span>
+      <span
+        className={`text-[10px] font-medium text-white px-1.5 py-0.5 rounded ${statusColor} shrink-0`}
+      >
+        {status}
+      </span>
+    </div>
+  );
+}
+
+function webhookSourceFor(script: ResolvedScript): string {
+  switch (script.id) {
+    case 'gitguardian-secret':
+      return 'gitguardian-webhook / secret.exposed';
+    case 'wiz-public-bucket':
+      return 'wiz-webhook / issue.opened';
+    case 'okta-anomaly':
+      return 'okta-webhook / auth.anomaly';
+    case 'snyk-vuln':
+      return 'snyk-webhook / vulnerability.new';
+    case 'crowdstrike-detection':
+      return 'crowdstrike-webhook / detection.high';
+    default:
+      return 'cursor-sdk / webhook';
+  }
 }

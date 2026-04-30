@@ -254,7 +254,7 @@ function SimpleStep({
         <div style={{ color: accent.color }}>{icon}</div>
         <p className="text-sm font-semibold text-text-primary">{title}</p>
       </div>
-      <p className="text-[13px] text-text-secondary leading-relaxed">{body}</p>
+      <p className="text-sm text-text-primary/78 leading-relaxed">{body}</p>
     </div>
   );
 }

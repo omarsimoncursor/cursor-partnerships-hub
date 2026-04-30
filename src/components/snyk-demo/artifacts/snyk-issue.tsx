@@ -311,7 +311,7 @@ function IssueHeader() {
         NoSQL Injection in customer profile lookup
       </h1>
 
-      <div className="flex items-center gap-3 text-[12px]" style={{ color: '#9FA0BC' }}>
+      <div className="flex items-center gap-3 text-[12px] flex-wrap" style={{ color: '#9FA0BC' }}>
         <span className="font-mono">javascript</span>
         <span>·</span>
         <span className="font-mono">src/lib/demo/customer-profile.ts:24</span>
@@ -319,6 +319,13 @@ function IssueHeader() {
         <span>Introduced 11 days ago</span>
         <span>·</span>
         <span className="font-mono">commit 5e9d3c2</span>
+        <span>·</span>
+        <span
+          className="px-1.5 py-0.5 rounded text-[10.5px] font-mono"
+          style={{ background: 'rgba(76,68,203,0.15)', border: '1px solid rgba(76,68,203,0.30)', color: '#9F98FF' }}
+        >
+          fix from cursor-sdk run · run-9a4d3f17…
+        </span>
         <button
           className="ml-auto h-7 px-3 rounded text-[11.5px] flex items-center gap-1 border"
           style={{ background: '#13142F', borderColor: '#23264F', color: '#C9C9E5' }}

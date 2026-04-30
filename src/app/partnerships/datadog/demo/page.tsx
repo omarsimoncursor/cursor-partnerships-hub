@@ -2,14 +2,12 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, ChevronDown, MousePointerClick, RotateCcw } from 'lucide-react';
-import { DemoPerfBoundary } from '@/components/datadog-demo/demo-perf-boundary';
+import { ArrowLeft, ChevronDown, MousePointerClick, RotateCcw } from 'lucide-react';
 import { ReportsCard } from '@/components/datadog-demo/reports-card';
-import { LatencyComparison } from '@/components/datadog-demo/latency-comparison';
-import { GuardrailsPanel } from '@/components/datadog-demo/guardrails-panel';
+import type { SloBreachError } from '@/components/datadog-demo/reports-card';
 import { FullSloBreachPage } from '@/components/datadog-demo/full-slo-breach-page';
-import { SloSummary } from '@/components/datadog-demo/slo-summary';
-import { AgentConsole } from '@/components/datadog-demo/agent-console';
+import { AgentNetwork } from '@/components/datadog-demo/agent-network';
+import { TimeToResolution } from '@/components/datadog-demo/time-to-resolution';
 import { ArtifactCards } from '@/components/datadog-demo/artifact-cards';
 import { TriageReport } from '@/components/datadog-demo/artifacts/triage-report';
 import { JiraTicket } from '@/components/datadog-demo/artifacts/jira-ticket';
@@ -23,9 +21,9 @@ export default function DatadogDemoPage() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<Error | null>(null);
   const [artifact, setArtifact] = useState<Artifact | null>(null);
-  const [boundaryKey, setBoundaryKey] = useState(0);
+  const [reportsKey, setReportsKey] = useState(0);
 
-  const handleError = useCallback((e: Error) => {
+  const handleBreach = useCallback((e: SloBreachError) => {
     setError(e);
     setPhase('error');
   }, []);
@@ -42,7 +40,7 @@ export default function DatadogDemoPage() {
     setPhase('idle');
     setError(null);
     setArtifact(null);
-    setBoundaryKey(k => k + 1);
+    setReportsKey(k => k + 1);
   }, []);
 
   const openArtifact = useCallback((a: Artifact) => setArtifact(a), []);
@@ -112,49 +110,41 @@ export default function DatadogDemoPage() {
               </div>
             </div>
 
-            <DemoPerfBoundary key={boundaryKey} onError={handleError}>
-              <div className="flex justify-center">
-                <ReportsCard />
-              </div>
-            </DemoPerfBoundary>
-
-            <section className="mt-24">
-              <LatencyComparison />
-            </section>
-
-            <section className="mt-16">
-              <GuardrailsPanel />
-            </section>
-
-            <div className="mt-20 text-center max-w-2xl mx-auto px-6">
-              <p className="text-sm text-text-tertiary">
-                One click. Six MCPs coordinated. Three models, one PR ready for review.
-                <span className="text-text-secondary ml-1">
-                  This is what Cursor as an orchestration layer looks like.
-                </span>
-              </p>
+            <div className="flex justify-center">
+              <ReportsCard key={reportsKey} onBreach={handleBreach} />
             </div>
           </div>
         )}
 
         {/* ERROR (full takeover) */}
         {phase === 'error' && error && (
-          <FullSloBreachPage error={error} onGo={handleGo} onReset={handleReset} />
+          <FullSloBreachPage
+            error={error}
+            onGo={handleGo}
+            onReset={handleReset}
+            onViewDatadog={() => openArtifact('datadog')}
+          />
         )}
 
         {/* RUNNING + COMPLETE */}
         {isActive && error && (
           <div className="px-6 pb-24">
             <div className="text-center mb-6 mt-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-amber/10 border border-accent-amber/20 mb-3">
+              <div
+                className={`inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3 ${
+                  phase === 'complete'
+                    ? 'bg-accent-green/10 border border-accent-green/25'
+                    : 'bg-[#632CA6]/10 border border-[#632CA6]/30'
+                }`}
+              >
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
-                    phase === 'complete' ? 'bg-accent-green' : 'bg-accent-amber animate-pulse'
+                    phase === 'complete' ? 'bg-accent-green' : 'bg-[#A689D4] animate-pulse'
                   }`}
                 />
                 <span
                   className={`text-[11px] font-mono uppercase tracking-wider ${
-                    phase === 'complete' ? 'text-accent-green' : 'text-accent-amber'
+                    phase === 'complete' ? 'text-accent-green' : 'text-[#A689D4]'
                   }`}
                 >
                   {phase === 'complete' ? 'Run complete' : 'Agent engaged'}
@@ -162,37 +152,22 @@ export default function DatadogDemoPage() {
               </div>
               <h2 className="text-xl md:text-2xl font-semibold text-text-primary">
                 {phase === 'complete'
-                  ? 'Fix proposed · all artifacts ready for review.'
-                  : 'Cursor is orchestrating the fix in the background'}
+                  ? 'Issue resolved. Artifacts ready for review.'
+                  : 'Cursor agent is orchestrating the fix'}
               </h2>
             </div>
 
-            <div className="w-full max-w-6xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.2fr)] gap-4 items-stretch">
-                {/* Left: SLO summary */}
-                <div className="min-h-[520px]">
-                  <SloSummary
-                    error={error}
-                    onReset={handleReset}
-                    onViewDatadog={() => openArtifact('datadog')}
-                  />
-                </div>
+            <AgentNetwork
+              onComplete={handleConsoleComplete}
+              onViewDatadog={() => openArtifact('datadog')}
+            />
 
-                {/* Divider */}
-                <div className="hidden md:flex items-center justify-center">
-                  <div className="bg-dark-bg rounded-full w-8 h-8 flex items-center justify-center border border-dark-border">
-                    <ArrowRight className="w-3.5 h-3.5 text-text-tertiary" />
-                  </div>
-                </div>
-
-                {/* Right: Agent console */}
-                <div className="min-h-[520px] max-h-[calc(100vh-220px)]">
-                  <AgentConsole onComplete={handleConsoleComplete} />
-                </div>
+            {phase === 'complete' && (
+              <div className="mt-12 space-y-10">
+                <TimeToResolution />
+                <ArtifactCards onOpen={openArtifact} />
               </div>
-
-              {phase === 'complete' && <ArtifactCards onOpen={openArtifact} />}
-            </div>
+            )}
           </div>
         )}
       </main>

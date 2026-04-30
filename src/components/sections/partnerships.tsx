@@ -62,6 +62,35 @@ export function Partnerships() {
   return (
     <section ref={sectionRef} id="partnerships" className="py-24 px-6">
       <div className="max-w-5xl mx-auto">
+        {/* Internal team tool: branded account demo builder */}
+        <Link
+          href="/prospect-builder"
+          className="example-cta-pulse group block rounded-2xl border-2 p-6 mb-12 transition-all duration-300 hover:scale-[1.01]"
+          style={{
+            borderColor: 'rgba(251, 191, 36, 0.4)',
+            backgroundColor: 'rgba(251, 191, 36, 0.06)',
+            ['--pulse-color' as string]: 'rgba(251, 191, 36, 0.25)',
+          }}
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.15em] mb-2 text-accent-amber">
+                Internal team tool
+              </p>
+              <h3 className="text-xl sm:text-2xl font-bold text-text-primary mb-1.5">
+                Build a branded co-sell demo for any prospect.
+              </h3>
+              <p className="text-sm text-text-primary/70 leading-relaxed max-w-2xl">
+                Enter the account&apos;s domain and pick the tools they use. Get back a shareable, account-branded demo with playable MCP workflows, an SDK composer, and an ROI calculator.
+              </p>
+            </div>
+            <div className="shrink-0 inline-flex items-center gap-2 text-sm font-medium text-accent-amber">
+              Open the builder
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+        </Link>
+
         <SectionHeading
           badge="The Agentic Partnership Thesis"
           title="Cursor. Partner. Customer. Everyone Wins."

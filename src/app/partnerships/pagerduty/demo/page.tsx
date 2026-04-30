@@ -13,7 +13,8 @@ import { OncallBoard } from '@/components/pagerduty-demo/oncall-board';
 import { DemoDeployBoundary } from '@/components/pagerduty-demo/demo-deploy-boundary';
 import { FullIncidentPage } from '@/components/pagerduty-demo/full-incident-page';
 import { IncidentSummary, type TimelineEntry } from '@/components/pagerduty-demo/incident-summary';
-import { AgentConsole, type Step } from '@/components/pagerduty-demo/agent-console';
+import { type Step } from '@/components/pagerduty-demo/agent-console';
+import { SdkRuntimeTrace } from '@/components/pagerduty-demo/sdk-runtime-trace';
 import { ArtifactCards, type Artifact } from '@/components/pagerduty-demo/artifact-cards';
 import { CounterfactualCard } from '@/components/pagerduty-demo/counterfactual-card';
 import { PageSuppressionStats } from '@/components/pagerduty-demo/page-suppression-stats';
@@ -22,6 +23,12 @@ import { PagerdutyModal } from '@/components/pagerduty-demo/artifacts/pagerduty-
 import { StatuspageModal } from '@/components/pagerduty-demo/artifacts/statuspage-modal';
 import { PrModal } from '@/components/pagerduty-demo/artifacts/pr-modal';
 import { Postmortem } from '@/components/pagerduty-demo/artifacts/postmortem';
+import {
+  SdkCodePanel,
+  SDK_CREATE_SAMPLE,
+  SDK_HANDLER_SAMPLE,
+  SDK_SUBAGENTS_SAMPLE,
+} from '@/components/pagerduty/sdk-code-panel';
 
 type Phase = 'idle' | 'error' | 'running' | 'complete';
 
@@ -112,13 +119,17 @@ export default function PagerdutyDemoPage() {
                   C
                 </div>
               </div>
+              <p className="text-[11px] font-mono uppercase tracking-[0.18em] text-[#57D990] mb-3">
+                Powered by @cursor/sdk · runs in your VPC
+              </p>
               <h1 className="text-2xl md:text-4xl font-bold text-text-primary mb-3">
                 Watch a P1 page resolve itself at 03:14 AM
               </h1>
               <p className="text-sm md:text-base text-text-secondary max-w-xl mx-auto">
-                A bad deploy fires a PagerDuty incident on payments-api. Cursor ack&apos;s within
-                12 seconds, decides revert vs fix-forward, ships the revert through canary, posts
-                the Statuspage update, and resolves the incident — without paging a human.
+                A bad deploy fires a PagerDuty incident on payments-api. The Cursor SDK, running
+                in your sandboxed worker, ack&apos;s within 12 seconds, spawns a triage subagent,
+                decides revert vs fix-forward, ships the revert through canary, and resolves
+                the incident &mdash; without paging a human.
               </p>
             </div>
 
@@ -138,6 +149,25 @@ export default function PagerdutyDemoPage() {
                 <OncallBoard />
               </div>
             </DemoDeployBoundary>
+
+            {/* SDK code panel — the actual TypeScript that powers the auto-pilot */}
+            <section className="mt-12 max-w-3xl mx-auto">
+              <div className="text-center mb-4">
+                <p className="text-[11px] font-mono text-text-tertiary uppercase tracking-[0.18em] mb-1">
+                  This is what powers the auto-pilot
+                </p>
+                <h3 className="text-base font-semibold text-text-primary">
+                  ~50 lines of TypeScript in your repo &mdash; copy, deploy, own.
+                </h3>
+              </div>
+              <SdkCodePanel
+                tabs={[SDK_CREATE_SAMPLE, SDK_HANDLER_SAMPLE, SDK_SUBAGENTS_SAMPLE]}
+                accentColor="#06AC38"
+                title="The PagerDuty handler"
+                badge="@cursor/sdk · runs in your VPC"
+                maxHeight="320px"
+              />
+            </section>
 
             <section className="mt-24">
               <PageSuppressionStats />
@@ -213,9 +243,9 @@ export default function PagerdutyDemoPage() {
                   </div>
                 </div>
 
-                {/* Right: agent console */}
+                {/* Right: SDK runtime trace */}
                 <div className="min-h-[520px] max-h-[calc(100vh-220px)]">
-                  <AgentConsole
+                  <SdkRuntimeTrace
                     onComplete={handleConsoleComplete}
                     onStepAdvance={handleStepAdvance}
                   />

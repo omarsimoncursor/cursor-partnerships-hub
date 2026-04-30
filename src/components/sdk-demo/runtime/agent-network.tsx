@@ -147,9 +147,17 @@ interface NodePosition {
 
 const AGENT_POS = { x: 50, y: 50 };
 
+// Slow the playback to live-narration pace. The original script timings
+// were tuned for the unguided Datadog demo; this demo is presenter-driven
+// and needs each beat to linger long enough to talk through.
+const PLAYBACK_MULTIPLIER = 2.6;
+
 function deriveNodePositions(channels: RuntimeChannel[]): NodePosition[] {
   if (channels.length === 0) return [];
-  const radius = 38;
+  // Push satellites further from center so they never collide with the
+  // agent bubble (which is ~96px radius). x-radius 46 + y-radius 0.78x
+  // keeps the top/bottom nodes well clear of the central agent.
+  const radius = 46;
   const startDeg = -90;
   return channels.map((channel, i) => {
     const deg = startDeg + (360 / channels.length) * i;
@@ -157,7 +165,7 @@ function deriveNodePositions(channels: RuntimeChannel[]): NodePosition[] {
     return {
       channel,
       x: AGENT_POS.x + radius * Math.cos(rad),
-      y: AGENT_POS.y + radius * 0.62 * Math.sin(rad),
+      y: AGENT_POS.y + radius * 0.78 * Math.sin(rad),
     };
   });
 }
@@ -211,7 +219,7 @@ export function AgentNetwork({ script, onStep, onComplete }: AgentNetworkProps) 
     }, 200);
 
     script.steps.forEach((step, i) => {
-      cumulative += step.delayMs;
+      cumulative += step.delayMs * PLAYBACK_MULTIPLIER;
       const t = setTimeout(() => {
         runBeat(step, i);
         onStep?.(step, i);

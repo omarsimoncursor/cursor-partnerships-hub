@@ -66,10 +66,10 @@ export function ProspectPage({ config }: Props) {
         <div className="max-w-6xl mx-auto">
           {/* Hero */}
           <header className="mb-14">
-            <div className="flex items-center gap-3 mb-8">
-              <AccountLogo domain={config.domain} account={config.account} accent={accent} size={56} />
-              <span className="text-text-tertiary text-2xl font-thin">{'\u00d7'}</span>
-              <AccountLogo domain="cursor.com" account="Cursor" accent="#edecec" size={56} />
+            <div className="flex items-center gap-4 mb-8">
+              <AccountLogo domain={config.domain} account={config.account} accent={accent} size={84} />
+              <span className="text-text-tertiary text-3xl font-thin">{'\u00d7'}</span>
+              <AccountLogo domain="cursor.com" account="Cursor" accent="#edecec" size={84} />
             </div>
             <span
               className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] uppercase tracking-wider font-mono mb-5 border"

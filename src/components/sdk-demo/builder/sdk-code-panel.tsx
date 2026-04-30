@@ -37,7 +37,7 @@ export function SdkCodePanel({ workflow }: SdkCodePanelProps) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-text-tertiary font-mono uppercase tracking-wider">
+          <span className="text-[10px] text-text-tertiary font-mono uppercase tracking-wider hidden md:inline">
             Live · regenerates on every pick
           </span>
           <button
@@ -58,6 +58,15 @@ export function SdkCodePanel({ workflow }: SdkCodePanelProps) {
             )}
           </button>
         </div>
+      </div>
+
+      <div className="px-3 py-2 border-b border-dark-border bg-dark-surface/60 shrink-0">
+        <p className="text-[11px] text-text-secondary leading-snug">
+          <span className="text-accent-blue font-semibold">This is real, runnable code.</span>{' '}
+          A customer drops it into their existing API server. When the chosen tool fires a webhook,
+          this handler launches a Cursor agent with the right MCPs and the right prompt to do exactly
+          what you picked.
+        </p>
       </div>
 
       <div className="flex-1 overflow-auto bg-dark-bg">

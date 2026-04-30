@@ -1,6 +1,7 @@
 'use client';
 
-import { getEventsForTool } from '@/lib/sdk-demo/catalog/events';
+import { Lightbulb } from 'lucide-react';
+import { getEvent, getEventsForTool } from '@/lib/sdk-demo/catalog/events';
 import { getTool } from '@/lib/sdk-demo/catalog/tools';
 import type { ToolId } from '@/lib/sdk-demo/types';
 import { cn } from '@/lib/utils';
@@ -21,10 +22,11 @@ const SEVERITY_STYLE: Record<string, string> = {
 export function EventPicker({ toolId, selectedEventId, onSelect }: EventPickerProps) {
   const tool = getTool(toolId);
   const events = getEventsForTool(toolId);
+  const selectedEvent = getEvent(selectedEventId);
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary">
             Step 2
@@ -37,6 +39,9 @@ export function EventPicker({ toolId, selectedEventId, onSelect }: EventPickerPr
           </span>
         )}
       </div>
+      <p className="text-[11px] text-text-tertiary mb-3 leading-relaxed">
+        Which kind of alert is the agent reacting to? Severity tags signal how urgent it is.
+      </p>
 
       {!toolId && (
         <p className="text-xs text-text-tertiary italic px-3 py-6 bg-dark-surface rounded-lg border border-dashed border-dark-border">
@@ -79,6 +84,20 @@ export function EventPicker({ toolId, selectedEventId, onSelect }: EventPickerPr
               </button>
             );
           })}
+        </div>
+      )}
+
+      {selectedEvent && (
+        <div className="mt-3 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-3 py-2 flex items-start gap-2">
+          <Lightbulb className="w-3.5 h-3.5 text-accent-blue mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-mono uppercase tracking-wider mb-0.5 text-accent-blue">
+              In plain English &middot; {selectedEvent.name}
+            </p>
+            <p className="text-[12px] text-text-secondary leading-relaxed">
+              {selectedEvent.plainEnglish}
+            </p>
+          </div>
         </div>
       )}
     </div>

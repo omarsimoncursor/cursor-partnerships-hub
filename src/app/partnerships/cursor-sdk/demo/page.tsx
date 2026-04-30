@@ -98,9 +98,16 @@ export default function CursorSdkDemoPage() {
                 <h1 className="text-2xl md:text-4xl font-bold text-text-primary mb-3">
                   Build a real security automation, live.
                 </h1>
-                <p className="text-sm md:text-base text-text-secondary max-w-2xl mx-auto">
-                  Pick a tool, an event, and a response sequence. The SDK code on the right updates as you click. Hit
-                  Run to watch it execute across MCPs, then inspect the five artifacts the agent leaves behind.
+                <p className="text-sm md:text-base text-text-secondary max-w-2xl mx-auto leading-relaxed">
+                  Pick which security tool sends the alert, which kind of alert it is, and what you
+                  want the agent to do in response. The TypeScript on the right updates as you
+                  click — that&apos;s the actual code a customer would deploy. Hit{' '}
+                  <span className="text-accent-blue font-semibold">Run automation</span> to watch
+                  the agent execute the workflow you just built.
+                </p>
+                <p className="text-xs text-text-tertiary mt-3 max-w-xl mx-auto">
+                  In a hurry? Tap a starter workflow chip below to load a curated combination. You
+                  can edit it before you run.
                 </p>
               </div>
               <WorkflowBuilder workflow={workflow} onChange={setWorkflow} onRun={handleRun} />
@@ -110,7 +117,7 @@ export default function CursorSdkDemoPage() {
 
         {isRuntime && (
           <div className="px-6">
-            <div className="text-center mb-6 mt-2">
+            <div className="text-center mb-6 mt-2 max-w-3xl mx-auto">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-amber/10 border border-accent-amber/20 mb-3">
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
@@ -128,8 +135,23 @@ export default function CursorSdkDemoPage() {
               <h2 className="text-xl md:text-2xl font-semibold text-text-primary">
                 {phase === 'complete'
                   ? 'Five artifacts ready for review.'
-                  : 'Cursor SDK · streaming run events…'}
+                  : 'Cursor SDK is running the workflow you just built.'}
               </h2>
+              <p className="text-[12.5px] text-text-secondary mt-2 leading-relaxed">
+                {phase === 'complete' ? (
+                  <>
+                    The agent is done. Below are the five artifacts a real reviewer would receive,
+                    each rendered in the actual UI of the tool that produces it.
+                  </>
+                ) : (
+                  <>
+                    On the <span className="text-accent-amber font-semibold">left</span>, the
+                    structured events your code receives from <span className="font-mono text-accent-blue">run.stream()</span>.
+                    On the <span className="text-accent-blue font-semibold">right</span>, a live
+                    visualization of the Cursor agent calling your selected tools.
+                  </>
+                )}
+              </p>
               <p className="text-xs text-text-tertiary mt-1 font-mono">
                 Script: <span className="text-text-secondary">{script.title}</span>
               </p>

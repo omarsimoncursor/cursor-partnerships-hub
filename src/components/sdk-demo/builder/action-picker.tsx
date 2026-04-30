@@ -35,7 +35,7 @@ export function ActionPicker({ selectedActionIds, enabled, onToggle }: ActionPic
 
   return (
     <div className={enabled ? '' : 'opacity-50 pointer-events-none'}>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary">
             Step 3
@@ -46,6 +46,11 @@ export function ActionPicker({ selectedActionIds, enabled, onToggle }: ActionPic
           {ACTIONS.length} actions · {selectedActionIds.length} picked
         </span>
       </div>
+      <p className="text-[11px] text-text-tertiary mb-3 leading-relaxed">
+        What do you want the agent to do? <span className="text-accent-amber font-semibold">Containment</span> stops the bleed,{' '}
+        <span className="text-accent-blue font-semibold">remediation</span> fixes the code,{' '}
+        <span className="text-accent-green font-semibold">audit</span> notifies humans. Pick any combination.
+      </p>
 
       {!enabled && (
         <p className="text-xs text-text-tertiary italic px-3 py-6 bg-dark-surface rounded-lg border border-dashed border-dark-border mb-3">
@@ -108,8 +113,8 @@ export function ActionPicker({ selectedActionIds, enabled, onToggle }: ActionPic
                           <p className="text-sm font-medium text-text-primary truncate">
                             {action.label}
                           </p>
-                          <p className="text-[11px] text-text-tertiary leading-snug mt-0.5">
-                            {action.blurb}
+                          <p className="text-[11px] text-text-secondary leading-snug mt-0.5">
+                            {action.plainEnglish}
                           </p>
                         </div>
                       </button>

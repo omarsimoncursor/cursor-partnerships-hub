@@ -1,6 +1,7 @@
 'use client';
 
-import { TOOLS } from '@/lib/sdk-demo/catalog/tools';
+import { Lightbulb } from 'lucide-react';
+import { TOOLS, getTool } from '@/lib/sdk-demo/catalog/tools';
 import type { ToolId } from '@/lib/sdk-demo/types';
 import { cn } from '@/lib/utils';
 
@@ -10,9 +11,10 @@ interface ToolPaletteProps {
 }
 
 export function ToolPalette({ selectedToolId, onSelect }: ToolPaletteProps) {
+  const selectedTool = getTool(selectedToolId);
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary">
             Step 1
@@ -21,6 +23,9 @@ export function ToolPalette({ selectedToolId, onSelect }: ToolPaletteProps) {
         </div>
         <span className="text-[11px] text-text-tertiary font-mono">{TOOLS.length} tools</span>
       </div>
+      <p className="text-[11px] text-text-tertiary mb-3 leading-relaxed">
+        Which existing security product just sent the alert you want the agent to act on?
+      </p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {TOOLS.map((tool) => {
           const isSelected = selectedToolId === tool.id;
@@ -61,6 +66,29 @@ export function ToolPalette({ selectedToolId, onSelect }: ToolPaletteProps) {
           );
         })}
       </div>
+
+      {selectedTool && (
+        <div
+          className="mt-3 rounded-lg border bg-dark-bg/40 px-3 py-2 flex items-start gap-2"
+          style={{ borderColor: `${selectedTool.color}55` }}
+        >
+          <Lightbulb
+            className="w-3.5 h-3.5 mt-0.5 shrink-0"
+            style={{ color: selectedTool.color }}
+          />
+          <div className="min-w-0">
+            <p
+              className="text-[10px] font-mono uppercase tracking-wider mb-0.5"
+              style={{ color: selectedTool.color }}
+            >
+              In plain English &middot; {selectedTool.name}
+            </p>
+            <p className="text-[12px] text-text-secondary leading-relaxed">
+              {selectedTool.plainEnglish}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

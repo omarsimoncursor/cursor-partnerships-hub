@@ -136,14 +136,14 @@ export default function CursorSdkPartnership() {
 
 function PitchCard({ step, title, body }: { step: string; title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-surface p-5">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-6 h-6 rounded-md bg-accent-blue/10 border border-accent-blue/20 text-accent-blue text-xs font-mono font-bold flex items-center justify-center">
+    <div className="rounded-xl border border-dark-border bg-dark-surface p-6">
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="w-7 h-7 rounded-md bg-accent-blue/10 border border-accent-blue/20 text-accent-blue text-sm font-mono font-bold flex items-center justify-center">
           {step}
         </div>
-        <p className="text-sm font-semibold text-text-primary">{title}</p>
+        <p className="text-base font-semibold text-text-primary">{title}</p>
       </div>
-      <p className="text-xs text-text-tertiary leading-relaxed">{body}</p>
+      <p className="text-[13.5px] text-text-secondary leading-relaxed">{body}</p>
     </div>
   );
 }

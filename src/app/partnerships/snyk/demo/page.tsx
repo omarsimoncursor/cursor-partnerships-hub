@@ -4,12 +4,14 @@ import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, ChevronDown, MousePointerClick, RotateCcw } from 'lucide-react';
 import { DemoVulnBoundary } from '@/components/snyk-demo/demo-vuln-boundary';
-import { CustomerProfileCard } from '@/components/snyk-demo/customer-profile-card';
+import { SDKPipelineCard } from '@/components/snyk-demo/sdk-pipeline-card';
+import { ShiftLeftStages } from '@/components/snyk-demo/shift-left-stages';
 import { SeverityComparison } from '@/components/snyk-demo/severity-comparison';
 import { GuardrailsPanel } from '@/components/snyk-demo/guardrails-panel';
 import { FullVulnPage } from '@/components/snyk-demo/full-vuln-page';
-import { VulnSummary } from '@/components/snyk-demo/vuln-summary';
-import { AgentConsole } from '@/components/snyk-demo/agent-console';
+import { SDKRunSummary } from '@/components/snyk-demo/sdk-run-summary';
+import { SDKOrchestrationPanel } from '@/components/snyk-demo/sdk-orchestration-panel';
+import { SDKCodePanel } from '@/components/snyk-demo/sdk-code-panel';
 import { ArtifactCards } from '@/components/snyk-demo/artifact-cards';
 import { TriageReport } from '@/components/snyk-demo/artifacts/triage-report';
 import { JiraTicket } from '@/components/snyk-demo/artifacts/jira-ticket';
@@ -91,21 +93,31 @@ export default function SnykDemoPage() {
                   C
                 </div>
               </div>
-              <h1 className="text-2xl md:text-4xl font-bold text-text-primary mb-3">
-                Watch Cursor patch a critical Snyk finding in real time
-              </h1>
-              <p className="text-sm md:text-base text-text-secondary max-w-xl mx-auto">
-                A real production endpoint leaks the entire customer table. Snyk catches the
-                injection, Cursor coordinates Opus, Composer, Codex, and four MCPs &mdash; and
-                submits a tested PR. AppSec never opens a debugger.
+              <p className="text-[11px] font-mono uppercase tracking-[0.22em] mb-3" style={{ color: '#9F98FF' }}>
+                Snyk × Cursor SDK · @cursor/february v1.0.7
               </p>
+              <h1 className="text-2xl md:text-4xl font-bold text-text-primary mb-3">
+                Watch the Cursor SDK block a merge and ship the fix.
+              </h1>
+              <p className="text-sm md:text-base text-text-secondary max-w-2xl mx-auto">
+                A pre-merge security gate calls{' '}
+                <code className="font-mono text-[#9F98FF]">Agent.create({'{'}cloud:{'{'}repos: [{'{'}url, prUrl{'}'}]{'}'}{'}'})</code>{' '}
+                from CI. Snyk catches the vulnerability, Cursor orchestrates the patch, and the merge
+                stays blocked until the exploit replay reports zero leaked rows. Same SDK call, every
+                stage of the pipeline.
+              </p>
+            </div>
+
+            {/* Shift-left spine on the hero */}
+            <div className="max-w-4xl mx-auto mb-10">
+              <ShiftLeftStages active="pr-gate" covered={['ide', 'commit']} />
             </div>
 
             <div className="flex justify-center mb-6">
               <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#4C44CB]/10 border border-[#4C44CB]/30 shadow-[0_0_24px_rgba(76,68,203,0.2)]">
                 <MousePointerClick className="w-3.5 h-3.5 text-[#9F98FF]" />
                 <span className="text-xs md:text-sm text-text-primary font-medium">
-                  Click <span className="text-[#9F98FF] font-semibold">Run check</span> to start the demo
+                  Click <span className="text-[#9F98FF] font-semibold">Run pre-merge security check</span> to start the demo
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-[#9F98FF] animate-bounce" />
               </div>
@@ -113,7 +125,7 @@ export default function SnykDemoPage() {
 
             <DemoVulnBoundary key={boundaryKey} onError={handleError}>
               <div className="flex justify-center">
-                <CustomerProfileCard />
+                <SDKPipelineCard />
               </div>
             </DemoVulnBoundary>
 
@@ -127,9 +139,9 @@ export default function SnykDemoPage() {
 
             <div className="mt-20 text-center max-w-2xl mx-auto px-6">
               <p className="text-sm text-text-tertiary">
-                One click. Four MCPs coordinated. Three models, one PR ready for review.
+                One SDK call. Five stages of coverage. Three models, one PR ready for review.
                 <span className="text-text-secondary ml-1">
-                  This is what Cursor as an orchestration layer looks like.
+                  This is what Cursor as the security automation layer looks like.
                 </span>
               </p>
             </div>
@@ -156,20 +168,24 @@ export default function SnykDemoPage() {
                     phase === 'complete' ? 'text-accent-green' : 'text-[#FB7185]'
                   }`}
                 >
-                  {phase === 'complete' ? 'Run complete' : 'Agent engaged'}
+                  {phase === 'complete' ? 'Run finished · gate clear' : 'SDK run · streaming'}
                 </span>
               </div>
               <h2 className="text-xl md:text-2xl font-semibold text-text-primary">
                 {phase === 'complete'
                   ? 'Patch proposed · all artifacts ready for review.'
-                  : 'Cursor is patching the vulnerability in the background'}
+                  : 'Cursor SDK is orchestrating the fix on PR #214'}
               </h2>
             </div>
 
-            <div className="w-full max-w-6xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.2fr)] gap-4 items-stretch">
-                <div className="min-h-[520px]">
-                  <VulnSummary
+            <div className="w-full max-w-6xl mx-auto space-y-4">
+              {/* SDK code panel up top */}
+              <SDKCodePanel active={isActive} />
+
+              {/* Split: Left = vuln + SDK identity, Right = SDK orchestration panel */}
+              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.3fr)] gap-4 items-stretch">
+                <div className="min-h-[640px]">
+                  <SDKRunSummary
                     error={error}
                     onReset={handleReset}
                     onViewSnyk={() => openArtifact('snyk')}
@@ -182,8 +198,11 @@ export default function SnykDemoPage() {
                   </div>
                 </div>
 
-                <div className="min-h-[520px] max-h-[calc(100vh-220px)]">
-                  <AgentConsole onComplete={handleConsoleComplete} />
+                <div className="min-h-[640px] max-h-[calc(100vh-240px)]">
+                  <SDKOrchestrationPanel
+                    onComplete={handleConsoleComplete}
+                    forcedStatus={phase === 'complete' ? 'FINISHED' : undefined}
+                  />
                 </div>
               </div>
 

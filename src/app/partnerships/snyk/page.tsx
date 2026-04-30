@@ -1,7 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, PlayCircle, ShieldAlert, GitPullRequest, Users, Box, Code as CodeIcon, Package, Cloud } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  PlayCircle,
+  ShieldAlert,
+  Code as CodeIcon,
+  Package,
+  Box,
+  Cloud,
+  GitCommit,
+  ShieldCheck,
+  Moon,
+  Activity,
+  Server,
+  Users,
+} from 'lucide-react';
+import { ShiftLeftStages, SHIFT_LEFT_STAGES } from '@/components/snyk-demo/shift-left-stages';
 
 const SNYK_PRODUCTS = [
   {
@@ -40,8 +56,8 @@ export default function SnykPartnership() {
       </nav>
 
       {/* Hero */}
-      <section className="min-h-screen flex items-center justify-center px-6 pt-20">
-        <div className="max-w-3xl mx-auto text-center">
+      <section className="min-h-screen flex items-center justify-center px-6 pt-24 pb-12">
+        <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-4 mb-8">
             <div className="w-12 h-12 rounded-xl bg-[#4C44CB]/20 border border-[#4C44CB]/30 flex items-center justify-center text-lg font-bold text-[#9F98FF]">
               S
@@ -51,25 +67,26 @@ export default function SnykPartnership() {
               C
             </div>
           </div>
+          <p className="text-[11px] font-mono uppercase tracking-[0.22em] mb-3" style={{ color: '#9F98FF' }}>
+            Shift left, with the Cursor SDK · @cursor/february v1.0.7
+          </p>
           <h1 className="text-4xl md:text-6xl font-bold text-text-primary mb-6">
-            From Snyk Critical to Verified PR
+            One SDK call. Five stages of coverage.
           </h1>
-          <p className="text-lg text-text-secondary mb-3 max-w-xl mx-auto">
-            Snyk finds the vulnerability. Cursor produces the fix. The agent
-            triages the data flow, parameterizes the call site, bumps the
-            vulnerable dependency, and replays the exploit, all before AppSec
-            opens a debugger. The human-in-the-loop reviews the PR before deploy.
+          <p className="text-lg text-text-secondary mb-3 max-w-2xl mx-auto">
+            Snyk finds the vulnerability. The Cursor SDK ships the verified fix. The same{' '}
+            <code className="font-mono text-[#9F98FF]">Agent.create({'{...}'})</code> + <code className="font-mono text-[#9F98FF]">agent.send(...)</code>{' '}
+            embeds in every stage of the AppSec lifecycle, from the developer&apos;s editor to the
+            production safety net.
           </p>
-          <p className="text-sm text-text-tertiary mb-4 max-w-lg mx-auto">
-            Cursor is the orchestration layer between Snyk, GitHub, Jira, and
-            the developer&apos;s editor. This motion is repeatable across every Snyk
-            customer.
-          </p>
-          <p className="text-sm text-text-tertiary mb-8">
-            Scroll for the workflow, or jump straight into the live demo.
+          <p className="text-sm text-text-tertiary mb-8 max-w-2xl mx-auto">
+            Built on the{' '}
+            <code className="font-mono text-[#9F98FF]">@cursor/february/agent</code>{' '}
+            SDK and the v1 Cloud Agents REST API, with first-class support for cloud agents,
+            durable resume, MCP servers, and run streaming.
           </p>
 
-          <div className="flex justify-center">
+          <div className="flex justify-center gap-3 flex-wrap">
             <Link
               href="/partnerships/snyk/demo"
               className="group inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full
@@ -81,45 +98,137 @@ export default function SnykPartnership() {
               Run the live demo
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
+            <a
+              href="#stages"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-dark-border text-text-secondary font-medium text-sm hover:bg-dark-surface-hover hover:text-text-primary transition-colors"
+            >
+              See the five stages
+            </a>
           </div>
         </div>
       </section>
 
-      {/* Workflow */}
-      <section className="py-24 px-6 border-t border-dark-border">
-        <div className="max-w-5xl mx-auto">
+      {/* Five-stage spine */}
+      <section id="stages" className="py-24 px-6 border-t border-dark-border">
+        <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-[11px] font-mono text-[#9F98FF] uppercase tracking-[0.22em] mb-2">
-              The motion
+            <p className="text-[11px] font-mono uppercase tracking-[0.22em] mb-2" style={{ color: '#9F98FF' }}>
+              The shift-left spine
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-3">
-              Snyk catches it. Cursor closes it.
+              The same SDK call, embedded everywhere.
             </h2>
             <p className="text-text-secondary max-w-2xl mx-auto">
-              Every Snyk critical becomes a tested, evidence-backed PR — without
-              an engineer touching the keyboard until the review step.
+              No five different security automation systems. One SDK, five integration points,
+              the same MCP servers and the same prompts at every stage.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4">
-            <WorkflowCard
-              step="1"
-              icon={<ShieldAlert className="w-5 h-5" />}
-              title="Detect"
-              detail="Snyk Code, Open Source, Container, and IaC stream findings into the project's MCP. The Cursor agent is invited as a reviewer the moment a critical lands."
-            />
-            <WorkflowCard
-              step="2"
-              icon={<Users className="w-5 h-5" />}
-              title="Orchestrate"
-              detail="Opus triages the data flow with line-level citations. Composer applies the fix. Codex reviews. Shell verifies the exploit is dead. Snyk re-tests clean."
-            />
-            <WorkflowCard
-              step="3"
-              icon={<GitPullRequest className="w-5 h-5" />}
-              title="Ship"
-              detail="A single PR lands with the exploit-replay table, the regression commit citation, and full audit trail. AppSec reviews. Engineering merges."
-            />
+          {/* Visual strip */}
+          <div className="mb-10 max-w-5xl mx-auto">
+            <ShiftLeftStages active="pr-gate" covered={['ide', 'commit']} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+            {SHIFT_LEFT_STAGES.map((stage, i) => (
+              <StageCard
+                key={stage.id}
+                stage={stage}
+                idx={i + 1}
+                emphasized={stage.id === 'pr-gate'}
+              />
+            ))}
+          </div>
+
+          <p className="text-xs text-text-tertiary text-center mt-6 max-w-2xl mx-auto">
+            Stage 3 is the live, interactive surface in this demo. Stage 5 is the production
+            safety net the existing webhook route was built for. Stages 1, 2, and 4 use the
+            same SDK against the same MCP servers.
+          </p>
+        </div>
+      </section>
+
+      {/* Pre-merge gate code */}
+      <section className="py-24 px-6 border-t border-dark-border">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <p className="text-[11px] font-mono uppercase tracking-[0.22em] mb-2" style={{ color: '#9F98FF' }}>
+              Stage 3 · pre-merge security gate
+            </p>
+            <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-3">
+              ~30 lines of TypeScript. Snyk catches it. The SDK ships it.
+            </h2>
+            <p className="text-text-secondary max-w-2xl mx-auto">
+              CI calls{' '}
+              <code className="font-mono text-[#9F98FF]">Agent.create({'{ cloud: { repos: [{ url, prUrl }] } }'})</code>{' '}
+              with the Snyk MCP wired in. The run streams back as{' '}
+              <code className="font-mono text-[#9F98FF]">SDKMessage</code> events. The gate stays red until the
+              exploit replay reports zero leaked rows.
+            </p>
+          </div>
+
+          <div className="rounded-xl border overflow-hidden" style={{ background: '#0A0B23', borderColor: '#23264F' }}>
+            <div className="px-4 py-2.5 border-b flex items-center justify-between" style={{ background: '#13142F', borderColor: '#23264F' }}>
+              <div className="flex items-center gap-2">
+                <CodeIcon className="w-3.5 h-3.5" style={{ color: '#9F98FF' }} />
+                <span className="text-[12px] font-mono" style={{ color: '#C9C9E5' }}>
+                  ci/security-gate.ts
+                </span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: '#1A1C40', color: '#9F98FF' }}>
+                  @cursor/february v1.0.7
+                </span>
+              </div>
+            </div>
+            <pre
+              className="p-5 overflow-x-auto text-[12.5px] font-mono leading-relaxed whitespace-pre"
+              style={{ color: '#C9C9E5' }}
+            >
+{`import { Agent } from "@cursor/february/agent";
+import { buildSecurityGatePrompt } from "./prompts";
+
+const agent = Agent.create({
+  apiKey: process.env.CURSOR_API_KEY!,
+  model: { id: "composer-2" },
+  cloud: {
+    repos: [{
+      url: "https://github.com/cursor-demos/cursor-for-enterprise",
+      prUrl: process.env.GITHUB_PR_URL!,
+    }],
+  },
+  mcpServers: {
+    snyk: { type: "http", url: "https://mcp.snyk.io/v1" },
+    jira: { type: "http", url: "https://mcp.atlassian.com/v1" },
+  },
+});
+
+const run = await agent.send(buildSecurityGatePrompt({
+  issueId: "SNYK-JS-CUSTOMER-PROFILE-001",
+  cwe: "CWE-943",
+  cvss: 9.8,
+}));
+
+for await (const event of run.stream()) {
+  switch (event.type) {
+    case "tool_call":  recordToolSpan(event); break;
+    case "status":     updateGateStatus(event.status); break;
+    case "assistant":  forwardToCIComment(event.message); break;
+  }
+}
+
+const result = await run.wait();
+process.exit(result.status === "FINISHED" ? 0 : 1);`}
+            </pre>
+          </div>
+
+          <div className="text-center mt-8">
+            <Link
+              href="/partnerships/snyk/demo"
+              className="inline-flex items-center gap-2 text-sm font-medium"
+              style={{ color: '#9F98FF' }}
+            >
+              Watch this code run live, end-to-end
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
       </section>
@@ -128,15 +237,14 @@ export default function SnykPartnership() {
       <section className="py-24 px-6 border-t border-dark-border">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-[11px] font-mono text-[#9F98FF] uppercase tracking-[0.22em] mb-2">
+            <p className="text-[11px] font-mono uppercase tracking-[0.22em] mb-2" style={{ color: '#9F98FF' }}>
               Coverage
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-3">
-              One agent across every Snyk product.
+              One SDK across every Snyk product.
             </h2>
             <p className="text-text-secondary max-w-2xl mx-auto">
-              SAST, SCA, container, IaC. Same orchestration loop, different
-              MCPs, identical guardrails.
+              SAST, SCA, container, IaC. Same SDK call, different MCPs, identical guardrails.
             </p>
           </div>
 
@@ -164,7 +272,7 @@ export default function SnykPartnership() {
       <section className="py-24 px-6 border-t border-dark-border">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
-            <p className="text-[11px] font-mono text-[#9F98FF] uppercase tracking-[0.22em] mb-2">
+            <p className="text-[11px] font-mono uppercase tracking-[0.22em] mb-2" style={{ color: '#9F98FF' }}>
               Why this co-sell works
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-text-primary mb-3">
@@ -183,14 +291,15 @@ export default function SnykPartnership() {
             />
             <ValueCard
               title="AppSec wins"
-              detail="No more triage rotations on tainted-input bugs. AppSec reviews PRs instead of debugging them — and ships their week's roadmap."
+              detail="No more triage rotations on tainted-input bugs. AppSec reviews PRs instead of debugging them, and ships their week's roadmap."
             />
           </div>
 
           <div className="text-center mt-10">
             <Link
               href="/partnerships/snyk/demo"
-              className="inline-flex items-center gap-2 text-sm text-[#9F98FF] hover:underline"
+              className="inline-flex items-center gap-2 text-sm hover:underline"
+              style={{ color: '#9F98FF' }}
             >
               See it run live
               <ArrowRight className="w-3.5 h-3.5" />
@@ -227,29 +336,64 @@ export default function SnykPartnership() {
   );
 }
 
-function WorkflowCard({
-  step,
-  icon,
-  title,
-  detail,
+function StageCard({
+  stage,
+  idx,
+  emphasized,
 }: {
-  step: string;
-  icon: React.ReactNode;
-  title: string;
-  detail: string;
+  stage: typeof SHIFT_LEFT_STAGES[number];
+  idx: number;
+  emphasized: boolean;
 }) {
+  const Icon = stage.icon;
   return (
-    <div className="rounded-xl border border-dark-border bg-dark-surface p-6">
-      <div className="flex items-center gap-3 mb-3">
-        <span className="w-7 h-7 rounded-full bg-[#4C44CB] text-white text-xs font-bold flex items-center justify-center">
-          {step}
+    <div
+      className="rounded-xl border p-4 flex flex-col gap-3"
+      style={{
+        background: emphasized ? 'rgba(76,68,203,0.06)' : 'rgb(var(--dark-surface))',
+        borderColor: emphasized ? 'rgba(76,68,203,0.4)' : 'rgb(var(--dark-border))',
+        boxShadow: emphasized ? '0 0 32px rgba(76,68,203,0.15)' : 'none',
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center"
+          style={{
+            background: emphasized ? '#4C44CB' : '#1A1C40',
+            color: emphasized ? '#FFFFFF' : '#9F98FF',
+          }}
+        >
+          {idx}
         </span>
-        <div className="text-[#9F98FF]">{icon}</div>
-        <h3 className="text-base font-semibold text-text-primary">{title}</h3>
+        <Icon className="w-4 h-4" style={{ color: '#9F98FF' }} />
+        <p className="text-sm font-semibold text-text-primary truncate">{stage.full}</p>
       </div>
-      <p className="text-sm text-text-secondary leading-relaxed">{detail}</p>
+      <code
+        className="text-[10.5px] font-mono p-2 rounded leading-relaxed break-words"
+        style={{ background: '#0A0B23', color: '#C9C9E5', border: '1px solid #23264F' }}
+      >
+        {stage.sdk}
+      </code>
+      <p className="text-[11px] text-text-secondary leading-relaxed">{describe(stage.id)}</p>
     </div>
   );
+}
+
+function describe(id: string): string {
+  switch (id) {
+    case 'ide':
+      return 'Snyk MCP loads via local.settingSources. CWE findings become Cursor suggestions as the developer types.';
+    case 'commit':
+      return 'A pre-commit hook runs the same SDK call. The dev cannot commit a tainted-input flow — the agent rewrites it first.';
+    case 'pr-gate':
+      return 'CI calls Agent.create({ cloud: { repos: [{ url, prUrl }] } }). Merge stays blocked until the exploit replay is clean.';
+    case 'nightly':
+      return 'A scheduled job calls Agent.resume(agentId).send(...) so the morning PR carries last night\'s context.';
+    case 'prod':
+      return 'When something slips past stages 1–4, the Snyk webhook triggers POST /v1/agents and the same gate prompt opens a PR.';
+    default:
+      return '';
+  }
 }
 
 function ValueCard({ title, detail }: { title: string; detail: string }) {

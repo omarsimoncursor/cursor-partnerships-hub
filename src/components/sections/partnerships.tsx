@@ -139,6 +139,14 @@ export function Partnerships() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               {
+                href: '/partnerships/cursor-sdk',
+                partner: 'Cursor SDK',
+                title: 'Build a Security Automation, Live',
+                description: 'Pick a tool and a response sequence. The SDK code updates as you click. Hit Run and watch the agent execute across 6+ MCPs.',
+                color: '#60A5FA',
+                letter: '⌘',
+              },
+              {
                 href: '/partnerships/datadog',
                 partner: 'Datadog',
                 title: 'From Incident to Automated Fix',

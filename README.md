@@ -13,6 +13,7 @@ Each partner gets two routes:
 
 | Partner | Narrative page | Demo page |
 | --- | --- | --- |
+| Cursor SDK (security) | [/partnerships/cursor-sdk](https://cursor.omarsimon.com/partnerships/cursor-sdk) | [/partnerships/cursor-sdk/demo](https://cursor.omarsimon.com/partnerships/cursor-sdk/demo) (interactive builder) |
 | AWS | [/partnerships/aws](https://cursor.omarsimon.com/partnerships/aws) | [/partnerships/aws/demo](https://cursor.omarsimon.com/partnerships/aws/demo) and [/partnerships/aws/journey](https://cursor.omarsimon.com/partnerships/aws/journey) (7-act) |
 | Databricks | [/partnerships/databricks](https://cursor.omarsimon.com/partnerships/databricks) | [/partnerships/databricks/demo](https://cursor.omarsimon.com/partnerships/databricks/demo) |
 | Datadog | [/partnerships/datadog](https://cursor.omarsimon.com/partnerships/datadog) | [/partnerships/datadog/demo](https://cursor.omarsimon.com/partnerships/datadog/demo) |

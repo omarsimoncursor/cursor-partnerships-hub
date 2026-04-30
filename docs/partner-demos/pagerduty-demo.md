@@ -1,285 +1,371 @@
-# PagerDuty Live Auto-Resolve Demo — Build Brief
+# PagerDuty + Cursor SDK Auto-Resolve Demo — Build Brief (v2)
 
-> **Purpose of this document:** Self-contained prompt/spec for a new Cursor agent to build an interactive demo at `/partnerships/pagerduty/demo`. Patterned on the existing Sentry demo at `/partnerships/sentry/demo` and Datadog demo at `/partnerships/datadog/demo`. Read it end-to-end before writing any code.
+> **Purpose of this document:** This v2 spec **replaces v1**. The original
+> shipped a generic webhook + scripted-console demo at
+> `/partnerships/pagerduty/demo`. We are reimagining it as a demonstration of
+> the **Cursor SDK** (`@cursor/sdk`, public beta as of Cursor 2.5) running
+> inside an enterprise sandbox. The Datadog narrative page is now the
+> structural template for the PagerDuty narrative page, and the interactive
+> demo is rebuilt so that every visible action is an SDK call you can copy.
+>
+> **Old demo files are kept** (no breaking removals). The narrative page is
+> rebuilt, the interactive demo's agent console is reframed as a literal
+> `agent.stream()` event log, and a new "Cursor SDK in your VPC" panel
+> appears alongside the live timeline.
 
 ---
 
 ## 0. TL;DR for the agent
 
-Build a repeatable, click-to-run demo that dramatizes PagerDuty + Cursor orchestration end-to-end:
+Build two surfaces:
 
-1. A user lands on `/partnerships/pagerduty/demo`. The hero is a glanceable "on-call status board" for a fake `payments-api` service. The local time on the board is `03:14 AM`.
-2. The user clicks **"Simulate bad deploy"**. After ~5s of deploy progress, a full-screen takeover renders a **PagerDuty incident page** ("P1 · payments-api 5xx error budget burned in 3 min") that mimics the real page-paging experience — pulsing red header, on-call rotation, escalation policy.
-3. The user clicks **"Watch Cursor handle this page"**. The screen splits: a live "auto-pilot" PagerDuty incident timeline on the left, the scripted agent console on the right.
-4. The agent: ack's the page within 12 seconds, fetches incident + recent change events via PagerDuty MCP, correlates to the offending deploy via GitHub MCP, runs a triage loop (revert vs fix-forward decision), executes a revert PR + redeploy via the GitHub + AWS/Vercel MCPs, posts Statuspage update, posts Slack update to `#ops`, and resolves the incident.
-5. When the run completes, four artifacts are clickable: **PagerDuty incident detail** (with the full auto-resolve timeline), **Statuspage update**, **Revert PR**, and **Postmortem doc**. A side card shows a counterfactual "what would have happened without Cursor" timeline (47 min mean time to resolve, 1 human paged, 1 escalation).
-6. Reset returns the demo to clean state. `scripts/reset-pagerduty-demo.sh` re-seeds the simulated bad deploy.
+1. **`/partnerships/pagerduty`** — a Datadog-style **5-act scroll narrative**
+   that argues the SDK thesis: "PagerDuty fires the page; the Cursor SDK,
+   running in your own sandbox, turns the on-call rotation into a programmable
+   auto-pilot you own and ship." Mirror the visualization vocabulary used by
+   `src/components/datadog/` (the McpFlowDiagram, the multi-model pipeline,
+   the PRReviewStation, the value-prop cards, the MTTR stat).
+2. **`/partnerships/pagerduty/demo`** — keep the four-phase state machine, but
+   **re-skin the right-hand console as an SDK runtime trace** that prints
+   `sdk.run.start`, `sdk.subagent.spawn`, `sdk.tool.call`, `sdk.run.event`
+   rows in real time. Add a third panel that shows the SDK source code for
+   each step, with a copy-to-clipboard. The left-hand PagerDuty timeline and
+   four artifact modals stay.
 
-**The demo must behave identically every time.** All agent work is scripted playback. The point of difference vs the Sentry/Datadog demos: this is an **incident-lifecycle** story, not a code-bug story. The "AHA" is *"the page got resolved without paging a human."*
+**The thesis to land in both surfaces:**
+
+- The SDK is the **integration substrate** — same runtime, harness, and models
+  that power Cursor desktop, but callable from your own webhook handler,
+  cron job, or PD event subscription.
+- Enterprises run it in a **sandbox they control** — admin-enforced network
+  allowlists, self-hosted workers for data privacy, scoped repo access.
+- Subagents make the workflow **legible and parallelizable** — a `triage`
+  subagent (Opus, long context), a `revert` subagent (Composer, scoped edits),
+  a `comms` subagent (light model, Statuspage + Slack writes) all spawned by
+  a parent that owns the decision tree.
+- The SDK is **token-billed** — finance can model it, security can audit it,
+  SRE can trust it.
 
 ---
 
-## 1. Why this demo, why this angle
+## 1. Why the redesign
 
-Existing partnership pages cover the upstream signal (Sentry = crash, Datadog = SLO breach). PagerDuty is downstream of every signal source — it's where humans actually wake up. The most impactful agentic story for PD is **page suppression**: an incident fires, Cursor ack's and remediates before a human is interrupted. This is a vivid, deeply-felt enterprise pain point (3am pages, alert fatigue, on-call burnout) that converts the moment a prospect sees it.
+The v1 demo did the right thing for the v1 era — webhook in, opaque cloud
+agent out. With the SDK shipping (Cursor 2.5, Feb 17 2026), prospects no
+longer want "we'll handle it." They want **a buildable contract** they can
+own. The demo must now show *the code* and *the sandbox*, not just the
+artifacts that come out the other side.
 
-We deliberately separate this from the Datadog demo so each demo has its own crisp thesis:
+The Datadog scroll narrative is the right template because it:
+- Walks the prospect through a 5-beat story (Detect → Orchestrate → Ship → Value)
+- Already uses the visualization primitives we want to reuse: `McpFlowDiagram`,
+  `PRReviewStation`, `FlowPipe`, `SystemNode`, `MacBookFrame`,
+  `TypingAnimation`, `AnimatedCounter`
+- Anchors each act with a glass card and a brand-color logo pair
+- Funnels into the live demo at the bottom
 
-- **Datadog demo:** *"Latency root cause → tested PR."*
-- **PagerDuty demo:** *"P1 page → resolved + revert PR, no human paged."*
+We re-use **all** of that for PagerDuty, swapping vocabulary and brand.
 
 ---
 
 ## 2. Required reading (in this repo, in order)
 
-Study the Sentry demo first — it's the canonical pattern. Then study the Datadog demo for how to fork that pattern with new vocabulary, channels, and artifacts.
+**Narrative scroll pattern (the new template):**
+- `src/app/partnerships/datadog/page.tsx` — five-act scroll page structure.
+- `src/components/datadog/alert-scene.tsx` — Act 1 (dashboard takeover).
+- `src/components/datadog/editor-scene.tsx` — Act 2 (`McpFlowDiagram`).
+- `src/components/datadog/analysis-scene.tsx` — Act 3 (multi-model pipeline +
+  `TypingAnimation` terminal).
+- `src/components/datadog/fix-scene.tsx` — Act 4 (`PRReviewStation`).
+- `src/components/datadog/value-prop-scene.tsx` — Act 5 (3 cards + MTTR
+  `AnimatedCounter`).
 
-**Page + state machine:**
+**Shared visual primitives (reuse, don't fork):**
+- `src/components/shared/mcp-flow-diagram.tsx`
+- `src/components/shared/pr-review-station.tsx`
+- `src/components/shared/flow-pipe.tsx`
+- `src/components/shared/system-node.tsx`
+- `src/components/shared/macbook-frame.tsx`
+- `src/components/ui/typing-animation.tsx`
+- `src/components/ui/animated-counter.tsx`
 
-- `src/app/partnerships/sentry/demo/page.tsx` — the four-phase state machine.
-- `src/app/partnerships/datadog/demo/page.tsx` — the same pattern, re-skinned. Closer to what you'll build.
-
-**Components to study:**
-
-- `src/components/sentry-demo/agent-console.tsx` — **most important file**. Scripted playback, channel-coded rows, `TIME_SCALE`, `Step` shape, `onComplete`.
-- `src/components/datadog-demo/agent-console.tsx` — fork target.
-- `src/components/sentry-demo/full-error-page.tsx` and `src/components/datadog-demo/full-slo-breach-page.tsx` — full-screen takeovers.
-- `src/components/sentry-demo/error-fallback.tsx` and `src/components/datadog-demo/slo-summary.tsx` — compact split-screen panels.
-- `src/components/sentry-demo/artifacts/macbook-frame.tsx` — promote/share if not already done. Use it for every artifact modal.
-- `src/components/sentry-demo/artifacts/{sentry,jira,pr}-{issue,modal,ticket,preview}.tsx` — artifact patterns.
-- `src/components/datadog-demo/artifacts/datadog-trace.tsx` — pixel-perfect external-tool UI pattern; mirror this fidelity for the PagerDuty incident page.
-
-**Trigger code (real bug):**
-
-- `src/lib/demo/aggregate-orders.ts`, `src/lib/demo/region-store.ts` — Datadog's two-file real-perf-bug pattern.
-
-**Webhook + reset:**
-
-- `src/app/api/datadog-webhook/route.ts`, `scripts/reset-datadog-demo.sh`.
-
-**Existing PagerDuty surface:** none yet. You're creating both `/partnerships/pagerduty` (narrative) and `/partnerships/pagerduty/demo` (interactive). Create a minimal narrative page; spend the bulk of effort on the demo.
-
----
-
-## 3. The demo — concept & story
-
-### Trigger UI (idle phase)
-
-A glanceable on-call status board:
-
-- Top: `payments-api` service card with green "Operational" pill, P99 = 124ms, on-call name "Alex Chen · 03:14 AM PT".
-- Middle: a "Recent deploys" timeline with three entries: `v1.42.0`, `v1.42.1`, and a pending `v1.43.0 — feat: bank-transfer support · awaiting traffic ramp`.
-- Bottom: a single CTA `[ Simulate deploy of v1.43.0 ]`.
-
-Below the fold, a **Page-suppression value comparison** card (the analog of `cost-comparison.tsx` and `latency-comparison.tsx`):
-
-- Left column: "Without Cursor — manual on-call response" — wall-clock 47 min MTTR, 1 page fired, 1 escalation, 2 humans interrupted.
-- Right column: "With Cursor — agent auto-resolve" — wall-clock 4m 12s, 0 humans paged, 1 PR auto-merged.
-- Numbers driven by constants in the file. No animation needed; this is a stat card.
-
-And a **Guardrails panel** (re-use shared component, list PD-specific guardrails: confidence threshold for revert vs fix-forward, deploy-window awareness, change-freeze respect, human-in-the-loop trigger).
-
-### The incident (error phase)
-
-When the user clicks **Simulate deploy**, the deploy progress bar fills for ~5s ("Building image", "Rolling out to canary", "Promoting to 100%"), then the screen pivots to a **full-screen PagerDuty incident takeover**:
-
-- Top bar: PagerDuty green logo (`#06AC38`), org/team selector, search.
-- Big incident header (red `#DC3545` accent): `INC-21487 · payments-api 5xx burst · P1 · TRIGGERED`.
-- Subline: `Service: payments-api · Escalation policy: Payments-Pri · 03:14:22 AM`.
-- Body grid:
-  - Left: alert source: `Datadog monitor #42971 — 5xx error rate > 5% for 3min`.
-  - Middle: incident timeline (currently just one entry, 03:14:22 TRIGGERED).
-  - Right: who's on-call (Alex Chen primary, Jordan secondary), escalation policy steps.
-- CTAs at the bottom: **`[ Watch Cursor handle this page ]`** (primary, filled green) and **`[ Reset ]`** (secondary).
-
-This page is the PagerDuty equivalent of `FullErrorPage` / `FullSloBreachPage`. It MUST feel like the real PagerDuty paging experience — pulsing red header, mono timestamps, "Acknowledge / Resolve" buttons in the chrome (greyed out unless you're on-call).
-
-### The orchestration (running phase)
-
-Split screen, just like Datadog:
-
-- Left: a **live PagerDuty incident timeline** that ticks new entries as the agent acts. This is the visual centerpiece. Each agent step that changes incident state writes a new timeline row in real time:
-  - `03:14:22 TRIGGERED · alert from Datadog monitor #42971`
-  - `03:14:34 ACKNOWLEDGED by cursor-agent (12s after trigger)`
-  - `03:14:38 NOTE · "Triaging via Datadog APM + GitHub commit history"`
-  - `03:15:02 NOTE · "Hypothesis: regression in v1.43.0 commit a4f2e1b"`
-  - `03:15:48 NOTE · "Decision: revert. Confidence 0.93. Forward fix would require schema migration."`
-  - `03:16:11 NOTE · "Revert PR #318 opened, deploying"`
-  - `03:17:54 NOTE · "Canary green · promoting to 100%"`
-  - `03:18:34 RESOLVED by cursor-agent (4m 12s total)`
-  - Footer: `0 humans paged · 1 revert PR · 1 Statuspage update`
-- Right: scripted agent console (same shape as Datadog, new channels — see below).
-
-### The script — channels
-
-Extend the existing `Channel` union with PD-specific channels. Re-use `opus`, `composer`, `codex`, `shell`, `github`, `jira`, `done`.
-
-| Channel       | Label                | Hex accent | Role                                                     |
-| ------------- | -------------------- | ---------- | -------------------------------------------------------- |
-| `pagerduty`   | `pagerduty-mcp`      | `#06AC38`  | Incident ack, notes, resolve, change-event reads         |
-| `datadog`     | `datadog-mcp`        | `#632CA6`  | Confirm alert source, fetch APM trace                    |
-| `github`      | `github-mcp`         | (white)    | Commit history, branch, revert PR                        |
-| `statuspage`  | `statuspage-mcp`     | `#3DB46D`  | Public status update                                     |
-| `slack`       | `slack-mcp`          | `#4A154B`  | `#ops` channel update                                    |
-| `aws` / `vercel` | `deploy-mcp`      | `#FF9900`  | Roll back the bad deploy / promote the revert            |
-| `opus`        | `opus · triage`      | `#D97757`  | Long-context reasoning over alert + commits + change log |
-| `composer`    | `composer · revert`  | blue       | Generate the revert commit                               |
-| `codex`       | `codex · review`     | `#10a37f`  | Sanity-check the revert                                  |
-| `done`        | `complete`           | green      | Terminal step                                            |
-
-### Target script arc (~28 steps, ~20s real, scaled to ~4m displayed)
-
-1. **Intake (pagerduty):** Webhook received → fetch incident → fetch alert payload → fetch escalation policy → ack incident (write timeline note: "ACK by cursor-agent").
-2. **Correlate signal (datadog):** Pull APM trace for the failing endpoint. Note the deploy marker that immediately precedes the error spike.
-3. **Regression hunt (github):** `git log` for commits since the deploy marker. Identify `v1.43.0` and the single commit that introduced it.
-4. **Opus triage:** Reason over the trace, the commit diff, the change-freeze calendar, and the deploy-window state. Output a structured decision: *revert vs fix-forward*. This is the demo's most important moment — surface the decision rationale clearly. (e.g., *"Revert. Confidence 0.93. Fix-forward would require schema migration; revert is mechanical and reversible."*)
-5. **Composer · revert:** Generate the revert commit (`git revert a4f2e1b`).
-6. **Codex · review:** Confirm the revert is purely subtractive, doesn't touch unrelated files, no semver bumps.
-7. **Shell verify:** `tsc`, lint, unit tests.
-8. **Deploy (deploy-mcp):** Push branch → CI → canary at 5% → SLO check → promote to 100%. Each substep a separate row.
-9. **PagerDuty notes:** Each material decision is mirrored to the incident as a NOTE so on-call can audit later.
-10. **Statuspage:** Push public update — "Investigating", "Identified", "Resolved" — with timestamps.
-11. **Slack:** Single message to `#ops` summarizing the auto-resolve with links.
-12. **Resolve (pagerduty):** Mark INC-21487 RESOLVED. Final timeline note.
-13. **Done:** All artifacts ready.
-
-### Counterfactual side card (key emotional beat)
-
-After the run completes, render a small comparison card *next to* the artifact cards, titled **"What would have happened without Cursor"**:
-
-- Two columns of timeline entries, side-by-side, scaled to the same vertical axis:
-  - **Without:** 03:14 page → 03:16 phone rings → 03:19 Alex acks groggy → 03:24 finds laptop → 03:31 reads runbook → 03:42 identifies suspect commit → 03:51 manual revert → 04:01 redeploys → 04:01 RESOLVED. Total: **47m**, 2 humans woken.
-  - **With Cursor:** Same start, ends 03:18:34. Total: **4m 12s**, 0 humans paged.
-- Bottom strip: cost lever — `47m × $X engineering opportunity cost × N pages/year = $Y saved`. Use plausible illustrative numbers; don't hardcode customer-specific amounts.
-
-### The four artifact modals
-
-All in `MacBook` frame.
-
-1. **PagerDuty incident detail (`pagerduty-incident.tsx`)** — pixel-perfect PagerDuty UI:
-   - Top nav with PD logo (green), incident title, status pill (green RESOLVED).
-   - Tabs: `Timeline · Alerts · Notes · Postmortem`.
-   - Default tab = **Timeline** with the full ~10-entry auto-resolve timeline. Each row has an actor (`cursor-agent` with bot icon) and a timestamp.
-   - Right sidebar: service, urgency, escalation policy, responders (only `cursor-agent`), linked alerts (Datadog #42971), linked artifacts (PR #318, Statuspage incident, Slack thread).
-   - Footer banner: `Auto-resolved by Cursor · 0 humans paged · 4m 12s`.
-
-2. **Statuspage update (`statuspage-update.tsx`)** — pixel-perfect Statuspage public component:
-   - Site header: `Acme Status · payments-api`.
-   - One incident card with three updates: `Investigating · 03:15:00`, `Identified · 03:15:48`, `Resolved · 03:18:34`. Resolution copy must be human-readable, not robot-generated: *"A regression introduced in v1.43.0 was reverted. All payments traffic restored. Postmortem to follow."*
-   - Subscribers count, RSS link, last-updated timestamp.
-
-3. **Revert PR (`pr-modal.tsx`)** — wrapped in MacBook, mirrors Sentry/Datadog. PR #318. Title: `revert: roll back v1.43.0 (resolves INC-21487)`. Body must include:
-   - The PD incident ID and Datadog monitor ID.
-   - Confidence-and-rationale block from Opus triage.
-   - Diff: pure subtractive (the inverse of `a4f2e1b`).
-   - CI checks all green, plus a "Cursor agent verified" reviewer banner.
-
-4. **Postmortem doc (`postmortem.tsx`)** — markdown modal (re-use `react-markdown` + `remark-gfm` from triage report). Structure:
-   - Incident summary (timing, blast radius, customer impact).
-   - Root cause (one paragraph from the regression diff).
-   - **What went well / what didn't** — note that Cursor handled detection through resolution; flag the actions still pending human review (the long-term fix-forward, the schema migration, customer comms).
-   - Action items with owners (some `cursor-agent`, most human SRE).
-   - Append a "Recovery telemetry" section with the before/after error rate sparkline.
-
-### Branding
-
-- **Primary accent:** PagerDuty green `#06AC38` (logo, ack/resolve buttons, success state).
-- **Incident accent:** Red `#DC3545` (the pulsing TRIGGERED state, the full-screen header).
-- **Resolved accent:** PD green `#06AC38` once the incident is closed.
-- **Vocabulary:** "trigger", "ack", "resolve", "escalation policy", "on-call", "responder", "MTTA / MTTR", "Statuspage", "runbook", "change event", "service".
-- **Avoid:** Datadog purple, Sentry purple, Sentry's mascot, the word "issue" (use "incident").
+**Existing PagerDuty demo (keep, evolve, do not delete):**
+- `src/app/partnerships/pagerduty/page.tsx` — REWRITE entirely.
+- `src/app/partnerships/pagerduty/demo/page.tsx` — keep state machine, refresh
+  copy + add SDK code panel.
+- `src/components/pagerduty-demo/*` — keep all components, modify
+  `agent-console.tsx` to render SDK events.
 
 ---
 
-## 4. Files to create
+## 3. The Cursor SDK — what to render
 
-```
-src/app/partnerships/pagerduty/page.tsx                                  NEW (narrative; minimal — link prominently to /demo)
-src/app/partnerships/pagerduty/demo/page.tsx                             NEW
-src/app/api/pagerduty-webhook/route.ts                                   NEW
+These are the SDK shapes the demo needs to look credible. Use them verbatim
+in code snippets (do not invent new APIs).
 
-src/components/pagerduty-demo/oncall-board.tsx                           NEW (idle-phase trigger, the "Simulate deploy" surface)
-src/components/pagerduty-demo/demo-deploy-boundary.tsx                   NEW (intercepts the simulated bad deploy → error phase)
-src/components/pagerduty-demo/full-incident-page.tsx                     NEW (full-screen PD incident takeover)
-src/components/pagerduty-demo/incident-summary.tsx                       NEW (split-screen left panel: live timeline)
-src/components/pagerduty-demo/agent-console.tsx                          NEW (fork of datadog console with PD channels + script)
-src/components/pagerduty-demo/artifact-cards.tsx                         NEW
-src/components/pagerduty-demo/counterfactual-card.tsx                    NEW (the "without Cursor" comparison)
-src/components/pagerduty-demo/page-suppression-stats.tsx                 NEW (idle-phase value card)
-src/components/pagerduty-demo/guardrails-panel.tsx                       NEW or reuse shared
-src/components/pagerduty-demo/artifacts/pagerduty-incident.tsx           NEW (pixel-perfect PD incident page)
-src/components/pagerduty-demo/artifacts/pagerduty-modal.tsx              NEW (wraps in MacBook)
-src/components/pagerduty-demo/artifacts/statuspage-update.tsx            NEW
-src/components/pagerduty-demo/artifacts/statuspage-modal.tsx             NEW
-src/components/pagerduty-demo/artifacts/postmortem.tsx                   NEW (markdown modal)
-src/components/pagerduty-demo/artifacts/github-pr-preview.tsx            NEW (revert-PR specific copy)
-src/components/pagerduty-demo/artifacts/pr-modal.tsx                     NEW
+```ts
+// 1. Create a session — runs in your sandbox / self-hosted worker
+import { Agent } from '@cursor/sdk';
 
-src/lib/demo/payments-deploy.ts                                          NEW (the simulated deploy + revert; real timing)
-scripts/reset-pagerduty-demo.sh                                          NEW
+const agent = Agent.create({
+  apiKey: process.env.CURSOR_API_KEY!,
+  model: { id: 'composer-2' },
+  cloud: {
+    repos: ['github.com/acme/payments-api'],
+  },
+  sandbox: {
+    network: 'allowlist',  // admin-enforced via Cursor 2.5 dashboard
+    allowedDomains: [
+      'api.pagerduty.com',
+      'api.datadoghq.com',
+      'api.github.com',
+      'status.acme.com',
+      'hooks.slack.com',
+    ],
+  },
+});
+
+// 2. Kick off a run from a webhook handler
+const run = await agent.send(
+  `Triage PagerDuty incident ${incident.id} on payments-api.
+   Decide revert vs fix-forward. If confidence > 0.7, ship the change.`,
+  {
+    subagents: {
+      triage: { model: { id: 'claude-opus-4-thinking' } },
+      revert: { model: { id: 'composer-2' } },
+      comms:  { model: { id: 'composer-2' } },
+    },
+    onEvent: (event) => publishToPagerdutyTimeline(event),
+  },
+);
+
+// 3. Stream normalized events back into your incident timeline
+for await (const event of run.stream()) {
+  switch (event.type) {
+    case 'subagent.spawn':       await pd.notes(incident.id, event); break;
+    case 'tool.call':            await metrics.record(event); break;
+    case 'decision':             await pd.notes(incident.id, event); break;
+    case 'pull_request.opened':  await pd.notes(incident.id, event); break;
+  }
+}
+
+const result = await run.wait();
 ```
 
-**Also:**
+**Critical SDK story-beats to land:**
 
-- Add `PagerDuty` card to `src/lib/constants.ts` if not present.
-- Add a logo to `public/logos/pagerduty.svg`.
-- Promote `MacBook` frame to `src/components/shared/macbook-frame.tsx` if not already done. Don't break existing imports.
-- Update README's partner table.
-
----
-
-## 5. Implementation order
-
-1. Scaffold the route + four-phase state machine (copy from `datadog/demo/page.tsx`).
-2. Build the on-call board + simulated deploy. Wire `Simulate deploy` to flip phase to `error` after a real ~5s delay.
-3. Build the full-screen incident takeover. Don't skimp on the PD chrome — it must look real.
-4. Build the live left-panel incident timeline. Each row appears in time with the corresponding agent-console step (pass the current step index down via props or a shared state).
-5. Build the agent console (fork Datadog's). Write the ~28-step script. Tune `TIME_SCALE` so displayed timestamps scale to ~4 min (real runtime ~20s).
-6. Build artifacts in this order: PR (cheapest, copy from Datadog) → Postmortem (markdown) → Statuspage update → PagerDuty incident detail (the new/hard one).
-7. Build the counterfactual card.
-8. Side-content: page-suppression stats, guardrails.
-9. Webhook route + reset script.
-10. Typecheck, walk through twice, screenshot for PR.
+- `Agent.create` is **declarative** — repos, model, sandbox policy.
+- The runtime is the **same** runtime that powers desktop Cursor.
+- `subagents` make the workflow **legible** — each one has its own model, its
+  own scope, its own allowlist.
+- `run.stream()` produces **normalized events** that an enterprise can route
+  to PagerDuty, Statuspage, Slack, Datadog, OpenTelemetry — anywhere.
+- `run.wait()` is **typed** — the result is a structured object, not free
+  text.
 
 ---
 
-## 6. Acceptance criteria
+## 4. The new narrative page — `/partnerships/pagerduty`
 
-- `/partnerships/pagerduty/demo` loads with the on-call board, page-suppression stats, and guardrails.
-- Clicking **Simulate deploy** runs a realistic ~5s deploy progress, then pivots to the full-screen PagerDuty incident page.
-- Clicking **Watch Cursor handle this page** starts the split-screen with both the live timeline (left) and agent console (right) ticking together in lockstep.
-- Console + timeline complete in ~20s real time (~4 min displayed). No real network calls, no `Math.random()` in playback.
-- Four artifact cards open correctly: PD incident detail, Statuspage, Revert PR, Postmortem. All MacBook-framed.
-- Counterfactual card appears in the `complete` phase showing the "without Cursor" comparison.
-- Reset returns to clean `idle` state across all phases.
-- `npx tsc --noEmit` passes.
-- `npm run lint` passes.
+Rebuild end-to-end. The structure mirrors `src/app/partnerships/datadog/page.tsx`:
+
+### Hero
+- Same logo-pair pattern: `[ PD ] + [ C ]` with PagerDuty green (`#06AC38`)
+  and Cursor blue.
+- Headline: **"The page that didn't fire."**
+- Subline: "PagerDuty triggers the incident. The Cursor SDK, running in your
+  own sandbox, ack's, triages, reverts, and resolves — without paging a
+  human."
+- One CTA: → "Run the live demo".
+
+### Act 1 — The Page Fires
+Mirror `alert-scene.tsx` but render a **PagerDuty incident dashboard**, not a
+Datadog APM dashboard. Pulsing red header, on-call card, escalation policy.
+
+### Act 2 — The Cursor SDK Activates
+Reuse `McpFlowDiagram` with these props:
+- `sourceName="PagerDuty"`, `sourceColor="#06AC38"`
+- `eventBadge={ label: 'priority', value: 'P1' }`
+- `payloadLines` → a real PagerDuty V3 webhook payload preview
+- `semanticResults` → 4 plausible payments-api files
+
+The narrative copy under the diagram becomes the SDK pitch: "No engineer
+needed. The PagerDuty webhook fires `Agent.create()` inside your sandboxed
+worker. The agent queries the semantic index instantly to locate every
+relevant code path."
+
+Add a **second** card immediately below the diagram: a syntax-highlighted SDK
+code snippet panel that shows `Agent.create({ ... })` with the sandbox
+network policy. This is the new visual that v1 lacked.
+
+### Act 3 — Multi-Subagent Orchestration via the SDK
+Mirror `analysis-scene.tsx`, but the three pipeline stages are now **SDK
+subagents**:
+
+| # | Stage           | Model                     | Color    | Role                                    |
+|---|-----------------|---------------------------|----------|-----------------------------------------|
+| 1 | **triage**      | `claude-opus-4-thinking`  | `#A259FF`| Reads PD + Datadog + git history        |
+| 2 | **revert**      | `composer-2`              | `#60A5FA`| Generates the revert commit             |
+| 3 | **comms**       | `composer-2`              | `#3DB46D`| Posts Statuspage + Slack updates        |
+
+Use the same glass-card pipeline layout with `FlowPipe` between cards. The
+`TypingAnimation` terminal becomes a literal `for await (const event of
+run.stream())` loop, printing real `sdk.subagent.spawn`, `sdk.tool.call`,
+`sdk.decision` events.
+
+### Act 4 — Ship It
+Reuse `PRReviewStation` with revert PR copy:
+- `prTitle="revert: roll back v1.43.0 (resolves INC-21487)"`
+- `prNumber="#318"`
+- `prFiles` → 1 file, +4 −218 (pure subtractive)
+- `ciChecks` → `typecheck`, `lint`, `unit`, `canary-deploy`, `slo-gate`
+- `accentColor="#06AC38"`, `sourceColor="#06AC38"`
+
+Below the station, swap the Datadog "metrics + human-in-the-loop" callout for:
+- Three stats: `MTTA 12s`, `MTTR 4m 12s`, `0 humans paged`
+- A "What the SDK gave you" callout (own the runtime, own the policy, own
+  the audit log).
+
+### Act 5 — Better Together
+Mirror `value-prop-scene.tsx` with three cards:
+
+| Card | Title       | Subtitle                                | Color    |
+|------|-------------|-----------------------------------------|----------|
+| 1    | **Page**    | PagerDuty                               | `#06AC38`|
+| 2    | **Build**   | Cursor SDK in your VPC                  | `#60A5FA`|
+| 3    | **Resolve** | Programmable on-call auto-pilot         | `#4ADE80`|
+
+Use `AnimatedCounter` for an `87%` MTTR-reduction stat, identical pattern.
+
+End the page with a final, prominent CTA pill into the live demo, plus a
+short SDK code block: `Agent.create({ cloud: { repos } })`.
+
+---
+
+## 5. The interactive demo — `/partnerships/pagerduty/demo`
+
+Keep the four-phase state machine and the four artifact modals. Refresh:
+
+### Idle phase
+Add a **second card** below the on-call status board: a syntax-highlighted
+SDK code panel titled **"This is what powers the auto-pilot."** Show the
+exact `Agent.create({ ... })` from §3. Two-tab toggle: `Setup` (the
+`Agent.create` call) and `Webhook handler` (the `agent.send` call).
+
+Keep the existing `PageSuppressionStats` and `GuardrailsPanel` cards.
+
+### Error phase
+Unchanged.
+
+### Running phase — the meaningful redesign
+Same split-screen, but the **right panel becomes an SDK runtime trace**, not
+free-form agent labels.
+
+Each row now renders as:
+```
+[+12.4s] sdk.subagent.spawn   triage   model=claude-opus-4-thinking
+[+12.6s] sdk.tool.call        triage   pagerduty.fetchIncident { id: 'INC-21487' }
+[+15.0s] sdk.decision         triage   { decision: 'revert', confidence: 0.93 }
+[+15.4s] sdk.subagent.spawn   revert   model=composer-2
+[+17.1s] sdk.pull_request.opened  revert  github.com/acme/payments-api/pull/318
+```
+
+The row chrome stays (channel pill, timestamp, label, detail), but the
+channel labels become SDK event types (`sdk.run.start`, `sdk.subagent.spawn`,
+`sdk.tool.call`, `sdk.decision`, `sdk.pull_request.opened`,
+`sdk.statuspage.update`, `sdk.run.complete`).
+
+Add a small **"sandbox" header bar** at the top of the console showing:
+- Worker hostname (`worker-cursor-sdk-7f4d.acme.internal`)
+- Allowed-egress chips (`api.pagerduty.com`, `api.datadoghq.com`, …)
+- Token budget (`tokens used: 12,440 / 50,000`)
+
+This is the new enterprise-grade detail that wasn't in v1.
+
+### Complete phase
+Unchanged artifact cards + counterfactual.
+
+Add **one more side card** under the artifacts: a small "Build this in your
+infra" tile that opens the SDK code modal showing the full handler.
+
+### New file
+- `src/components/pagerduty-demo/sdk-runtime-trace.tsx` — replaces (or
+  composes) the v1 console; renders the SDK events from the script.
+- `src/components/pagerduty-demo/sdk-code-panel.tsx` — the syntax-highlighted
+  code block with two tabs, used on idle phase + as a "build this" modal.
+
+The existing `agent-console.tsx` SCRIPT can stay as the source of truth for
+timing — only the rendering layer changes (each step becomes one SDK event).
+
+---
+
+## 6. Files to change / add
+
+```
+src/app/partnerships/pagerduty/page.tsx                                  REWRITE
+src/components/pagerduty/page-fires-scene.tsx                            NEW (mirrors alert-scene)
+src/components/pagerduty/sdk-activated-scene.tsx                         NEW (mirrors editor-scene)
+src/components/pagerduty/sdk-orchestration-scene.tsx                     NEW (mirrors analysis-scene)
+src/components/pagerduty/sdk-ships-pr-scene.tsx                          NEW (mirrors fix-scene)
+src/components/pagerduty/sdk-value-scene.tsx                             NEW (mirrors value-prop-scene)
+src/components/pagerduty/sdk-code-panel.tsx                              NEW (the syntax-highlighted SDK snippet block)
+src/components/pagerduty-demo/sdk-runtime-trace.tsx                      NEW (re-skinned agent console with SDK event types)
+src/app/partnerships/pagerduty/demo/page.tsx                             EDIT (use sdk-runtime-trace, add SDK code panel below on-call board)
+src/lib/constants.ts                                                     EDIT (PD rationale leads with SDK)
+docs/partner-demos/pagerduty-demo.md                                     REWRITE (this doc)
+```
+
+Do NOT delete:
+- `src/components/pagerduty-demo/agent-console.tsx` — its SCRIPT export is
+  the timing source for `sdk-runtime-trace.tsx`. Keep the file.
+- Any artifact modal — they all still work.
+
+---
+
+## 7. Acceptance criteria
+
+- `/partnerships/pagerduty` is a five-act scroll page that visually matches
+  the Datadog narrative page in structure.
+- Every Datadog visualization primitive (`McpFlowDiagram`, `PRReviewStation`,
+  glass-card pipeline, MTTR `AnimatedCounter`, MacBook frame) appears at
+  least once on the new PagerDuty narrative page.
+- An SDK code block (`Agent.create({ ... })` and `agent.send({ ... })`)
+  appears at least twice on the narrative page (Act 2 + final CTA strip) and
+  at least once on the demo idle phase.
+- The interactive demo's right-hand console renders rows that name SDK event
+  types (`sdk.subagent.spawn`, `sdk.tool.call`, `sdk.decision`,
+  `sdk.pull_request.opened`, `sdk.run.complete`) with a sandbox header bar
+  showing the worker hostname, allowed egress, and token budget.
+- The narrative page's CTA pill links to the demo. The demo's nav back link
+  goes to the narrative page.
+- Reset still returns the demo to clean idle state.
+- `npx tsc --noEmit` passes; `next build --webpack` passes.
+- `PARTNER_CATEGORIES.devtools` PagerDuty entry leads with the SDK pitch
+  ("the SDK turns the on-call rotation into a programmable auto-pilot")
+  rather than the webhook pitch.
 - Running the demo twice produces identical output.
-- The PagerDuty incident detail modal looks like a real PD incident page, not a generic table.
+- All four artifact modals (PD incident, Statuspage, revert PR, postmortem)
+  still open and render.
 
 ---
 
-## 7. Anti-patterns
+## 8. Anti-patterns
 
-- ❌ Don't make this a "second Datadog demo." The story here is **incident lifecycle suppression**, not perf root-cause. The hero metric is **0 humans paged**, not "12× faster." Lead with the hour, the on-call name, the page that didn't fire.
-- ❌ Don't use PagerDuty red as the resolved-state color. PD green = resolved.
-- ❌ Don't show the agent making destructive changes to live infra without a guardrail step. The script should explicitly call out the canary check + SLO gate before promoting the revert.
-- ❌ Don't omit the counterfactual. It's the strongest emotional beat for SRE/EM buyers.
-- ❌ Don't fake the deploy timing. Use a real ~5s setTimeout chain so the prospect feels the deploy roll out before the page fires.
+- ❌ Don't invent SDK methods that aren't in the public docs. Stick to
+  `Agent.create`, `agent.send`, `run.stream`, `run.wait`, and the
+  `subagents` config option. Anything else is fan-fiction and security
+  reviewers will smell it.
+- ❌ Don't drop the existing PD-incident takeover or the live timeline.
+  They're the emotional spine of the demo. Re-skin, don't rip out.
+- ❌ Don't make the new narrative page a literal copy of Datadog's. Re-use
+  the components, but write Datadog out of every string.
+- ❌ Don't let the SDK code panel scroll horizontally. Use word-wrap and
+  small font sizes. Enterprise architects screenshot these.
 
 ---
 
-## 8. Webhook prompt (`buildAgentPrompt`)
+## 9. Ship it
 
-Fork `src/app/api/datadog-webhook/route.ts`. Replace vocabulary. Required steps in order:
-
-1. **PagerDuty intake.** Fetch incident, alerts, escalation policy, recent change events. ACK the incident immediately with a note that triage has begun.
-2. **Correlate signal.** Use Datadog (or whatever monitor source the alert names) to pull the affected endpoint's APM trace and the deploy markers around the trigger time.
-3. **Regression hunt.** GitHub MCP: `git log` since the most recent deploy marker. Identify the offending commit.
-4. **Decide revert vs fix-forward.** Output a structured decision with confidence and rationale. Default to **revert** unless the offending change is non-revertible (e.g., contains a schema migration).
-5. **Execute.** Open a revert PR, deploy through canary → SLO gate → promote.
-6. **Communicate.** Statuspage update (Investigating → Identified → Resolved), Slack to `#ops`, PD incident NOTEs at every material step.
-7. **Resolve.** Mark the PD incident RESOLVED only after the SLO is back inside budget for ≥2 minutes.
-8. **Postmortem.** Auto-draft to `docs/postmortems/<date>-<incident-id>.md` and link from the PD incident.
-
-The prompt must enforce: **never resolve the incident without verifying SLO recovery**. **Never roll forward a fix in production without canary success**. **Always page a human if confidence < 0.7**. These guardrails are the demo's contract.
+Update the existing PR (#11) on
+`cursor/pagerduty-live-auto-resolve-demo-09f8`. Title can stay; rewrite the
+body to match v2.

@@ -26,7 +26,7 @@ export function EventPicker({ toolId, selectedEventId, onSelect }: EventPickerPr
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary">
             Step 2
@@ -39,9 +39,6 @@ export function EventPicker({ toolId, selectedEventId, onSelect }: EventPickerPr
           </span>
         )}
       </div>
-      <p className="text-[11px] text-text-tertiary mb-3 leading-relaxed">
-        Which kind of alert is the agent reacting to? Severity tags signal how urgent it is.
-      </p>
 
       {!toolId && (
         <p className="text-xs text-text-tertiary italic px-3 py-6 bg-dark-surface rounded-lg border border-dashed border-dark-border">
@@ -74,7 +71,7 @@ export function EventPicker({ toolId, selectedEventId, onSelect }: EventPickerPr
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-mono text-text-primary truncate">{event.name}</p>
-                  <p className="text-[11px] text-text-tertiary leading-snug mt-0.5">
+                  <p className="text-[12.5px] text-text-secondary leading-relaxed mt-1">
                     {event.description}
                   </p>
                 </div>
@@ -88,13 +85,18 @@ export function EventPicker({ toolId, selectedEventId, onSelect }: EventPickerPr
       )}
 
       {selectedEvent && (
-        <div className="mt-3 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-3 py-2 flex items-start gap-2">
-          <Lightbulb className="w-3.5 h-3.5 text-accent-blue mt-0.5 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[10px] font-mono uppercase tracking-wider mb-0.5 text-accent-blue">
-              In plain English &middot; {selectedEvent.name}
+        <div className="mt-3 rounded-lg border border-dark-border bg-dark-surface px-4 py-3 flex items-start gap-3 border-l-[3px] border-l-accent-amber">
+          <div className="w-7 h-7 rounded-md bg-accent-amber/15 border border-accent-amber/30 text-accent-amber flex items-center justify-center shrink-0 mt-0.5">
+            <Lightbulb className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-mono uppercase tracking-wider mb-1 text-accent-amber">
+              In plain English &middot;{' '}
+              <span className="text-text-primary font-mono normal-case tracking-normal">
+                {selectedEvent.name}
+              </span>
             </p>
-            <p className="text-[12px] text-text-secondary leading-relaxed">
+            <p className="text-[13px] text-text-primary leading-relaxed">
               {selectedEvent.plainEnglish}
             </p>
           </div>

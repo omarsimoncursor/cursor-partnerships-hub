@@ -14,7 +14,7 @@ export function ToolPalette({ selectedToolId, onSelect }: ToolPaletteProps) {
   const selectedTool = getTool(selectedToolId);
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary">
             Step 1
@@ -23,9 +23,6 @@ export function ToolPalette({ selectedToolId, onSelect }: ToolPaletteProps) {
         </div>
         <span className="text-[11px] text-text-tertiary font-mono">{TOOLS.length} tools</span>
       </div>
-      <p className="text-[11px] text-text-tertiary mb-3 leading-relaxed">
-        Which existing security product just sent the alert you want the agent to act on?
-      </p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {TOOLS.map((tool) => {
           const isSelected = selectedToolId === tool.id;
@@ -61,7 +58,7 @@ export function ToolPalette({ selectedToolId, onSelect }: ToolPaletteProps) {
                 </div>
                 <span className="text-sm font-medium text-text-primary truncate">{tool.name}</span>
               </div>
-              <p className="text-[11px] leading-snug text-text-tertiary line-clamp-2">{tool.blurb}</p>
+              <p className="text-[12.5px] leading-relaxed text-text-secondary line-clamp-2">{tool.blurb}</p>
             </button>
           );
         })}
@@ -69,21 +66,18 @@ export function ToolPalette({ selectedToolId, onSelect }: ToolPaletteProps) {
 
       {selectedTool && (
         <div
-          className="mt-3 rounded-lg border bg-dark-bg/40 px-3 py-2 flex items-start gap-2"
-          style={{ borderColor: `${selectedTool.color}55` }}
+          className="mt-3 rounded-lg border border-dark-border bg-dark-surface px-4 py-3 flex items-start gap-3 border-l-[3px]"
+          style={{ borderLeftColor: selectedTool.color }}
         >
-          <Lightbulb
-            className="w-3.5 h-3.5 mt-0.5 shrink-0"
-            style={{ color: selectedTool.color }}
-          />
-          <div className="min-w-0">
-            <p
-              className="text-[10px] font-mono uppercase tracking-wider mb-0.5"
-              style={{ color: selectedTool.color }}
-            >
-              In plain English &middot; {selectedTool.name}
+          <div className="w-7 h-7 rounded-md bg-accent-amber/15 border border-accent-amber/30 text-accent-amber flex items-center justify-center shrink-0 mt-0.5">
+            <Lightbulb className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-mono uppercase tracking-wider mb-1 text-accent-amber">
+              In plain English &middot;{' '}
+              <span style={{ color: selectedTool.color }}>{selectedTool.name}</span>
             </p>
-            <p className="text-[12px] text-text-secondary leading-relaxed">
+            <p className="text-[13px] text-text-primary leading-relaxed">
               {selectedTool.plainEnglish}
             </p>
           </div>

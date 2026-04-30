@@ -12,7 +12,7 @@ import { ActionList } from './action-list';
 import { McpPicker } from './mcp-picker';
 import { SdkCodePanel } from './sdk-code-panel';
 import { BuilderSummary } from './builder-summary';
-import { Sparkles } from 'lucide-react';
+import { AlertTriangle, Lightbulb, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WorkflowBuilderProps {
@@ -119,37 +119,92 @@ export function WorkflowBuilder({ workflow, onChange, onRun }: WorkflowBuilderPr
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-dark-border bg-dark-surface p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="w-3.5 h-3.5 text-accent-amber" />
-          <span className="text-[11px] font-mono uppercase tracking-wider text-text-tertiary">
+      <div className="rounded-xl border border-dark-border bg-dark-surface p-4">
+        <div className="flex items-center gap-2.5 mb-3 flex-wrap">
+          <Sparkles className="w-4 h-4 text-accent-amber" />
+          <span className="text-[13px] font-mono uppercase tracking-wider text-text-secondary font-semibold">
             Starter workflows
           </span>
-          <span className="text-[10px] text-text-tertiary">
+          <span className="text-[12px] text-text-tertiary">
             (one click loads a curated workflow you can edit)
           </span>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {CURATED_WORKFLOWS.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => applyStarter(c.id)}
+
+        {(() => {
+          const active = CURATED_WORKFLOWS.find((c) => c.id === activeStarter);
+          return (
+            <div
               className={cn(
-                'text-left text-[11px] px-2.5 py-1.5 rounded border transition-all duration-150 cursor-pointer max-w-xs',
-                activeStarter === c.id
-                  ? 'border-accent-amber/60 bg-accent-amber/10 text-text-primary'
-                  : 'border-dark-border bg-dark-bg hover:border-dark-border-hover hover:bg-dark-surface-hover text-text-secondary',
+                'grid gap-4',
+                active ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]' : 'grid-cols-1',
               )}
-              title={c.description}
             >
-              {c.title}
-            </button>
-          ))}
-        </div>
+              <div className="flex flex-wrap gap-2 self-start">
+                {CURATED_WORKFLOWS.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => applyStarter(c.id)}
+                    className={cn(
+                      'text-left text-[13px] font-medium px-3 py-2 rounded-md border transition-all duration-150 cursor-pointer max-w-sm',
+                      activeStarter === c.id
+                        ? 'border-accent-amber/60 bg-accent-amber/10 text-text-primary'
+                        : 'border-dark-border bg-dark-bg hover:border-dark-border-hover hover:bg-dark-surface-hover text-text-secondary hover:text-text-primary',
+                    )}
+                    title={c.description}
+                  >
+                    {c.title}
+                  </button>
+                ))}
+              </div>
+
+              {active && (
+                <div
+                  key={active.id}
+                  className="rounded-lg border border-dark-border bg-dark-bg/40 p-3.5 space-y-3"
+                  style={{ animation: 'starterFadeIn 0.25s ease-out' }}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-7 h-7 rounded-md bg-accent-red/15 border border-accent-red/30 text-accent-red flex items-center justify-center shrink-0 mt-0.5">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-accent-red mb-1">
+                        What just happened
+                      </p>
+                      <p className="text-[13px] text-text-primary leading-relaxed">
+                        {active.scenarioPlain}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-7 h-7 rounded-md bg-accent-green/15 border border-accent-green/30 text-accent-green flex items-center justify-center shrink-0 mt-0.5">
+                      <Lightbulb className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-accent-green mb-1">
+                        What the agent does
+                      </p>
+                      <p className="text-[13px] text-text-primary leading-relaxed">
+                        {active.remediationPlain}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        <style jsx>{`
+          @keyframes starterFadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] gap-4">
-        <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] gap-6">
+        <div className="space-y-8 divide-y divide-dark-border/40 [&>*:not(:first-child)]:pt-8">
           <ToolPalette selectedToolId={workflow.toolId} onSelect={setTool} />
           <EventPicker
             toolId={workflow.toolId}
@@ -160,12 +215,13 @@ export function WorkflowBuilder({ workflow, onChange, onRun }: WorkflowBuilderPr
             <ActionPicker
               selectedActionIds={workflow.actionIds}
               enabled={actionEnabled}
+              toolId={workflow.toolId}
               onToggle={toggleAction}
             />
           )}
           {workflow.actionIds.length > 0 && (
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary">
                   Sequence
                 </span>

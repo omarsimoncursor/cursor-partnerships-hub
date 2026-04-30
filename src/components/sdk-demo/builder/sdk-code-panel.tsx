@@ -37,9 +37,6 @@ export function SdkCodePanel({ workflow }: SdkCodePanelProps) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-text-tertiary font-mono uppercase tracking-wider hidden md:inline">
-            Live · regenerates on every pick
-          </span>
           <button
             onClick={handleCopy}
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono text-text-tertiary hover:text-text-primary hover:bg-dark-surface-hover transition-colors cursor-pointer"

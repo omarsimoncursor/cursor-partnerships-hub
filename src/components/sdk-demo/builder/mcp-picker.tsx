@@ -28,7 +28,7 @@ export function McpPicker({ selectedMcpIds, derivedMcpIds, onToggle }: McpPicker
         </span>
       </div>
 
-      <p className="text-[11px] text-text-tertiary mb-2 leading-relaxed">
+      <p className="text-[12.5px] text-text-secondary mb-3 leading-relaxed">
         Auto-derived from your actions. Add or remove individual MCPs to grant or restrict tools.
       </p>
 

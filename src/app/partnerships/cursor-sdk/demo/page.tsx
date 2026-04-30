@@ -93,7 +93,7 @@ export default function CursorSdkDemoPage() {
             <div className="max-w-6xl mx-auto">
               <div className="text-center mb-8 mt-2">
                 <p className="text-[11px] font-mono text-accent-blue uppercase tracking-[0.2em] mb-2">
-                  Cursor SDK · @cursor/february · v1.0.7
+                  Cursor SDK
                 </p>
                 <h1 className="text-2xl md:text-4xl font-bold text-text-primary mb-3">
                   Build a real security automation, live.
@@ -101,13 +101,9 @@ export default function CursorSdkDemoPage() {
                 <p className="text-sm md:text-base text-text-secondary max-w-2xl mx-auto leading-relaxed">
                   Pick which security tool sends the alert, which kind of alert it is, and what you
                   want the agent to do in response. The TypeScript on the right updates as you
-                  click — that&apos;s the actual code a customer would deploy. Hit{' '}
+                  click — that&apos;s actual code being built in real time. Hit{' '}
                   <span className="text-accent-blue font-semibold">Run automation</span> to watch
-                  the agent execute the workflow you just built.
-                </p>
-                <p className="text-xs text-text-tertiary mt-3 max-w-xl mx-auto">
-                  In a hurry? Tap a starter workflow chip below to load a curated combination. You
-                  can edit it before you run.
+                  the agent execute the workflow.
                 </p>
               </div>
               <WorkflowBuilder workflow={workflow} onChange={setWorkflow} onRun={handleRun} />

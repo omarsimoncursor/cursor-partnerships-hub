@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ActionId, McpId, ToolId, Workflow } from '@/lib/sdk-demo/types';
 import { getAction, sortActionsByPhase } from '@/lib/sdk-demo/catalog/actions';
 import { CURATED_WORKFLOWS } from '@/lib/sdk-demo/catalog/workflows';
 import { getEventsForTool } from '@/lib/sdk-demo/catalog/events';
+import { computeEffectiveMcps } from '@/lib/sdk-demo/catalog/mcps';
 import { ToolPalette } from './tool-palette';
 import { EventPicker } from './event-picker';
 import { ActionPicker } from './action-picker';
@@ -24,20 +25,43 @@ interface WorkflowBuilderProps {
 export function WorkflowBuilder({ workflow, onChange, onRun }: WorkflowBuilderProps) {
   const [activeStarter, setActiveStarter] = useState<string | null>(null);
 
+  function deriveMcpsFromActions(actions: ActionId[]): McpId[] {
+    const set = new Set<McpId>();
+    for (const id of actions) {
+      const a = getAction(id);
+      if (!a) continue;
+      for (const m of a.mcpsRequired) set.add(m);
+    }
+    return Array.from(set);
+  }
+
+  function recomputeMcpIds(next: Omit<Workflow, 'mcpIds'>): McpId[] {
+    return computeEffectiveMcps(
+      deriveMcpsFromActions(next.actionIds),
+      next.pinnedMcpIds,
+      next.excludedMcpIds,
+    );
+  }
+
+  function emit(next: Omit<Workflow, 'mcpIds'>) {
+    onChange({ ...next, mcpIds: recomputeMcpIds(next) });
+  }
+
   function setTool(id: ToolId) {
     const events = getEventsForTool(id);
     const sameTool = workflow.toolId === id;
-    onChange({
+    emit({
       toolId: id,
       eventId: sameTool ? workflow.eventId : events.length > 0 ? events[0].id : null,
       actionIds: sameTool ? workflow.actionIds : [],
-      mcpIds: sameTool ? workflow.mcpIds : [],
+      pinnedMcpIds: sameTool ? workflow.pinnedMcpIds : [],
+      excludedMcpIds: sameTool ? workflow.excludedMcpIds : [],
     });
     setActiveStarter(null);
   }
 
   function setEvent(id: string) {
-    onChange({ ...workflow, eventId: id });
+    emit({ ...workflow, eventId: id });
     setActiveStarter(null);
   }
 
@@ -49,73 +73,74 @@ export function WorkflowBuilder({ workflow, onChange, onRun }: WorkflowBuilderPr
       current.add(id);
     }
     const nextActions = sortActionsByPhase(Array.from(current));
-
-    const action = getAction(id);
-    const derived = new Set<McpId>(workflow.mcpIds);
-    if (action) {
-      for (const m of action.mcpsRequired) {
-        if (current.has(id)) derived.add(m);
-      }
-    }
-
-    onChange({ ...workflow, actionIds: nextActions, mcpIds: Array.from(derived) });
+    emit({ ...workflow, actionIds: nextActions });
     setActiveStarter(null);
   }
 
   function removeAction(id: ActionId) {
     const next = workflow.actionIds.filter((a) => a !== id);
-    onChange({ ...workflow, actionIds: next });
+    emit({ ...workflow, actionIds: next });
     setActiveStarter(null);
   }
 
   function toggleMcp(id: McpId) {
-    const current = new Set(workflow.mcpIds);
-    if (current.has(id)) {
-      current.delete(id);
+    const isOn = workflow.mcpIds.includes(id);
+    const actionDerived = new Set(deriveMcpsFromActions(workflow.actionIds));
+    const pinned = new Set(workflow.pinnedMcpIds);
+    const excluded = new Set(workflow.excludedMcpIds);
+
+    if (isOn) {
+      // Turn it off. Unpin if pinned; if the action derives it, add to excluded.
+      pinned.delete(id);
+      if (actionDerived.has(id)) {
+        excluded.add(id);
+      }
     } else {
-      current.add(id);
+      // Turn it on. Un-exclude it; if no action derives it, pin it.
+      excluded.delete(id);
+      if (!actionDerived.has(id)) {
+        pinned.add(id);
+      }
     }
-    onChange({ ...workflow, mcpIds: Array.from(current) });
+
+    emit({
+      ...workflow,
+      pinnedMcpIds: Array.from(pinned),
+      excludedMcpIds: Array.from(excluded),
+    });
   }
 
   function applyStarter(id: string) {
     const starter = CURATED_WORKFLOWS.find((c) => c.id === id);
     if (!starter) return;
-    onChange(starter.workflow);
+    emit({
+      toolId: starter.workflow.toolId,
+      eventId: starter.workflow.eventId,
+      actionIds: starter.workflow.actionIds,
+      pinnedMcpIds: starter.workflow.pinnedMcpIds ?? [],
+      excludedMcpIds: starter.workflow.excludedMcpIds ?? [],
+    });
     setActiveStarter(id);
   }
 
   function clear() {
-    onChange({ toolId: null, eventId: null, actionIds: [], mcpIds: [] });
+    emit({
+      toolId: null,
+      eventId: null,
+      actionIds: [],
+      pinnedMcpIds: [],
+      excludedMcpIds: [],
+    });
     setActiveStarter(null);
   }
 
   const eventEnabled = !!workflow.toolId;
   const actionEnabled = !!workflow.toolId && !!workflow.eventId;
 
-  const derivedMcps = useMemo<McpId[]>(() => {
-    const set = new Set<McpId>();
-    for (const id of workflow.actionIds) {
-      const a = getAction(id);
-      if (!a) continue;
-      for (const m of a.mcpsRequired) set.add(m);
-    }
-    return Array.from(set);
-  }, [workflow.actionIds]);
-
-  useEffect(() => {
-    const set = new Set(workflow.mcpIds);
-    let changed = false;
-    for (const m of derivedMcps) {
-      if (!set.has(m)) {
-        set.add(m);
-        changed = true;
-      }
-    }
-    if (changed) {
-      onChange({ ...workflow, mcpIds: Array.from(set) });
-    }
-  }, [derivedMcps, workflow, onChange]);
+  const derivedMcps = useMemo<McpId[]>(
+    () => deriveMcpsFromActions(workflow.actionIds),
+    [workflow.actionIds],
+  );
 
   return (
     <div className="space-y-4">

@@ -22,6 +22,8 @@ const EMPTY_WORKFLOW: Workflow = {
   eventId: null,
   actionIds: [],
   mcpIds: [],
+  pinnedMcpIds: [],
+  excludedMcpIds: [],
 };
 
 export default function CursorSdkDemoPage() {

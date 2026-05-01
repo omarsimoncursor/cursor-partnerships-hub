@@ -84,7 +84,17 @@ export interface Workflow {
   toolId: ToolId | null;
   eventId: string | null;
   actionIds: ActionId[];
+  /**
+   * Effective MCP set the code panel and runtime consume.
+   * Derived from actionIds + pinnedMcpIds \ excludedMcpIds (see
+   * computeEffectiveMcps in catalog/mcps.ts). Kept on Workflow so
+   * existing consumers don't need to change.
+   */
   mcpIds: McpId[];
+  /** MCPs the user explicitly added beyond what actions require. */
+  pinnedMcpIds: McpId[];
+  /** MCPs the user explicitly removed even though an action requires them. */
+  excludedMcpIds: McpId[];
 }
 
 export type ScriptId =

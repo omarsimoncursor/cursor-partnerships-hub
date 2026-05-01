@@ -112,6 +112,8 @@ export const CURATED_WORKFLOWS: CuratedWorkflow[] = [
         'slack-mcp',
         'splunk-mcp',
       ],
+      pinnedMcpIds: ['gitguardian-mcp'],
+      excludedMcpIds: [],
     },
   },
   {
@@ -133,6 +135,8 @@ export const CURATED_WORKFLOWS: CuratedWorkflow[] = [
         'post-to-slack',
       ],
       mcpIds: ['wiz-mcp', 'aws-mcp', 'github-mcp', 'jira-mcp', 'slack-mcp'],
+      pinnedMcpIds: ['wiz-mcp'],
+      excludedMcpIds: [],
     },
   },
   {
@@ -153,6 +157,8 @@ export const CURATED_WORKFLOWS: CuratedWorkflow[] = [
         'post-to-slack',
       ],
       mcpIds: ['okta-mcp', 'github-mcp', 'jira-mcp', 'splunk-mcp', 'slack-mcp'],
+      pinnedMcpIds: ['github-mcp'],
+      excludedMcpIds: [],
     },
   },
   {
@@ -168,6 +174,8 @@ export const CURATED_WORKFLOWS: CuratedWorkflow[] = [
       eventId: 'snyk-vuln-critical',
       actionIds: ['bump-dependency', 'open-cleanup-pr', 'file-jira', 'post-to-slack'],
       mcpIds: ['snyk-mcp', 'github-mcp', 'jira-mcp', 'slack-mcp'],
+      pinnedMcpIds: ['snyk-mcp'],
+      excludedMcpIds: [],
     },
   },
   {
@@ -195,6 +203,8 @@ export const CURATED_WORKFLOWS: CuratedWorkflow[] = [
         'splunk-mcp',
         'slack-mcp',
       ],
+      pinnedMcpIds: ['crowdstrike-mcp'],
+      excludedMcpIds: [],
     },
   },
 ];

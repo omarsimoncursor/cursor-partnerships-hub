@@ -110,3 +110,43 @@ export const MCPS: Mcp[] = [
 export function getMcp(id: McpId): Mcp | null {
   return MCPS.find((m) => m.id === id) ?? null;
 }
+
+/**
+ * Canonical MCP ordering used by the code panel and runtime so toggling
+ * actions produces stable, diff-friendly output.
+ */
+const MCP_ORDER: McpId[] = [
+  'aws-mcp',
+  'stripe-mcp',
+  'vault-mcp',
+  'okta-mcp',
+  'crowdstrike-mcp',
+  'zscaler-mcp',
+  'wiz-mcp',
+  'snyk-mcp',
+  'gitguardian-mcp',
+  'github-mcp',
+  'jira-mcp',
+  'slack-mcp',
+  'splunk-mcp',
+];
+
+/**
+ * Effective MCP set: union of action-derived MCPs and user-pinned
+ * MCPs, minus MCPs the user has explicitly excluded.
+ *
+ * This is the single source of truth for "which MCPs does this
+ * workflow hand to the agent". Computed whenever any of the inputs
+ * change so toggling an action off immediately removes its MCPs
+ * from the code panel (unless the user has also pinned them
+ * manually).
+ */
+export function computeEffectiveMcps(
+  derivedFromActions: McpId[],
+  pinned: McpId[],
+  excluded: McpId[],
+): McpId[] {
+  const include = new Set<McpId>([...derivedFromActions, ...pinned]);
+  for (const e of excluded) include.delete(e);
+  return MCP_ORDER.filter((id) => include.has(id));
+}

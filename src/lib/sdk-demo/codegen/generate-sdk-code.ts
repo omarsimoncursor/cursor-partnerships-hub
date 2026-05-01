@@ -1,29 +1,8 @@
-import type { McpId, Workflow } from '../types';
+import type { Workflow } from '../types';
 import { getMcp } from '../catalog/mcps';
 import { getEvent } from '../catalog/events';
 import { getTool } from '../catalog/tools';
 import { generateAgentPrompt } from './generate-prompt';
-
-const MCP_ORDER: McpId[] = [
-  'aws-mcp',
-  'stripe-mcp',
-  'vault-mcp',
-  'okta-mcp',
-  'crowdstrike-mcp',
-  'zscaler-mcp',
-  'wiz-mcp',
-  'snyk-mcp',
-  'gitguardian-mcp',
-  'github-mcp',
-  'jira-mcp',
-  'slack-mcp',
-  'splunk-mcp',
-];
-
-function sortMcps(ids: McpId[]): McpId[] {
-  const set = new Set(ids);
-  return MCP_ORDER.filter((id) => set.has(id));
-}
 
 function indent(s: string, n: number): string {
   const pad = ' '.repeat(n);
@@ -41,8 +20,9 @@ export function generateSdkCode(workflow: Workflow): string {
     return EMPTY_PLACEHOLDER;
   }
 
-  const sortedMcps = sortMcps(workflow.mcpIds);
-  const mcpLines = sortedMcps
+  // workflow.mcpIds is already the canonical/ordered effective set
+  // (see computeEffectiveMcps), so render directly.
+  const mcpLines = workflow.mcpIds
     .map((id) => getMcp(id))
     .filter((m): m is NonNullable<ReturnType<typeof getMcp>> => m !== null)
     .map(

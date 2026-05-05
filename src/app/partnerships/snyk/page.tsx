@@ -68,7 +68,7 @@ export default function SnykPartnership() {
             </div>
           </div>
           <h1 className="text-4xl md:text-6xl font-bold text-text-primary mb-6">
-            Snyk catches it.<br />Cursor ships the fix.
+            Snyk catches it.<br />Cursor automatically ships the fix.
           </h1>
           <p className="text-lg text-text-secondary mb-8 max-w-xl mx-auto">
             A pre-merge security gate calls a Cursor agent the moment a critical Snyk finding lands.

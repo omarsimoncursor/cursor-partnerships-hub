@@ -27,19 +27,19 @@ export function ChapterCurtain({ triggerKey }: ChapterCurtainProps) {
   return (
     <div
       aria-hidden="true"
-      className={`fixed inset-0 z-50 pointer-events-none ${active ? '' : 'opacity-0'}`}
+      className={`fixed inset-0 z-[60] pointer-events-none ${active ? '' : 'opacity-0'}`}
     >
       <div
         className="absolute left-0 right-0 top-0 bg-[#05060B] transition-[height] duration-[420ms] ease-[cubic-bezier(0.65,0,0.35,1)]"
         style={{
-          height: closed ? '50%' : '0%',
+          height: closed ? 'calc(50% + 1px)' : '0%',
           boxShadow: closed ? '0 4px 24px rgba(167,139,250,0.10)' : 'none',
         }}
       />
       <div
         className="absolute left-0 right-0 bottom-0 bg-[#05060B] transition-[height] duration-[420ms] ease-[cubic-bezier(0.65,0,0.35,1)]"
         style={{
-          height: closed ? '50%' : '0%',
+          height: closed ? 'calc(50% + 1px)' : '0%',
           boxShadow: closed ? '0 -4px 24px rgba(167,139,250,0.10)' : 'none',
         }}
       />

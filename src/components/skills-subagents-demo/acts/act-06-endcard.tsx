@@ -11,21 +11,18 @@ interface ProjectedRow {
   weeks: number;
   sessions: number;
   notes: number;
-  hoursSavedPerWeek: number;
-  tokenSpendSavedPerWeek: number;
+  hoursSavedTotal: number;
 }
 
 const ENGINEERS = 220;
 const SESSIONS_PER_ENGINEER_PER_WEEK = 6;
-const HOURS_SAVED_PER_BOOT = 0.18; // 11 mins of orientation
-const COST_SAVED_PER_BOOT = 3.08; // $3.12 - $0.04 from Acts 1 vs 3
+const HOURS_SAVED_PER_BOOT = 0.18; // ~11 mins of orientation reclaimed per session
 
 function project(weeks: number): ProjectedRow {
   const sessions = ENGINEERS * SESSIONS_PER_ENGINEER_PER_WEEK * weeks;
-  const notes = sessions; // 1 note per session
-  const hoursSavedPerWeek = ENGINEERS * SESSIONS_PER_ENGINEER_PER_WEEK * HOURS_SAVED_PER_BOOT;
-  const tokenSpendSavedPerWeek = ENGINEERS * SESSIONS_PER_ENGINEER_PER_WEEK * COST_SAVED_PER_BOOT;
-  return { weeks, sessions, notes, hoursSavedPerWeek, tokenSpendSavedPerWeek };
+  const notes = sessions;
+  const hoursSavedTotal = sessions * HOURS_SAVED_PER_BOOT;
+  return { weeks, sessions, notes, hoursSavedTotal };
 }
 
 export function Act06EndCard({ onAdvance }: ActComponentProps) {
@@ -66,10 +63,10 @@ export function Act06EndCard({ onAdvance }: ActComponentProps) {
             </div>
             <ul className="space-y-2.5 text-[13.5px] text-text-secondary leading-relaxed">
               <BulletDot color="#F87171">
-                Every agent boot consumes ~28K tokens of context just orienting.
+                Every agent boot burns ~28,000 tokens of premium context just orienting.
               </BulletDot>
               <BulletDot color="#F87171">
-                Every session pays Opus 4.7 input rates ($5/M) for codebase reading.
+                Every session pays Opus 4.7 input rates ($5/M) for code the team has already read.
               </BulletDot>
               <BulletDot color="#F87171">
                 Every teammate&apos;s lessons are lost the moment their session ends.
@@ -91,7 +88,7 @@ export function Act06EndCard({ onAdvance }: ActComponentProps) {
             </div>
             <ul className="space-y-2.5 text-[13.5px] text-text-secondary leading-relaxed">
               <BulletDot color="#4ADE80">
-                Boot costs the principal ~730 tokens. Subagents own the heavy reading.
+                Boot costs the principal ~730 tokens. A 39x reduction on the cold start.
               </BulletDot>
               <BulletDot color="#4ADE80">
                 Composer 2 does the exploration at $0.50/M. Opus stays on reasoning.
@@ -135,15 +132,15 @@ export function Act06EndCard({ onAdvance }: ActComponentProps) {
             />
             <BigStat
               label="Engineer hours saved"
-              value={`${(projected.hoursSavedPerWeek * projected.weeks).toFixed(0)}h`}
+              value={`${projected.hoursSavedTotal.toFixed(0)}h`}
               accent="#4ADE80"
               hint="orientation time reclaimed"
             />
             <BigStat
-              label="Token spend avoided"
-              value={`$${(projected.tokenSpendSavedPerWeek * projected.weeks).toLocaleString()}`}
+              label="Boot tokens avoided"
+              value={`${(28_000 * projected.sessions / 1_000_000).toFixed(1)}M`}
               accent="#FBBF24"
-              hint="vs cold-starting Opus on every session"
+              hint="premium-model orientation reads removed"
             />
             <BigStat
               label="Sessions completed"
@@ -154,7 +151,7 @@ export function Act06EndCard({ onAdvance }: ActComponentProps) {
           </div>
 
           <div className="mt-4 pt-3 border-t border-white/8 text-[11px] text-text-tertiary leading-relaxed">
-            Numbers based on the 28,471 → 730 token reduction shown in Acts 1 and 3, and the $3.12 → $0.04 boot cost. Vault grows from {VAULT_NOTES.length} starting notes.
+            Numbers based on the 28,608 → 730 token reduction shown in Acts 1 and 3, and the $0.143 → $0.011 boot cost. Token-spend saved ignores the larger downstream effect: avoiding rework when /recall surfaces a prior fix. Vault grows from {VAULT_NOTES.length} starting notes.
           </div>
         </div>
 

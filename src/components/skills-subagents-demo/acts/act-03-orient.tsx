@@ -191,7 +191,7 @@ export function Act03Orient({ onAdvance }: ActComponentProps) {
               label="Principal tokens"
               value={SUMMARY_TOKENS.toLocaleString()}
               accent={PRINCIPAL_COLOR}
-              hint="vs 28,471 in the cold start"
+              hint="vs 28,608 in the cold start"
             />
             <Stat
               label="Subagent tokens"
@@ -201,9 +201,9 @@ export function Act03Orient({ onAdvance }: ActComponentProps) {
             />
             <Stat
               label="Total spend"
-              value={`$${totalCost.toFixed(2)}`}
+              value={`$${totalCost.toFixed(3)}`}
               accent="#4ADE80"
-              hint="vs $3.12 in the cold start"
+              hint="vs $0.143 in the cold start · 12x cheaper"
             />
             <Stat
               label="Time to ready"

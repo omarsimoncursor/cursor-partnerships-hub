@@ -110,6 +110,16 @@ export function Partnerships() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               {
+                href: '/skills-and-subagents',
+                partner: 'Skills · Subagents · Vault',
+                title: 'Enterprise Memory for AI Coding Agents',
+                description: 'Six chapters on solving the fundamental enterprise problem with AI coding agents: they start from zero on every session. Skills, subagents, and a shared markdown vault give the team itself to the agent as long-term memory.',
+                color: '#A78BFA',
+                letter: '✦',
+                kicker: 'Cursor primitives demo',
+                ctaLabel: 'Play the 6-chapter story',
+              },
+              {
                 href: '/partnerships/cursor-sdk',
                 partner: 'Cursor SDK',
                 title: 'Build a Security Automation, Live',
@@ -202,7 +212,7 @@ export function Partnerships() {
                   </div>
                   <div>
                     <p className="text-sm font-medium uppercase tracking-wider" style={{ color: demo.color }}>
-                      {demo.partner} + Cursor Agent
+                      {'kicker' in demo && demo.kicker ? demo.kicker : `${demo.partner} + Cursor Agent`}
                     </p>
                   </div>
                 </div>
@@ -212,7 +222,7 @@ export function Partnerships() {
                   className="inline-flex items-center gap-1.5 text-sm font-medium group-hover:gap-2.5 transition-all duration-300"
                   style={{ color: demo.color }}
                 >
-                  View agentic workflow <ArrowRight className="w-3 h-3" />
+                  {'ctaLabel' in demo && demo.ctaLabel ? demo.ctaLabel : 'View agentic workflow'} <ArrowRight className="w-3 h-3" />
                 </span>
               </Link>
             ))}

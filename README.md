@@ -9,6 +9,12 @@ Each partner gets two routes:
 - `/partnerships/<partner>` — a narrative partner page framing the co-sell thesis
 - `/partnerships/<partner>/demo` — an interactive demo of the workflow itself
 
+## Cursor primitives demos
+
+| Demo | Narrative page | Story |
+| --- | --- | --- |
+| Skills + Subagents = Enterprise Memory | [/skills-and-subagents](https://cursor.omarsimon.com/skills-and-subagents) | [/skills-and-subagents/journey](https://cursor.omarsimon.com/skills-and-subagents/journey) (6-act cinematic) |
+
 ## Partners live today
 
 | Partner | Narrative page | Demo page |

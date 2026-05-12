@@ -14,8 +14,28 @@ declare global {
   var __prospect_pg_pool: Pool | undefined;
 }
 
+// Vercel's Neon integration injects multiple connection-string env vars
+// depending on which template was picked at integration time. We accept
+// any of them so deployments work regardless of which integration variant
+// the operator chose. `DATABASE_URL` is the explicit override and wins.
+const CONNECTION_STRING_ENV_VARS = [
+  'DATABASE_URL',
+  'POSTGRES_URL',
+  'POSTGRES_PRISMA_URL',
+  'POSTGRES_URL_NON_POOLING',
+  'DATABASE_URL_UNPOOLED',
+] as const;
+
+function resolveConnectionString(): string | null {
+  for (const name of CONNECTION_STRING_ENV_VARS) {
+    const value = process.env[name];
+    if (value && value.trim()) return value;
+  }
+  return null;
+}
+
 function buildPool(): Pool | null {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = resolveConnectionString();
   if (!connectionString) return null;
 
   const config: PoolConfig = {
@@ -41,7 +61,7 @@ export function getPool(): Pool {
     const pool = buildPool();
     if (!pool) {
       throw new Error(
-        'DATABASE_URL is not set. Configure it in .env.local (local dev) or in the Vercel/Cursor secrets store (production).'
+        `No Postgres connection string found. Set DATABASE_URL (or any of: ${CONNECTION_STRING_ENV_VARS.join(', ')}) in the deployment environment.`
       );
     }
     globalThis.__prospect_pg_pool = pool;
@@ -50,7 +70,7 @@ export function getPool(): Pool {
 }
 
 export function isDatabaseConfigured(): boolean {
-  return Boolean(process.env.DATABASE_URL);
+  return resolveConnectionString() !== null;
 }
 
 export async function query<T extends Record<string, unknown> = Record<string, unknown>>(

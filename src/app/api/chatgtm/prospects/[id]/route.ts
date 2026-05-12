@@ -11,10 +11,14 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/chatgtm/prospects/:id
+ * GET /api/chatgtm/prospects/:id?include=password
  *
  * Lookup a single prospect by either UUID or slug. ChatGTM uses this
  * to confirm state after `POST /api/chatgtm/prospects` returns.
+ *
+ * `?include=password` opts in to including the demo password in the
+ * response (used by the admin UI and ChatGTM resync flows). Always
+ * Bearer-authed; the explicit opt-in is a second layer of defense.
  */
 export async function GET(
   req: NextRequest,
@@ -32,5 +36,12 @@ export async function GET(
   if (!row) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
-  return NextResponse.json({ ok: true, prospect: toPublic(row) });
+  const include = (req.nextUrl.searchParams.get('include') || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return NextResponse.json({
+    ok: true,
+    prospect: include.includes('password') ? row : toPublic(row),
+  });
 }

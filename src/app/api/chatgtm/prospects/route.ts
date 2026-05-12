@@ -243,10 +243,16 @@ function parsePayload(body: unknown): ParsedPayload {
 }
 
 /**
- * GET /api/chatgtm/prospects?limit=N
+ * GET /api/chatgtm/prospects?limit=N&include=password
  *
  * Lists recent prospects. Used by the admin UI and as a way for
  * ChatGTM to verify state.
+ *
+ * `?include=password` opts in to including the per-prospect demo
+ * password in the response. Passwords are otherwise stripped via
+ * toPublic() so an accidentally-exposed listing endpoint can't leak
+ * them. The endpoint is always Bearer-authed; the explicit opt-in is
+ * a second layer of defense.
  */
 export async function GET(req: NextRequest) {
   if (!isDatabaseConfigured()) {
@@ -256,13 +262,19 @@ export async function GET(req: NextRequest) {
   if (authError) return authError;
 
   const limit = Math.min(Number(req.nextUrl.searchParams.get('limit') || 100), 500);
+  const include = (req.nextUrl.searchParams.get('include') || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const includePassword = include.includes('password');
+
   try {
     await ensureSchema();
     const rows = await listProspects(limit);
     return NextResponse.json({
       ok: true,
       count: rows.length,
-      prospects: rows.map(toPublic),
+      prospects: includePassword ? rows : rows.map(toPublic),
     });
   } catch (err: unknown) {
     console.error('[chatgtm/prospects] list failed:', err);

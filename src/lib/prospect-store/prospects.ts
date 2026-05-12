@@ -120,6 +120,14 @@ export async function createProspect(
   const techsForNormalization = techsArray.length > 0 ? techsArray : seed.defaultTechs;
   const tech = normalizeTechnologies(techsForNormalization);
 
+  // Preserve filtered (non-automation-target) tech terms in metadata so the
+  // rep can see them without surfacing them as awkward SDK cards.
+  const incomingMeta = input.metadata && typeof input.metadata === 'object' ? input.metadata : {};
+  const mergedMetadata: Record<string, unknown> = {
+    ...incomingMeta,
+    ...(tech.filtered.length > 0 ? { filtered_technologies: tech.filtered } : {}),
+  };
+
   const level: ProspectLevel = normalizeLevel(input.level ?? null);
   const showRoi = shouldShowRoiCalculator(level);
 
@@ -171,7 +179,7 @@ export async function createProspect(
           (input.linkedin_message_link ?? '').toString().trim() || null,
           (input.notion_page_id ?? '').toString().trim() || null,
           'chatgtm',
-          input.metadata && typeof input.metadata === 'object' ? input.metadata : {},
+          mergedMetadata,
         ],
       );
       row = result.rows[0] ?? null;

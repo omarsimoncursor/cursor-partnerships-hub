@@ -38,10 +38,48 @@ const LOOKUP: Map<string, string> = (() => {
   return m;
 })();
 
+// Strings Sumble emits that aren't real automation targets — programming
+// languages, frontend frameworks, build tooling, CSS libraries, etc. They
+// would otherwise render as awkward "Wire React into a Cursor cloud agent
+// via REST/SDK" cards on the demo page. We silently drop them from the
+// `unmatched` list (they're still preserved verbatim in `technologies_raw`
+// for the audit trail).
+const NOISE_TERMS = new Set<string>([
+  // Languages
+  'python', 'java', 'javascript', 'typescript', 'kotlin', 'swift', 'scala',
+  'c#', 'c++', 'c', 'ruby', 'go', 'golang', 'rust', 'php', 'perl', 'r',
+  'objective-c', 'dart', 'elixir', 'erlang', 'haskell', 'lua',
+  // Frontend frameworks + libraries
+  'react', 'react.js', 'reactjs', 'vue', 'vue.js', 'vuejs', 'angular',
+  'angularjs', 'svelte', 'sveltekit', 'ember', 'ember.js', 'next', 'next.js',
+  'nextjs', 'nuxt', 'nuxt.js', 'gatsby', 'remix', 'solid', 'solid.js', 'qwik',
+  'redux', 'mobx', 'recoil', 'zustand', 'jotai',
+  // CSS / styling
+  'tailwind', 'tailwindcss', 'tailwind css', 'bootstrap', 'sass', 'scss',
+  'less', 'styled-components', 'emotion',
+  // Build / transpile
+  'webpack', 'vite', 'esbuild', 'babel', 'rollup', 'parcel', 'turbopack',
+  'swc', 'rome',
+  // Backend frameworks (mostly languages, not automation targets)
+  'express', 'express.js', 'fastify', 'koa', 'nestjs', 'nest.js', 'django',
+  'flask', 'fastapi', 'rails', 'ruby on rails', 'spring', 'spring boot',
+  'laravel', 'symfony', 'asp.net', '.net', 'dotnet', 'gin', 'echo',
+  // Mobile
+  'react native', 'react-native', 'flutter', 'ionic',
+  // Dev tooling that isn't really a workflow target on its own
+  'eslint', 'prettier', 'tsc',
+  // Generic categories
+  'rest', 'rest api', 'graphql', 'grpc', 'websocket', 'websockets',
+]);
+
 export type NormalizedTechnologies = {
   vendorIds: string[];
   unmatched: string[];
   raw: string[];
+  // Items that were quietly filtered out (languages, frontend frameworks,
+  // etc.). Surfaced in the API response and stored on the prospect row so
+  // ChatGTM / the rep can audit what was dropped.
+  filtered: string[];
 };
 
 export function normalizeTechnologies(input: ReadonlyArray<unknown> | null | undefined): NormalizedTechnologies {
@@ -49,9 +87,10 @@ export function normalizeTechnologies(input: ReadonlyArray<unknown> | null | und
   const seenVendor = new Set<string>();
   const vendorIds: string[] = [];
   const unmatched: string[] = [];
+  const filtered: string[] = [];
 
   if (!input || !Array.isArray(input)) {
-    return { vendorIds, unmatched, raw };
+    return { vendorIds, unmatched, raw, filtered };
   }
 
   for (const item of input) {
@@ -76,10 +115,16 @@ export function normalizeTechnologies(input: ReadonlyArray<unknown> | null | und
         seenVendor.add(matched);
         vendorIds.push(matched);
       }
-    } else {
-      unmatched.push(cleaned);
+      continue;
     }
+
+    if (NOISE_TERMS.has(key)) {
+      filtered.push(cleaned);
+      continue;
+    }
+
+    unmatched.push(cleaned);
   }
 
-  return { vendorIds, unmatched, raw };
+  return { vendorIds, unmatched, raw, filtered };
 }

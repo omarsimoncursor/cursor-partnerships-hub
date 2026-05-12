@@ -98,6 +98,8 @@ export async function POST(req: NextRequest) {
           show_roi_calculator: result.prospect.show_roi_calculator,
           vendor_ids: result.prospect.vendor_ids,
           unmatched_technologies: result.prospect.unmatched_technologies,
+          filtered_technologies:
+            (result.prospect.metadata?.filtered_technologies as string[] | undefined) || [],
           build_status: result.prospect.build_status,
           company: {
             name: result.prospect.company_name,
@@ -123,6 +125,7 @@ export async function POST(req: NextRequest) {
           show_roi_calculator: boolean;
           vendor_ids: string[];
           unmatched_technologies: string[];
+          filtered_technologies: string[];
           build_status: string;
           company: { name: string; domain: string; accent: string | null };
         }
@@ -150,6 +153,8 @@ export async function POST(req: NextRequest) {
           show_roi_calculator: r.prospect.show_roi_calculator,
           vendor_ids: r.prospect.vendor_ids,
           unmatched_technologies: r.prospect.unmatched_technologies,
+          filtered_technologies:
+            (r.prospect.metadata?.filtered_technologies as string[] | undefined) || [],
           build_status: r.prospect.build_status,
           company: {
             name: r.prospect.company_name,

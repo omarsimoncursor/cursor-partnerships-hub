@@ -94,7 +94,7 @@ Hard limit: **100 prospects per request** (`413 batch_too_large` past that). Seq
 | `linkedin_url`            | string    |          |                                                                         |
 | `company_domain`          | string    |          | Drives the auto-pulled logo. Falls back to seed data, then to a guess.  |
 | `company_accent`          | string    |          | Hex color (`#RRGGBB`). Falls back to seed data.                         |
-| `technologies`            | string[]  |          | Free-form Sumble strings. Normalized to vendor IDs (`datadog`, `snowflake`, etc.). Anything that doesn't match is rendered as an SDK fallback card. |
+| `technologies`            | string[]  |          | Free-form Sumble strings. Normalized to vendor IDs (`datadog`, `snowflake`, etc.). Real automation targets that don't match (`Terraform`, `Kubernetes`, …) render as SDK fallback cards. Programming languages and frontend libraries (`React`, `TypeScript`, `Tailwind`, …) are silently filtered and surfaced as `filtered_technologies` for audit. |
 | `mcp_relevant`            | bool      |          | ChatGTM's flag: did Sumble find an MCP-marketplace tool in the stack?   |
 | `sdk_workflow`            | string    |          | Optional handle of an SDK preset to lead with.                          |
 | `gmail_draft_link`        | string    |          | Stored for the audit trail.                                             |
@@ -183,7 +183,8 @@ Each successful row carries an `input_index` so ChatGTM can correlate the result
 | `level`                  | Normalized seniority enum.                                                     |
 | `show_roi_calculator`    | True for leadership; controls whether the demo page renders the ROI section.  |
 | `vendor_ids`             | Subset of the catalog ids that matched the input technologies.                 |
-| `unmatched_technologies` | Original strings that didn't match. Each renders as an SDK automation card.   |
+| `unmatched_technologies` | Real automation targets that didn't match a vendor. Each renders as an SDK automation card on the demo. |
+| `filtered_technologies`  | Programming languages and frontend libraries that were silently dropped (`React`, `TypeScript`, etc.). Audit only — never surfaced on the demo. |
 | `build_status`           | Always `"queued"` in the response — the demo is built in the background.       |
 
 **Errors**:

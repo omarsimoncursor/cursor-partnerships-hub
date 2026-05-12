@@ -36,13 +36,33 @@ CREATE TABLE IF NOT EXISTS prospects (
   notion_page_id         TEXT,
   source                 TEXT NOT NULL DEFAULT 'chatgtm',
   metadata               JSONB NOT NULL DEFAULT '{}'::jsonb,
+  -- Build state: ChatGTM gets the URL + password back synchronously, but the
+  -- demo build (logo prefetch, color match, etc.) runs in the background.
+  -- 'queued'   = created, build hasn't started yet
+  -- 'building' = build worker has picked it up
+  -- 'ready'    = demo is fully built and renders normally
+  -- 'failed'   = build hit an error; the demo still renders but with the fallback assets
+  build_status           TEXT NOT NULL DEFAULT 'queued',
+  build_started_at       TIMESTAMPTZ,
+  build_completed_at     TIMESTAMPTZ,
+  build_error            TEXT,
+  build_artifacts        JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Backfill columns first so the indexes below can reference them when
+-- the table was created by an older schema version.
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS build_status       TEXT NOT NULL DEFAULT 'queued';
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS build_started_at   TIMESTAMPTZ;
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS build_completed_at TIMESTAMPTZ;
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS build_error        TEXT;
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS build_artifacts    JSONB NOT NULL DEFAULT '{}'::jsonb;
+
 CREATE INDEX IF NOT EXISTS prospects_company_domain_idx ON prospects(company_domain);
 CREATE INDEX IF NOT EXISTS prospects_email_idx           ON prospects(email);
 CREATE INDEX IF NOT EXISTS prospects_created_at_idx      ON prospects(created_at DESC);
+CREATE INDEX IF NOT EXISTS prospects_build_status_idx    ON prospects(build_status);
 
 CREATE TABLE IF NOT EXISTS prospect_views (
   id          BIGSERIAL PRIMARY KEY,

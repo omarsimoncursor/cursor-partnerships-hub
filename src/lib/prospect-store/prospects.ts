@@ -10,7 +10,7 @@ import {
   resolveCompanyDefaults,
   type CompanyDefaults,
 } from './company-seeds';
-import type { ChatgtmProspectInput, ProspectPublic, ProspectRow } from './types';
+import type { BuildStatus, ChatgtmProspectInput, ProspectPublic, ProspectRow } from './types';
 
 // ---------------------------------------------------------------------------
 // Migrations
@@ -189,6 +189,21 @@ export async function createProspect(
   return { prospect: row, url, password };
 }
 
+export async function createProspects(
+  inputs: ChatgtmProspectInput[],
+  origin: string,
+): Promise<CreateProspectResult[]> {
+  // We deliberately run sequentially instead of in parallel — a typical
+  // ChatGTM batch is 5-50 rows and the Neon pool is small. Sequential
+  // gives consistent ordering in the response and avoids contention on
+  // the slug-uniqueness retry path.
+  const out: CreateProspectResult[] = [];
+  for (const input of inputs) {
+    out.push(await createProspect(input, origin));
+  }
+  return out;
+}
+
 export async function recordView(
   prospectId: string,
   ip: string | null,
@@ -199,6 +214,76 @@ export async function recordView(
     `INSERT INTO prospect_views (prospect_id, ip, user_agent, unlocked) VALUES ($1, $2, $3, $4)`,
     [prospectId, ip, userAgent, unlocked],
   );
+}
+
+// ---------------------------------------------------------------------------
+// Build state machine
+
+/**
+ * Atomically transition a prospect from `queued` -> `building`.
+ * Returns the locked row when the transition succeeded, or `null` when
+ * another worker has already claimed the build (idempotent guard for
+ * the lazy-build path).
+ */
+export async function claimForBuild(prospectId: string): Promise<ProspectRow | null> {
+  const { rows } = await query<ProspectRow>(
+    `UPDATE prospects
+        SET build_status = 'building',
+            build_started_at = now(),
+            build_error = NULL,
+            updated_at = now()
+        WHERE id = $1 AND build_status IN ('queued', 'failed')
+        RETURNING *`,
+    [prospectId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function markBuildReady(
+  prospectId: string,
+  artifacts: Record<string, unknown>,
+): Promise<void> {
+  await query(
+    `UPDATE prospects
+        SET build_status = 'ready',
+            build_completed_at = now(),
+            build_error = NULL,
+            build_artifacts = $2::jsonb,
+            updated_at = now()
+        WHERE id = $1`,
+    [prospectId, JSON.stringify(artifacts)],
+  );
+}
+
+export async function markBuildFailed(prospectId: string, message: string): Promise<void> {
+  await query(
+    `UPDATE prospects
+        SET build_status = 'failed',
+            build_completed_at = now(),
+            build_error = $2,
+            updated_at = now()
+        WHERE id = $1`,
+    [prospectId, message.slice(0, 2000)],
+  );
+}
+
+export async function getBuildStatus(slug: string): Promise<{
+  build_status: BuildStatus;
+  build_started_at: string | null;
+  build_completed_at: string | null;
+  build_error: string | null;
+} | null> {
+  const { rows } = await query<{
+    build_status: BuildStatus;
+    build_started_at: string | null;
+    build_completed_at: string | null;
+    build_error: string | null;
+  }>(
+    `SELECT build_status, build_started_at, build_completed_at, build_error
+       FROM prospects WHERE slug = $1 LIMIT 1`,
+    [slug],
+  );
+  return rows[0] ?? null;
 }
 
 // ---------------------------------------------------------------------------

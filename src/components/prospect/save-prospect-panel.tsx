@@ -26,6 +26,7 @@ type CreateResponse = {
   show_roi_calculator: boolean;
   vendor_ids: string[];
   unmatched_technologies: string[];
+  build_status?: 'queued' | 'building' | 'ready' | 'failed';
 };
 
 type Props = {
@@ -261,7 +262,13 @@ export function SaveProspectPanel({ account, domain, accent, technologies }: Pro
             <KeyValue label="ROI calculator" value={result.show_roi_calculator ? 'Shown' : 'Hidden'} />
             <KeyValue label="Vendors matched" value={String(result.vendor_ids.length)} />
             <KeyValue label="Unmatched (SDK fallback)" value={String(result.unmatched_technologies.length)} />
+            <KeyValue label="Build" value={result.build_status || 'queued'} />
           </div>
+
+          <p className="text-[11px] text-text-tertiary leading-snug">
+            The URL + password are live now. The personalized demo finishes building in the background; the URL shows
+            a brief &quot;preparing your demo&quot; page until the build is ready.
+          </p>
 
           <div className="flex flex-wrap gap-2">
             <a

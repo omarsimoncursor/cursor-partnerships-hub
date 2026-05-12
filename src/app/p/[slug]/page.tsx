@@ -1,4 +1,5 @@
 import { cookies, headers } from 'next/headers';
+import { after } from 'next/server';
 import { notFound } from 'next/navigation';
 import { ProspectPage } from '@/components/prospect/prospect-page';
 import {
@@ -7,18 +8,20 @@ import {
   isDatabaseConfigured,
   isValidSlug,
   recordView,
+  runBuild,
   verifyGateCookie,
 } from '@/lib/prospect-store';
 import { levelDisplayName } from '@/lib/prospect-store/levels';
 import { resolvedAccent, type ProspectConfig } from '@/lib/prospect/config';
 import { UnlockGate } from '@/components/prospect/unlock-gate';
+import { BuildingState } from '@/components/prospect/building-state';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams?: Promise<Record<string, string | string[]>> };
 
-export default async function PersonalizedProspectPage({ params }: Props) {
+export default async function PersonalizedProspectPage({ params, searchParams }: Props) {
   if (!isDatabaseConfigured()) {
     return <DatabaseNotConfigured />;
   }
@@ -28,6 +31,9 @@ export default async function PersonalizedProspectPage({ params }: Props) {
 
   const prospect = await getProspectBySlug(slug);
   if (!prospect) notFound();
+
+  const search = (await searchParams) || {};
+  const bypassBuild = search.bypass === '1';
 
   // Audit trail: log this view (locked or unlocked) so the rep can see
   // whether the prospect actually opened the page.
@@ -39,11 +45,12 @@ export default async function PersonalizedProspectPage({ params }: Props) {
   const cookieValue = cookieStore.get(gateCookieName(slug))?.value;
   const unlocked = verifyGateCookie(slug, cookieValue);
 
-  // Fire-and-forget the view record. We intentionally don't await the
-  // recording so the page render isn't bottlenecked by an extra round
-  // trip on the hot path.
-  recordView(prospect.id, ip, ua, unlocked).catch((err) => {
-    console.error('[p/[slug]] recordView failed:', err);
+  // Fire-and-forget the view record via after() so the page render isn't
+  // bottlenecked by an extra round trip on the hot path.
+  after(async () => {
+    await recordView(prospect.id, ip, ua, unlocked).catch((err) => {
+      console.error('[p/[slug]] recordView failed:', err);
+    });
   });
 
   if (!unlocked) {
@@ -54,6 +61,38 @@ export default async function PersonalizedProspectPage({ params }: Props) {
         company={prospect.company_name}
         domain={prospect.company_domain}
         accent={prospect.company_accent || '#60a5fa'}
+      />
+    );
+  }
+
+  // Lazy-build path. ChatGTM gets the URL + password back synchronously,
+  // and a background build is scheduled on the create call. If that
+  // background build hasn't completed yet (or the function was killed
+  // before it ran), we kick the builder here on the prospect's first
+  // unlocked view and show the building UI in the meantime.
+  if (!bypassBuild && prospect.build_status !== 'ready') {
+    const proto = hdrs.get('x-forwarded-proto') || 'https';
+    const host = hdrs.get('x-forwarded-host') || hdrs.get('host') || '';
+    const origin = host ? `${proto}://${host}` : '';
+    if (origin) {
+      after(async () => {
+        await runBuild(prospect.id, origin).catch((err) => {
+          console.error('[p/[slug]] background build failed:', err);
+        });
+      });
+    }
+    return (
+      <BuildingState
+        slug={slug}
+        prospectName={prospect.name}
+        company={prospect.company_name}
+        domain={prospect.company_domain}
+        accent={prospect.company_accent || '#60a5fa'}
+        initialStatus={
+          prospect.build_status === 'building' || prospect.build_status === 'failed'
+            ? prospect.build_status
+            : 'queued'
+        }
       />
     );
   }

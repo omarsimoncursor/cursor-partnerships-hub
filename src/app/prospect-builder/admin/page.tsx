@@ -31,6 +31,10 @@ type ProspectRow = {
   gmail_draft_link: string | null;
   linkedin_message_link: string | null;
   source: string;
+  build_status: 'queued' | 'building' | 'ready' | 'failed';
+  build_started_at: string | null;
+  build_completed_at: string | null;
+  build_error: string | null;
   created_at: string;
 };
 
@@ -163,6 +167,7 @@ export default function AdminProspectsPage() {
                     <th className="text-left px-4 py-3">Level</th>
                     <th className="text-left px-4 py-3">Vendors</th>
                     <th className="text-left px-4 py-3">ROI</th>
+                    <th className="text-left px-4 py-3">Build</th>
                     <th className="text-left px-4 py-3">Created</th>
                     <th className="text-left px-4 py-3">Demo</th>
                   </tr>
@@ -206,6 +211,9 @@ export default function AdminProspectsPage() {
                           {p.show_roi_calculator ? 'Shown' : 'Hidden'}
                         </span>
                       </td>
+                      <td className="px-4 py-3 align-top">
+                        <BuildBadge status={p.build_status} error={p.build_error} />
+                      </td>
                       <td className="px-4 py-3 align-top text-[11px] text-text-tertiary tabular-nums">
                         {new Date(p.created_at).toLocaleString()}
                       </td>
@@ -228,6 +236,32 @@ export default function AdminProspectsPage() {
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function BuildBadge({
+  status,
+  error,
+}: {
+  status: 'queued' | 'building' | 'ready' | 'failed';
+  error?: string | null;
+}) {
+  const meta: Record<typeof status, { color: string; bg: string; label: string }> = {
+    queued: { color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', label: 'Queued' },
+    building: { color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', label: 'Building' },
+    ready: { color: '#4ade80', bg: 'rgba(74,222,128,0.1)', label: 'Ready' },
+    failed: { color: '#f87171', bg: 'rgba(248,113,113,0.1)', label: 'Failed' },
+  };
+  const m = meta[status];
+  return (
+    <div title={error || ''}>
+      <span
+        className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono uppercase tracking-wider"
+        style={{ background: m.bg, color: m.color }}
+      >
+        {m.label}
+      </span>
     </div>
   );
 }

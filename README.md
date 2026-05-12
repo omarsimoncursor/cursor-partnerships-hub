@@ -55,7 +55,7 @@ Each partner demo also has a reset script under `scripts/` that rewinds any in-r
 
 ## ChatGTM personalized prospect demos
 
-ChatGTM (Cursor's internal Sumble → Notion → Gmail / LinkedIn orchestration) calls into this app to create per-prospect, password-gated demos. See [docs/chatgtm-integration.md](docs/chatgtm-integration.md) for the full API contract.
+ChatGTM (Cursor's internal Sumble → Notion → Gmail / LinkedIn orchestration) sends batches of prospects to this app and gets the demo URL + password for each one back **synchronously**, so it can write them straight to Notion + the auto-drafted messages. The personalized demo build happens in the background. See [docs/chatgtm-integration.md](docs/chatgtm-integration.md) for the full API contract.
 
 At a glance:
 
@@ -63,15 +63,24 @@ At a glance:
 # 1. Configure DATABASE_URL + CHATGTM_API_TOKEN + DB_INIT_TOKEN + DEMO_GATE_SECRET
 # 2. Bootstrap the schema:
 curl -X POST $APP_ORIGIN/api/db/init -H "Authorization: Bearer $DB_INIT_TOKEN"
-# 3. ChatGTM creates a prospect:
+# 3. ChatGTM sends a batch:
 curl -X POST $APP_ORIGIN/api/chatgtm/prospects \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $CHATGTM_API_TOKEN" \
-  -d '{"name":"Jane Smith","company":"Unisys","level":"VP","technologies":["Datadog","Snowflake","GitHub"]}'
-# Response: { "url": "https://cursor.omarsimon.com/p/<slug>", "password": "Jane3146", ... }
+  -d '{"prospects":[
+    {"name":"Jane Smith","company":"Unisys","level":"VP","technologies":["Datadog","Snowflake","GitHub"]},
+    {"name":"Mark Lee","company":"KLA","level":"Engineering Manager"}
+  ]}'
+# Response (synchronous):
+# { "ok": true, "count": 2, "prospects": [
+#     { "url": "https://cursor.omarsimon.com/p/<slug>", "password": "Jane3146", "build_status": "queued", ... },
+#     { "url": "...", "password": "Mark9277", "build_status": "queued", ... }
+# ] }
+# Background: the demo build (logo prefetch, brand-color match, ...) runs via Next.js after().
+# Lazy fallback: any prospect view triggers the build if it hasn't completed.
 ```
 
-Internal admin UI: [/prospect-builder](src/app/prospect-builder/page.tsx) (the existing builder, plus a "Save personalized demo" panel) and [/prospect-builder/admin](src/app/prospect-builder/admin/page.tsx) (a list of every prospect ChatGTM has pushed).
+Internal admin UI: [/prospect-builder](src/app/prospect-builder/page.tsx) (the existing builder, plus a "Save personalized demo" panel) and [/prospect-builder/admin](src/app/prospect-builder/admin/page.tsx) (a list of every prospect ChatGTM has pushed, with build status badges).
 
 ## Adding a new partner demo
 

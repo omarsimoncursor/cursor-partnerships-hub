@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Check,
   Copy,
   ExternalLink,
@@ -12,10 +14,13 @@ import {
   EyeOff,
   KeyRound,
   Loader2,
+  LogOut,
   Pencil,
   RefreshCw,
+  Search,
   Sparkles,
   Trash2,
+  X,
 } from 'lucide-react';
 import { EditProspectModal, type EditableProspect } from './edit-modal';
 import { ActivityModal } from './activity-modal';
@@ -50,6 +55,8 @@ type ProspectRow = {
   created_at: string;
 };
 
+const PAGE_SIZE = 25;
+
 export default function AdminProspectsPage() {
   const [apiToken, setApiToken] = useState('');
   const [tokenLoaded, setTokenLoaded] = useState(false);
@@ -59,6 +66,9 @@ export default function AdminProspectsPage() {
   const [editTarget, setEditTarget] = useState<ProspectRow | null>(null);
   const [activityTarget, setActivityTarget] = useState<ProspectRow | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [companyFilter, setCompanyFilter] = useState<string>('');
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -70,6 +80,57 @@ export default function AdminProspectsPage() {
     if (!tokenLoaded) return;
     if (apiToken) window.localStorage.setItem(TOKEN_STORAGE_KEY, apiToken);
   }, [apiToken, tokenLoaded]);
+
+  // Reset to page 1 whenever the active filter set changes — paging
+  // through stale results after a filter change is just confusing.
+  useEffect(() => {
+    setPage(0);
+  }, [query, companyFilter]);
+
+  // Unique companies for the filter dropdown. Built off the loaded
+  // dataset so reps only see companies they actually have prospects
+  // for.
+  const companies = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of prospects) set.add(p.company_name);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [prospects]);
+
+  // Client-side filter: cheap to run since the listing endpoint caps
+  // at 200 rows. Matches name / email / company / slug / level / raw
+  // level, case-insensitive, AND-ed with the company filter.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return prospects.filter((p) => {
+      if (companyFilter && p.company_name !== companyFilter) return false;
+      if (!q) return true;
+      const hay = [
+        p.name,
+        p.email || '',
+        p.company_name,
+        p.company_domain,
+        p.slug,
+        p.level_raw || '',
+        p.level_normalized,
+      ]
+        .join('\u0001')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [prospects, query, companyFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageStart = currentPage * PAGE_SIZE;
+  const visible = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const signOut = () => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+    setApiToken('');
+    setProspects([]);
+    setError(null);
+  };
 
   const load = async () => {
     if (!apiToken.trim()) {
@@ -157,30 +218,74 @@ export default function AdminProspectsPage() {
             </p>
           </div>
 
-          <div className="glass-card p-4 mb-6 flex flex-wrap items-end gap-3">
-            <label className="flex-1 min-w-[260px]">
-              <span className="block text-[11px] font-mono uppercase tracking-wider text-text-tertiary mb-1.5 inline-flex items-center gap-1.5">
-                <KeyRound className="w-3 h-3" />
-                CHATGTM_API_TOKEN
-              </span>
-              <input
-                value={apiToken}
-                onChange={(e) => setApiToken(e.target.value)}
-                placeholder="cgtm_..."
-                spellCheck={false}
-                type="password"
-                className="w-full px-3 py-2 rounded-md bg-dark-surface border border-dark-border focus:border-accent-blue text-sm text-text-primary placeholder:text-text-tertiary outline-none transition-colors font-mono"
-              />
-            </label>
-            <button
-              onClick={load}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-dark-border hover:bg-dark-surface transition-colors disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              {loading ? 'Loading\u2026' : 'Reload'}
-            </button>
-          </div>
+          {/* First-time setup: prompt for the token. After it's saved we
+              never show the field again — a small sign-out affordance in
+              the controls row handles "I want to clear / rotate". */}
+          {tokenLoaded && !apiToken && (
+            <SignInCard
+              onSubmit={(value) => {
+                setApiToken(value);
+                // Let the apiToken-change effect persist to localStorage,
+                // then load on the next tick.
+                setTimeout(() => load(), 0);
+              }}
+            />
+          )}
+
+          {apiToken && (
+            <div className="mb-6 flex flex-wrap items-center gap-3">
+              <div className="flex-1 min-w-[260px] flex items-center gap-2 px-3 py-2 rounded-md bg-dark-surface border border-dark-border focus-within:border-accent-blue transition-colors">
+                <Search className="w-4 h-4 text-text-tertiary shrink-0" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search by name, email, company, slug, or level\u2026"
+                  className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
+                />
+                {query && (
+                  <button
+                    onClick={() => setQuery('')}
+                    className="p-0.5 text-text-tertiary hover:text-text-primary"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={companyFilter}
+                onChange={(e) => setCompanyFilter(e.target.value)}
+                className="px-3 py-2 rounded-md bg-dark-surface border border-dark-border focus:border-accent-blue text-sm text-text-primary outline-none transition-colors min-w-[180px]"
+              >
+                <option value="">All companies</option>
+                {companies.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={load}
+                disabled={loading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-dark-border hover:bg-dark-surface transition-colors disabled:opacity-50"
+                title="Reload"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Reload
+              </button>
+
+              <button
+                onClick={signOut}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs text-text-tertiary hover:text-text-primary border border-dark-border hover:border-dark-border-hover transition-colors"
+                title="Sign out (forget the saved API token)"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign out
+              </button>
+            </div>
+          )}
 
           {error && (
             <div className="rounded-md border border-accent-red/40 bg-accent-red/5 px-3 py-2 text-sm text-accent-red mb-4">
@@ -188,9 +293,25 @@ export default function AdminProspectsPage() {
             </div>
           )}
 
-          {prospects.length === 0 && !loading && (
+          {prospects.length === 0 && !loading && apiToken && (
             <div className="rounded-2xl border border-dashed border-dark-border p-10 text-center">
               <p className="text-sm text-text-secondary">No prospects yet. ChatGTM will populate this list as it pushes records.</p>
+            </div>
+          )}
+
+          {/* Result-count + page summary */}
+          {apiToken && prospects.length > 0 && (
+            <div className="flex items-center justify-between mb-3 px-1 text-[11px] font-mono text-text-tertiary">
+              <span>
+                {filtered.length === prospects.length
+                  ? `${prospects.length} prospect${prospects.length === 1 ? '' : 's'}`
+                  : `${filtered.length} of ${prospects.length} match${filtered.length === 1 ? 'es' : 'es'}`}
+              </span>
+              {totalPages > 1 && (
+                <span>
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+              )}
             </div>
           )}
 
@@ -216,7 +337,33 @@ export default function AdminProspectsPage() {
             />
           )}
 
-          {prospects.length > 0 && (
+          {prospects.length > 0 && filtered.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-dark-border p-10 text-center">
+              <p className="text-sm text-text-secondary">
+                No matches for &ldquo;{query}&rdquo;{companyFilter ? ` in ${companyFilter}` : ''}.
+              </p>
+              <div className="flex justify-center gap-2 mt-3">
+                {query && (
+                  <button
+                    onClick={() => setQuery('')}
+                    className="text-xs text-accent-blue hover:underline"
+                  >
+                    Clear search
+                  </button>
+                )}
+                {companyFilter && (
+                  <button
+                    onClick={() => setCompanyFilter('')}
+                    className="text-xs text-accent-blue hover:underline"
+                  >
+                    Clear company filter
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {filtered.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-dark-border bg-dark-surface">
               <table className="w-full text-sm">
                 <thead>
@@ -234,7 +381,7 @@ export default function AdminProspectsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {prospects.map((p) => (
+                  {visible.map((p) => (
                     <tr key={p.id} className="border-b border-dark-border/60 hover:bg-dark-surface-hover transition-colors">
                       <td className="px-4 py-3 align-top">
                         <p className="text-text-primary font-medium">{p.name}</p>
@@ -331,9 +478,83 @@ export default function AdminProspectsPage() {
               </table>
             </div>
           )}
+
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between text-xs text-text-tertiary">
+              <span>
+                Showing {pageStart + 1}{'\u2013'}{Math.min(pageStart + PAGE_SIZE, filtered.length)} of {filtered.length}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-dark-border hover:border-dark-border-hover hover:bg-dark-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  Prev
+                </button>
+                <span className="px-2 font-mono text-text-secondary">
+                  {currentPage + 1} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-dark-border hover:border-dark-border-hover hover:bg-dark-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
+  );
+}
+
+/**
+ * First-time setup card. Once the rep saves a token it lives in
+ * localStorage and this card disappears — the controls row above the
+ * table shows a small "Sign out" button instead, so the token is never
+ * surfaced in the UI after the initial setup.
+ */
+function SignInCard({ onSubmit }: { onSubmit: (value: string) => void }) {
+  const [value, setValue] = useState('');
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (value.trim()) onSubmit(value.trim());
+      }}
+      className="glass-card p-6 mb-6 max-w-xl mx-auto"
+    >
+      <p className="text-[11px] uppercase tracking-wider font-mono text-text-tertiary mb-1.5 inline-flex items-center gap-1.5">
+        <KeyRound className="w-3 h-3" />
+        Sign in
+      </p>
+      <h2 className="text-base font-semibold text-text-primary mb-1">Enter your CHATGTM API token</h2>
+      <p className="text-[12px] text-text-secondary mb-4 leading-snug">
+        The token is the value of <code className="text-accent-amber font-mono">CHATGTM_API_TOKEN</code> from
+        the deployment env. It&apos;s stored only in this browser&apos;s localStorage.
+      </p>
+      <input
+        type="password"
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="cgtm_..."
+        spellCheck={false}
+        className="w-full px-3 py-2 rounded-md bg-dark-surface border border-dark-border focus:border-accent-blue text-sm text-text-primary placeholder:text-text-tertiary outline-none transition-colors font-mono"
+      />
+      <button
+        type="submit"
+        disabled={!value.trim()}
+        className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-accent-blue text-dark-bg disabled:opacity-50"
+      >
+        Save token
+      </button>
+    </form>
   );
 }
 

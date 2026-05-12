@@ -27,9 +27,26 @@ import { RoiCalculator } from '@/components/prospect/roi-calculator';
 
 type Props = {
   config: ProspectConfig;
+  // Personalization layer used by /p/[slug]:
+  //   - prospectName: rendered in the hero ("Prepared for Jane Smith")
+  //   - showRoiCalculator: false suppresses the ROI section for ICs and managers
+  //   - sdkWorkflowFocus: optional vendor id the page should lead with
+  //   - unmatchedTechnologies: technologies from Sumble that didn't match a
+  //     vendor in the catalog; rendered as an "SDK automation" callout.
+  prospectName?: string;
+  prospectLevelLabel?: string;
+  showRoiCalculator?: boolean;
+  sdkWorkflowFocus?: string | null;
+  unmatchedTechnologies?: string[];
 };
 
-export function ProspectPage({ config }: Props) {
+export function ProspectPage({
+  config,
+  prospectName,
+  prospectLevelLabel,
+  showRoiCalculator = true,
+  unmatchedTechnologies = [],
+}: Props) {
   const accent = resolvedAccent(config);
   const vendors = getVendorsFor(config);
 
@@ -80,7 +97,9 @@ export function ProspectPage({ config }: Props) {
               }}
             >
               <Sparkles className="w-3 h-3" />
-              Prepared for {config.account}
+              {prospectName
+                ? `Prepared for ${prospectName} \u00b7 ${config.account}${prospectLevelLabel ? ` \u00b7 ${prospectLevelLabel}` : ''}`
+                : `Prepared for ${config.account}`}
             </span>
             <h1 className="text-4xl md:text-6xl font-bold leading-[1.05] tracking-tight max-w-4xl">
               <span className="text-text-primary">What Cursor unlocks across </span>
@@ -122,13 +141,15 @@ export function ProspectPage({ config }: Props) {
                 Compose a workflow
                 <Workflow className="w-4 h-4" />
               </a>
-              <a
-                href="#roi"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium border border-dark-border text-text-secondary transition-colors hover:bg-dark-surface hover:text-text-primary"
-              >
-                ROI for {config.account}
-                <Calculator className="w-4 h-4" />
-              </a>
+              {showRoiCalculator && (
+                <a
+                  href="#roi"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium border border-dark-border text-text-secondary transition-colors hover:bg-dark-surface hover:text-text-primary"
+                >
+                  ROI for {config.account}
+                  <Calculator className="w-4 h-4" />
+                </a>
+              )}
             </div>
 
             {/* Headline metric band */}
@@ -233,17 +254,49 @@ export function ProspectPage({ config }: Props) {
             <SdkComposer account={config.account} accent={accent} vendorIds={vendors.map(v => v.id)} />
           </section>
 
-          {/* ROI */}
-          <section id="roi" className="mb-20">
-            <SectionHeader
-              icon={<Calculator className="w-4 h-4" />}
-              eyebrow="Token ROI"
-              title="Auto router pays for Cursor before productivity gains kick in."
-              description={`Most engineering queries don't need a frontier model. Cursor's auto router sends only the queries that need reasoning to Claude Opus and routes the rest to Composer. Move the sliders to see the swing for ${config.account}.`}
-              accent={accent}
-            />
-            <RoiCalculator account={config.account} accent={accent} />
-          </section>
+          {/* ROI - shown for leadership / executive levels only */}
+          {showRoiCalculator && (
+            <section id="roi" className="mb-20">
+              <SectionHeader
+                icon={<Calculator className="w-4 h-4" />}
+                eyebrow="Token ROI"
+                title="Auto router pays for Cursor before productivity gains kick in."
+                description={`Most engineering queries don't need a frontier model. Cursor's auto router sends only the queries that need reasoning to Claude Opus and routes the rest to Composer. Move the sliders to see the swing for ${config.account}.`}
+                accent={accent}
+              />
+              <RoiCalculator account={config.account} accent={accent} />
+            </section>
+          )}
+
+          {/* Unmatched technologies — flagged as SDK automation candidates so
+              the rep has something concrete to discuss for tools that aren't
+              in our MCP catalog yet. */}
+          {unmatchedTechnologies.length > 0 && (
+            <section className="mb-20">
+              <SectionHeader
+                icon={<Workflow className="w-4 h-4" />}
+                eyebrow="SDK automations"
+                title={`${config.account}'s other tools, automated via the Cursor SDK.`}
+                description={`These technologies ${config.account} runs aren't in the Cursor MCP marketplace yet, but each one is automatable via the Cursor SDK with a thin agent harness. Cursor stands up the integration during the pilot.`}
+                accent={accent}
+              />
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {unmatchedTechnologies.map((t) => (
+                  <div
+                    key={t}
+                    className="rounded-lg border p-4 bg-dark-surface"
+                    style={{ borderColor: `${accent}33` }}
+                  >
+                    <p className="text-[10px] uppercase tracking-wider font-mono text-text-tertiary mb-1">SDK automation</p>
+                    <p className="text-sm font-semibold text-text-primary">{t}</p>
+                    <p className="text-xs text-text-secondary mt-1.5 leading-snug">
+                      Wire {t} into a Cursor cloud agent via its REST/SDK and ship the same end-to-end automation pattern as the cards above.
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Next steps */}
           <section

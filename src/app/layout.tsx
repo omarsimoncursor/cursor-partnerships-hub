@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: 'Cursor Partnerships — Co-sell demos for strategic partners',
     description: 'Interactive co-sell demos for Cursor\'s strategic partners.',
     type: 'website',
-    url: 'https://cursor.omarsimon.com',
+    url: 'https://cursorpartners.omarsimon.com',
   },
 };
 

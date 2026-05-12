@@ -7,7 +7,7 @@ import crypto from 'crypto';
  *
  * Setup:
  * 1. Create a Datadog webhook integration pointing at
- *    https://cursor.omarsimon.com/api/datadog-webhook
+ *    https://cursorpartners.omarsimon.com/api/datadog-webhook
  * 2. Set the webhook signing secret (shared HMAC) in DATADOG_WEBHOOK_SECRET.
  *    Datadog signs the payload with `X-Datadog-Signature: sha256=<hex>`.
  * 3. Set CURSOR_API_KEY for triggering Background Agents.

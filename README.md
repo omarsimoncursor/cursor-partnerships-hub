@@ -1,6 +1,6 @@
 # Cursor Partnerships Hub
 
-**Live site:** [cursor.omarsimon.com](https://cursor.omarsimon.com)
+**Live site:** [cursorpartners.omarsimon.com](https://cursorpartners.omarsimon.com)
 
 A collection of interactive co-sell demos that show, concretely, how Cursor transforms the tools enterprises already use into automated, agentic workflows. Every demo is built on a realistic scenario, dramatizes a full workflow from incident/signal to merged PR, and exposes artifacts (Jira tickets, Snowsight / Databricks workspaces, GitHub PRs, triage reports) that make the value legible to both technical and non-technical buyers.
 
@@ -13,14 +13,14 @@ Each partner gets two routes:
 
 | Partner | Narrative page | Demo page |
 | --- | --- | --- |
-| ChatGTM personalized prospect demos | (internal) | [/p/<slug>](https://cursor.omarsimon.com/p/) — password-gated, per-prospect, branded demo. See [docs/chatgtm-integration.md](docs/chatgtm-integration.md). |
-| Cursor SDK (security) | [/partnerships/cursor-sdk](https://cursor.omarsimon.com/partnerships/cursor-sdk) | [/partnerships/cursor-sdk/demo](https://cursor.omarsimon.com/partnerships/cursor-sdk/demo) (interactive builder) |
-| AWS | [/partnerships/aws](https://cursor.omarsimon.com/partnerships/aws) | [/partnerships/aws/demo](https://cursor.omarsimon.com/partnerships/aws/demo) and [/partnerships/aws/journey](https://cursor.omarsimon.com/partnerships/aws/journey) (7-act) |
-| Databricks | [/partnerships/databricks](https://cursor.omarsimon.com/partnerships/databricks) | [/partnerships/databricks/demo](https://cursor.omarsimon.com/partnerships/databricks/demo) |
-| Datadog | [/partnerships/datadog](https://cursor.omarsimon.com/partnerships/datadog) | [/partnerships/datadog/demo](https://cursor.omarsimon.com/partnerships/datadog/demo) |
-| Figma | [/partnerships/figma](https://cursor.omarsimon.com/partnerships/figma) | [/partnerships/figma/demo](https://cursor.omarsimon.com/partnerships/figma/demo) |
-| Sentry | [/partnerships/sentry](https://cursor.omarsimon.com/partnerships/sentry) | [/partnerships/sentry/demo](https://cursor.omarsimon.com/partnerships/sentry/demo) |
-| Snowflake | [/partnerships/snowflake](https://cursor.omarsimon.com/partnerships/snowflake) | [/partnerships/snowflake/demo](https://cursor.omarsimon.com/partnerships/snowflake/demo) (7-act cinematic) |
+| ChatGTM personalized prospect demos | (internal) | [/p/<slug>](https://cursorpartners.omarsimon.com/p/) — password-gated, per-prospect, branded demo. See [docs/chatgtm-integration.md](docs/chatgtm-integration.md). |
+| Cursor SDK (security) | [/partnerships/cursor-sdk](https://cursorpartners.omarsimon.com/partnerships/cursor-sdk) | [/partnerships/cursor-sdk/demo](https://cursorpartners.omarsimon.com/partnerships/cursor-sdk/demo) (interactive builder) |
+| AWS | [/partnerships/aws](https://cursorpartners.omarsimon.com/partnerships/aws) | [/partnerships/aws/demo](https://cursorpartners.omarsimon.com/partnerships/aws/demo) and [/partnerships/aws/journey](https://cursorpartners.omarsimon.com/partnerships/aws/journey) (7-act) |
+| Databricks | [/partnerships/databricks](https://cursorpartners.omarsimon.com/partnerships/databricks) | [/partnerships/databricks/demo](https://cursorpartners.omarsimon.com/partnerships/databricks/demo) |
+| Datadog | [/partnerships/datadog](https://cursorpartners.omarsimon.com/partnerships/datadog) | [/partnerships/datadog/demo](https://cursorpartners.omarsimon.com/partnerships/datadog/demo) |
+| Figma | [/partnerships/figma](https://cursorpartners.omarsimon.com/partnerships/figma) | [/partnerships/figma/demo](https://cursorpartners.omarsimon.com/partnerships/figma/demo) |
+| Sentry | [/partnerships/sentry](https://cursorpartners.omarsimon.com/partnerships/sentry) | [/partnerships/sentry/demo](https://cursorpartners.omarsimon.com/partnerships/sentry/demo) |
+| Snowflake | [/partnerships/snowflake](https://cursorpartners.omarsimon.com/partnerships/snowflake) | [/partnerships/snowflake/demo](https://cursorpartners.omarsimon.com/partnerships/snowflake/demo) (7-act cinematic) |
 | GitHub, GitLab | Coming soon | — |
 
 ## Tech stack
@@ -73,7 +73,7 @@ curl -X POST $APP_ORIGIN/api/chatgtm/prospects \
   ]}'
 # Response (synchronous):
 # { "ok": true, "count": 2, "prospects": [
-#     { "url": "https://cursor.omarsimon.com/p/<slug>", "password": "Jane3146", "build_status": "queued", ... },
+#     { "url": "https://cursorpartners.omarsimon.com/p/<slug>", "password": "Jane3146", "build_status": "queued", ... },
 #     { "url": "...", "password": "Mark9277", "build_status": "queued", ... }
 # ] }
 # Background: the demo build (logo prefetch, brand-color match, ...) runs via Next.js after().
@@ -93,7 +93,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the scaffolding pattern. At a glanc
 
 ## Deployment
 
-Every push to `main` auto-deploys to Vercel at [cursor.omarsimon.com](https://cursor.omarsimon.com). Every PR gets a preview URL on its own subdomain for review.
+Every push to `main` auto-deploys to Vercel at [cursorpartners.omarsimon.com](https://cursorpartners.omarsimon.com). Every PR gets a preview URL on its own subdomain for review.
 
 ## Repository conventions
 

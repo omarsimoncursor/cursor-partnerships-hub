@@ -338,6 +338,86 @@ export async function deleteProspect(id: string): Promise<boolean> {
   return rowCount > 0;
 }
 
+/**
+ * One-shot maintenance: re-run normalizeLevel() against every
+ * prospect's stored level_raw and persist the result when it differs
+ * from level_normalized. Also upgrades show_roi_calculator to TRUE
+ * for prospects whose level moved INTO a leadership tier (we never
+ * downgrade — an admin who explicitly set show_roi_calculator=true
+ * keeps it).
+ *
+ * Used to repair ChatGTM batches that landed before the level regex
+ * set knew about Vice President / AVP / EVP variants in full titles.
+ *
+ * Returns a per-row diff so the caller can see exactly what changed.
+ */
+export type LevelBackfillChange = {
+  id: string;
+  slug: string;
+  name: string;
+  company_name: string;
+  level_raw: string | null;
+  old_level: string;
+  new_level: string;
+  roi_changed: boolean;
+};
+
+export async function backfillLevelNormalization(opts: { dryRun?: boolean } = {}): Promise<{
+  scanned: number;
+  changed: number;
+  changes: LevelBackfillChange[];
+}> {
+  const { rows } = await query<{
+    id: string;
+    slug: string;
+    name: string;
+    company_name: string;
+    level_raw: string | null;
+    level_normalized: string;
+    show_roi_calculator: boolean;
+  }>(
+    `SELECT id, slug, name, company_name, level_raw, level_normalized, show_roi_calculator
+       FROM prospects
+       WHERE level_raw IS NOT NULL AND length(trim(level_raw)) > 0`,
+  );
+
+  const changes: LevelBackfillChange[] = [];
+  for (const row of rows) {
+    const newLevel = normalizeLevel(row.level_raw);
+    if (newLevel === row.level_normalized) continue;
+    const newRoi = shouldShowRoiCalculator(newLevel);
+    // Upgrade-only ROI: turn ROI on if the new level is leadership and
+    // the row currently has ROI off. Never downgrade — admins can have
+    // intentionally flipped ROI on, and we don't want to lose that.
+    const nextShowRoi = newRoi && !row.show_roi_calculator ? true : row.show_roi_calculator;
+    const roiChanged = nextShowRoi !== row.show_roi_calculator;
+
+    changes.push({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      company_name: row.company_name,
+      level_raw: row.level_raw,
+      old_level: row.level_normalized,
+      new_level: newLevel,
+      roi_changed: roiChanged,
+    });
+
+    if (!opts.dryRun) {
+      await query(
+        `UPDATE prospects
+            SET level_normalized = $2,
+                show_roi_calculator = $3,
+                updated_at = now()
+            WHERE id = $1`,
+        [row.id, newLevel, nextShowRoi],
+      );
+    }
+  }
+
+  return { scanned: rows.length, changed: changes.length, changes };
+}
+
 // ---------------------------------------------------------------------------
 // Engagement events (clicks, runs, artifact opens, ...)
 

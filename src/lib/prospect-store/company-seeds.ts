@@ -45,8 +45,11 @@ export const COMPANY_SEEDS: CompanyDefaults[] = [
   },
   {
     name: 'Globant',
+    // Brand green per the Globant wordmark. ChatGTM confirmed #BFD730 is the
+    // best match against their internal style guide; the demo page picks
+    // this up automatically when the inbound payload omits company_accent.
     domain: 'globant.com',
-    accent: '#00C389',
+    accent: '#BFD730',
     defaultTechs: ['AWS', 'GitHub', 'Datadog', 'Sentry', 'Snowflake', 'Slack', 'Jira'],
     notes: 'Digital engineering pure-play; operates Globant.AI. Mostly AWS, Datadog, GitHub.',
   },

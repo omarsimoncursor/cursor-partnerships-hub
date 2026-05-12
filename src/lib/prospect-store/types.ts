@@ -1,0 +1,64 @@
+import type { ProspectLevel } from './levels';
+
+export type BuildStatus = 'queued' | 'building' | 'ready' | 'failed';
+
+export type ProspectRow = {
+  id: string;
+  slug: string;
+  name: string;
+  email: string | null;
+  level_raw: string | null;
+  level_normalized: ProspectLevel;
+  linkedin_url: string | null;
+  company_name: string;
+  company_domain: string;
+  company_accent: string | null;
+  technologies_raw: string[];
+  vendor_ids: string[];
+  unmatched_technologies: string[];
+  mcp_relevant: boolean;
+  sdk_workflow: string | null;
+  show_roi_calculator: boolean;
+  password: string;
+  gmail_draft_link: string | null;
+  linkedin_message_link: string | null;
+  notion_page_id: string | null;
+  source: string;
+  metadata: Record<string, unknown>;
+  build_status: BuildStatus;
+  build_started_at: string | null;
+  build_completed_at: string | null;
+  build_error: string | null;
+  build_artifacts: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+// Public view of the prospect — never exposes the password to the
+// browser in the normal demo render.
+export type ProspectPublic = Omit<ProspectRow, 'password'>;
+
+// Payload accepted from ChatGTM. All fields are validated at the API
+// boundary; this type doubles as documentation for the integration.
+export type ChatgtmProspectInput = {
+  // Required
+  name: string;
+  company: string;
+  // Recommended
+  email?: string | null;
+  level?: string | null;
+  linkedin_url?: string | null;
+  company_domain?: string | null;
+  company_accent?: string | null;
+  technologies?: string[] | null;
+  // Flags ChatGTM (or its upstream Sumble step) sets
+  mcp_relevant?: boolean | null;
+  sdk_workflow?: string | null;
+  // Drafts created upstream — we store them so the demo page can link
+  // back to them and the admin view can audit each prospect.
+  gmail_draft_link?: string | null;
+  linkedin_message_link?: string | null;
+  notion_page_id?: string | null;
+  // Free-form additional metadata; stored as JSONB.
+  metadata?: Record<string, unknown> | null;
+};

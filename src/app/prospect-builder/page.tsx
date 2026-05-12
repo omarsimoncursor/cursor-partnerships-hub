@@ -12,6 +12,7 @@ import {
   type ProspectConfig,
 } from '@/lib/prospect/config';
 import { AccountLogo } from '@/components/prospect/account-logo';
+import { SaveProspectPanel } from '@/components/prospect/save-prospect-panel';
 
 const ACCENT_PRESETS = [
   { name: 'Cigna Blue', value: '#0072CE' },
@@ -388,6 +389,16 @@ export default function ProspectBuilderPage() {
                 encoded into the URL, so you can pass the link in Slack or
                 email and it will render the same demo for the prospect.
               </div>
+
+              {/* DB-backed personalized demo. Optional — for when ChatGTM
+                  isn't driving the request and the rep wants to manually
+                  create a password-gated demo for a specific prospect. */}
+              <SaveProspectPanel
+                account={account || deriveAccountName(domain)}
+                domain={normalizeDomain(domain)}
+                accent={accent}
+                technologies={selectedVendors}
+              />
             </aside>
           </div>
         </div>

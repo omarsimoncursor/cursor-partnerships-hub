@@ -13,6 +13,7 @@ Each partner gets two routes:
 
 | Partner | Narrative page | Demo page |
 | --- | --- | --- |
+| ChatGTM personalized prospect demos | (internal) | [/p/<slug>](https://cursor.omarsimon.com/p/) — password-gated, per-prospect, branded demo. See [docs/chatgtm-integration.md](docs/chatgtm-integration.md). |
 | Cursor SDK (security) | [/partnerships/cursor-sdk](https://cursor.omarsimon.com/partnerships/cursor-sdk) | [/partnerships/cursor-sdk/demo](https://cursor.omarsimon.com/partnerships/cursor-sdk/demo) (interactive builder) |
 | AWS | [/partnerships/aws](https://cursor.omarsimon.com/partnerships/aws) | [/partnerships/aws/demo](https://cursor.omarsimon.com/partnerships/aws/demo) and [/partnerships/aws/journey](https://cursor.omarsimon.com/partnerships/aws/journey) (7-act) |
 | Databricks | [/partnerships/databricks](https://cursor.omarsimon.com/partnerships/databricks) | [/partnerships/databricks/demo](https://cursor.omarsimon.com/partnerships/databricks/demo) |
@@ -29,6 +30,7 @@ Each partner gets two routes:
 - **GSAP + ScrollTrigger** for scroll-triggered animations, **Lenis** for smooth scrolling
 - **Sentry** for error + performance monitoring
 - **Vercel** for hosting, preview deploys, and webhook endpoints
+- **Neon Postgres** (via `pg`) for the ChatGTM-driven personalized prospect demos
 
 ## Local development
 
@@ -50,6 +52,35 @@ npm run lint     # next lint
 ```
 
 Each partner demo also has a reset script under `scripts/` that rewinds any in-repo demo fixtures (e.g., `scripts/reset-datadog-demo.sh`) — useful for rehearsing a demo twice in a row.
+
+## ChatGTM personalized prospect demos
+
+ChatGTM (Cursor's internal Sumble → Notion → Gmail / LinkedIn orchestration) sends batches of prospects to this app and gets the demo URL + password for each one back **synchronously**, so it can write them straight to Notion + the auto-drafted messages. The personalized demo build happens in the background. See [docs/chatgtm-integration.md](docs/chatgtm-integration.md) for the full API contract.
+
+At a glance:
+
+```bash
+# 1. Configure DATABASE_URL + CHATGTM_API_TOKEN + DB_INIT_TOKEN + DEMO_GATE_SECRET
+# 2. Bootstrap the schema:
+curl -X POST $APP_ORIGIN/api/db/init -H "Authorization: Bearer $DB_INIT_TOKEN"
+# 3. ChatGTM sends a batch:
+curl -X POST $APP_ORIGIN/api/chatgtm/prospects \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $CHATGTM_API_TOKEN" \
+  -d '{"prospects":[
+    {"name":"Jane Smith","company":"Unisys","level":"VP","technologies":["Datadog","Snowflake","GitHub"]},
+    {"name":"Mark Lee","company":"KLA","level":"Engineering Manager"}
+  ]}'
+# Response (synchronous):
+# { "ok": true, "count": 2, "prospects": [
+#     { "url": "https://cursor.omarsimon.com/p/<slug>", "password": "Jane3146", "build_status": "queued", ... },
+#     { "url": "...", "password": "Mark9277", "build_status": "queued", ... }
+# ] }
+# Background: the demo build (logo prefetch, brand-color match, ...) runs via Next.js after().
+# Lazy fallback: any prospect view triggers the build if it hasn't completed.
+```
+
+Internal admin UI: [/prospect-builder](src/app/prospect-builder/page.tsx) (the existing builder, plus a "Save personalized demo" panel) and [/prospect-builder/admin](src/app/prospect-builder/admin/page.tsx) (a list of every prospect ChatGTM has pushed, with build status badges).
 
 ## Adding a new partner demo
 

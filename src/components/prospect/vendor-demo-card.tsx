@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronRight, Cpu, Play, RotateCcw } from 'lucide-react';
 import { applyAccountName, type Vendor } from '@/lib/prospect/vendors';
 import { VendorStage } from './stages';
 import type { StageStatus } from './stages/types';
+import { track } from '@/lib/prospect/tracker';
 
 const STEP_INTERVAL_MS = 1300;
 
@@ -33,6 +34,7 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
     setRunning(true);
     setCompleted(false);
     setActiveStep(0);
+    track('vendor.run', { vendor: vendor.id });
   };
 
   const reset = () => {
@@ -40,6 +42,7 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
     setRunning(false);
     setCompleted(false);
     setActiveStep(-1);
+    track('vendor.reset', { vendor: vendor.id });
   };
 
   useEffect(() => {
@@ -47,6 +50,7 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
     if (activeStep >= scenario.steps.length) {
       setRunning(false);
       setCompleted(true);
+      track('vendor.complete', { vendor: vendor.id });
       return;
     }
     timeoutRef.current = setTimeout(() => {
@@ -55,7 +59,7 @@ export function VendorDemoCard({ vendor, account, pageAccent, index }: Props) {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [running, activeStep, scenario.steps.length]);
+  }, [running, activeStep, scenario.steps.length, vendor.id]);
 
   const accent = vendor.brand;
   const headline = applyAccountName(scenario.headline, account);

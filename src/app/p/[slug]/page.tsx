@@ -122,6 +122,7 @@ export default async function PersonalizedProspectPage({ params, searchParams }:
       }
       showRoiCalculator={prospect.show_roi_calculator}
       unmatchedTechnologies={prospect.unmatched_technologies}
+      trackingSlug={prospect.slug}
     />
   );
 }

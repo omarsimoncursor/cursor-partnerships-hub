@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowRight, Lock, Sparkles } from 'lucide-react';
 import { AccountLogo } from '@/components/prospect/account-logo';
 import { AuroraBackdrop } from '@/components/prospect/aurora-backdrop';
+import { configureTracker, track } from '@/lib/prospect/tracker';
 
 type Props = {
   slug: string;
@@ -18,11 +19,19 @@ export function UnlockGate({ slug, prospectName, company, domain, accent }: Prop
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Wire up the tracker the moment the gate renders so we can record
+  // page.view (locked) + attempts.
+  useEffect(() => {
+    configureTracker(slug);
+    track('page.view', { unlocked: false });
+  }, [slug]);
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) return;
     setSubmitting(true);
     setError(null);
+    track('unlock.attempt');
     try {
       const res = await fetch(`/api/p/${slug}/auth`, {
         method: 'POST',
@@ -30,19 +39,24 @@ export function UnlockGate({ slug, prospectName, company, domain, accent }: Prop
         body: JSON.stringify({ password: password.trim() }),
       });
       if (res.ok) {
+        track('unlock.success');
         // Reload to let the server render the demo with the unlock cookie set.
         window.location.href = `/p/${slug}`;
         return;
       }
       const body = await res.json().catch(() => ({}));
       if (res.status === 401) {
+        track('unlock.failure', { reason: 'invalid_password' });
         setError('That password did not match. Check the LinkedIn message or email it was shared in.');
       } else if (res.status === 404) {
+        track('unlock.failure', { reason: 'not_found' });
         setError('This demo link is no longer active. Please reach out to your Cursor contact.');
       } else {
+        track('unlock.failure', { reason: 'http_error', status: res.status });
         setError(body?.detail || 'Something went wrong unlocking the demo. Please try again.');
       }
     } catch {
+      track('unlock.failure', { reason: 'network_error' });
       setError('Network error reaching the demo server. Please try again.');
     } finally {
       setSubmitting(false);

@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Calculator, Coins, Cpu, Sparkles, Users, Zap } from 'lucide-react';
+import { track } from '@/lib/prospect/tracker';
 
 // Reasonable, cited-on-request defaults. These are conservative
 // industry approximations rather than vendor-published prices, and
@@ -24,6 +25,21 @@ export function RoiCalculator({ account, accent }: Props) {
   const [engineers, setEngineers] = useState(500);
   const [tokensPerEngineerM, setTokensPerEngineerM] = useState(40); // millions/month
   const [frontierPct, setFrontierPct] = useState(10);
+
+  // Debounced ROI engagement tracking — fires ~600ms after the prospect
+  // stops dragging, so a slider drag becomes one event instead of 200.
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    const t = setTimeout(() => {
+      track('roi.changed', {
+        engineers,
+        tokens_per_engineer_m: tokensPerEngineerM,
+        frontier_pct: frontierPct,
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [engineers, tokensPerEngineerM, frontierPct]);
 
   const calc = useMemo(() => {
     const totalTokens = engineers * tokensPerEngineerM * 1_000_000;

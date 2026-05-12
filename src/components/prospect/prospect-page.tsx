@@ -23,6 +23,7 @@ import { AuroraBackdrop } from '@/components/prospect/aurora-backdrop';
 import { VendorDemoCard } from '@/components/prospect/vendor-demo-card';
 import { RoiCalculator } from '@/components/prospect/roi-calculator';
 import { CursorSdkLiveDemo } from '@/components/sdk-demo/cursor-sdk-live-demo';
+import { configureTracker, track } from '@/lib/prospect/tracker';
 
 type Props = {
   config: ProspectConfig;
@@ -32,11 +33,15 @@ type Props = {
   //   - sdkWorkflowFocus: optional vendor id the page should lead with
   //   - unmatchedTechnologies: technologies from Sumble that didn't match a
   //     vendor in the catalog; rendered as an "SDK automation" callout.
+  //   - trackingSlug: when set, every meaningful interaction on the page
+  //     posts an engagement event to /api/p/[slug]/track for the admin
+  //     activity view.
   prospectName?: string;
   prospectLevelLabel?: string;
   showRoiCalculator?: boolean;
   sdkWorkflowFocus?: string | null;
   unmatchedTechnologies?: string[];
+  trackingSlug?: string;
 };
 
 export function ProspectPage({
@@ -45,6 +50,7 @@ export function ProspectPage({
   prospectLevelLabel,
   showRoiCalculator = true,
   unmatchedTechnologies = [],
+  trackingSlug,
 }: Props) {
   const accent = resolvedAccent(config);
   const vendors = getVendorsFor(config);
@@ -58,6 +64,19 @@ export function ProspectPage({
       document.documentElement.style.removeProperty('--prospect-accent');
     };
   }, [accent]);
+
+  // Wire up the engagement tracker. The unlocked render of /p/[slug]
+  // passes the slug in; the legacy /prospect/[domain] URL-encoded route
+  // doesn't (no DB row, no events to record).
+  useEffect(() => {
+    if (!trackingSlug) return;
+    configureTracker(trackingSlug);
+    track('page.unlocked', {
+      vendors_rendered: vendors.length,
+      show_roi_calculator: showRoiCalculator,
+      unmatched_count: unmatchedTechnologies.length,
+    });
+  }, [trackingSlug, vendors.length, showRoiCalculator, unmatchedTechnologies.length]);
 
   return (
     <div className="min-h-screen relative">
@@ -128,6 +147,7 @@ export function ProspectPage({
             <div className="flex flex-wrap items-center gap-3 mt-6">
               <a
                 href="#integrations"
+                onClick={() => track('cta.click', { target: 'integrations' })}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold transition-all hover:scale-[1.02]"
                 style={{ background: accent, color: '#0a0a0a', boxShadow: `0 0 32px ${accent}55` }}
               >
@@ -136,6 +156,7 @@ export function ProspectPage({
               </a>
               <a
                 href="#composer"
+                onClick={() => track('cta.click', { target: 'sdk_demo' })}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium border transition-colors hover:bg-dark-surface"
                 style={{ borderColor: `${accent}55`, color: accent }}
               >
@@ -145,6 +166,7 @@ export function ProspectPage({
               {showRoiCalculator && (
                 <a
                   href="#roi"
+                  onClick={() => track('cta.click', { target: 'roi' })}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium border border-dark-border text-text-secondary transition-colors hover:bg-dark-surface hover:text-text-primary"
                 >
                   ROI for {config.account}
@@ -192,6 +214,7 @@ export function ProspectPage({
                 <a
                   key={v.id}
                   href={`#vendor-${v.id}`}
+                  onClick={() => track('nav.section_anchor', { vendor: v.id })}
                   className="rounded-lg border p-4 hover:scale-[1.01] transition-all"
                   style={{
                     borderColor: `${v.brand}33`,
@@ -322,6 +345,7 @@ export function ProspectPage({
                 href="https://cursor.com/contact"
                 target="_blank"
                 rel="noreferrer"
+                onClick={() => track('cta.click', { target: 'set_up_pilot' })}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all"
                 style={{ background: accent, color: '#0a0a0a' }}
               >

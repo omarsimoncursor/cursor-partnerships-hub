@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Code2, FileText, GitPullRequest, MessageSquare, RotateCcw } from 'lucide-react';
 import type { Workflow } from '@/lib/sdk-demo/types';
 import { pickScript } from '@/lib/sdk-demo/scripts/pick-script';
@@ -13,6 +13,7 @@ import { AuditTimeline } from '@/components/sdk-demo/artifacts/audit-timeline';
 import { JiraTicket } from '@/components/sdk-demo/artifacts/jira-ticket';
 import { GithubPrPreview } from '@/components/sdk-demo/artifacts/github-pr-preview';
 import { SlackThread } from '@/components/sdk-demo/artifacts/slack-thread';
+import { track } from '@/lib/prospect/tracker';
 
 type Phase = 'draft' | 'running' | 'complete';
 
@@ -61,21 +62,61 @@ export function CursorSdkLiveDemo({ hero = true }: Props = {}) {
   const handleRun = useCallback(() => {
     setPhase('running');
     setArtifact(null);
-  }, []);
+    track('sdk.run', {
+      tool: workflow.toolId,
+      event: workflow.eventId,
+      action_count: workflow.actionIds.length,
+      mcp_count: workflow.mcpIds.length,
+    });
+  }, [workflow]);
 
   const handleComplete = useCallback(() => {
     setPhase('complete');
-  }, []);
+    track('sdk.complete', {
+      tool: workflow.toolId,
+      event: workflow.eventId,
+      action_count: workflow.actionIds.length,
+    });
+  }, [workflow]);
 
   const handleReset = useCallback(() => {
     setPhase('draft');
     setWorkflow(EMPTY_WORKFLOW);
     setArtifact(null);
+    track('sdk.reset');
   }, []);
 
   const handleNewRun = useCallback(() => {
     setPhase('draft');
     setArtifact(null);
+  }, []);
+
+  // Detect starter-workflow loads (any time the workflow.toolId changes
+  // from null -> set without going through the draft picker, i.e. all
+  // four IDs land at once). Cleanest signal: a starter is loaded if
+  // toolId becomes non-null and we go from 0 actions to several actions
+  // in the same change.
+  const lastWorkflowRef = useRef<Workflow>(EMPTY_WORKFLOW);
+  const handleWorkflowChange = useCallback((next: Workflow) => {
+    const prev = lastWorkflowRef.current;
+    if (
+      next.toolId &&
+      (prev.toolId !== next.toolId || prev.actionIds.length === 0) &&
+      next.actionIds.length >= 2
+    ) {
+      track('sdk.starter_loaded', {
+        tool: next.toolId,
+        event: next.eventId,
+        action_count: next.actionIds.length,
+      });
+    }
+    lastWorkflowRef.current = next;
+    setWorkflow(next);
+  }, []);
+
+  const handleArtifactOpen = useCallback((next: SdkArtifact | null) => {
+    if (next) track('sdk.artifact_opened', { artifact: next });
+    setArtifact(next);
   }, []);
 
   const isRuntime = phase === 'running' || phase === 'complete';
@@ -135,7 +176,7 @@ export function CursorSdkLiveDemo({ hero = true }: Props = {}) {
               </p>
             </div>
           )}
-          <WorkflowBuilder workflow={workflow} onChange={setWorkflow} onRun={handleRun} />
+          <WorkflowBuilder workflow={workflow} onChange={handleWorkflowChange} onRun={handleRun} />
         </div>
       )}
 
@@ -183,7 +224,7 @@ export function CursorSdkLiveDemo({ hero = true }: Props = {}) {
 
           <RuntimeSplit script={script} onComplete={handleComplete} finished={phase === 'complete'} />
 
-          {phase === 'complete' && <ArtifactStrip script={script} onOpen={setArtifact} />}
+          {phase === 'complete' && <ArtifactStrip script={script} onOpen={handleArtifactOpen} />}
         </div>
       )}
 

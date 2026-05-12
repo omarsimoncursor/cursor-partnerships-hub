@@ -9,7 +9,6 @@ import {
   ExternalLink,
   Gauge,
   Layers,
-  Plug,
   Sparkles,
   Workflow,
 } from 'lucide-react';
@@ -37,7 +36,6 @@ type Props = {
   //     posts an engagement event to /api/p/[slug]/track for the admin
   //     activity view.
   prospectName?: string;
-  prospectLevelLabel?: string;
   showRoiCalculator?: boolean;
   sdkWorkflowFocus?: string | null;
   unmatchedTechnologies?: string[];
@@ -47,7 +45,6 @@ type Props = {
 export function ProspectPage({
   config,
   prospectName,
-  prospectLevelLabel,
   showRoiCalculator = true,
   unmatchedTechnologies = [],
   trackingSlug,
@@ -118,7 +115,7 @@ export function ProspectPage({
             >
               <Sparkles className="w-3 h-3" />
               {prospectName
-                ? `Prepared for ${prospectName} \u00b7 ${config.account}${prospectLevelLabel ? ` \u00b7 ${prospectLevelLabel}` : ''}`
+                ? `Prepared for ${prospectName} \u00b7 ${config.account}`
                 : `Prepared for ${config.account}`}
             </span>
             <h1 className="text-4xl md:text-6xl font-bold leading-[1.05] tracking-tight max-w-4xl">
@@ -137,7 +134,7 @@ export function ProspectPage({
             </h1>
             <p className="text-base md:text-lg text-text-secondary max-w-2xl mt-5">
               {config.tagline ||
-                `An interactive demo of Cursor's MCP integrations and SDK automations against the tools ${config.account} already uses. Every workflow below is playable, plus a live Cursor SDK demo and an ROI calculator scoped to ${config.account}.`}
+                `Every workflow illustrates how Cursor adds autonomy and integration across ${config.account}'s existing stack.`}
             </p>
             {config.rep && (
               <p className="text-xs text-text-tertiary font-mono mt-2">
@@ -176,26 +173,19 @@ export function ProspectPage({
             </div>
 
             {/* Headline metric band */}
-            <div className="mt-10 grid sm:grid-cols-3 gap-3">
-              <HeroStat
-                icon={<Plug className="w-3.5 h-3.5" />}
-                label="Integrations live"
-                value={String(vendors.length)}
-                hint={`MCP + SDK against ${config.account}'s stack`}
-                accent={accent}
-              />
+            <div className="mt-10 grid sm:grid-cols-2 gap-3">
               <HeroStat
                 icon={<Workflow className="w-3.5 h-3.5" />}
-                label="Workflows playable"
+                label="Workflow demos"
                 value={String(vendors.length + 5)}
-                hint="Per-vendor demos + live SDK demo"
+                hint="Per-vendor automations + live SDK demo"
                 accent={accent}
               />
               <HeroStat
                 icon={<Gauge className="w-3.5 h-3.5" />}
-                label="Token cost ceiling"
+                label="Token cost reduction"
                 value="−84%"
-                hint="Auto router vs. all-frontier (default sliders)"
+                hint="Auto router vs. all-frontier"
                 accent={accent}
               />
             </div>
@@ -250,38 +240,25 @@ export function ProspectPage({
             </div>
           </section>
 
-          {/* Vendor demos */}
-          <section id="integrations" className="mb-20">
-            <SectionHeader
-              icon={<Sparkles className="w-4 h-4" />}
-              eyebrow={`${vendors.length} interactive demos`}
-              title={`What Cursor automates for ${config.account}, demo by demo.`}
-              description={`Each demo plays the agent steps end to end so the ${config.account} team can see exactly what Cursor does in their environment.`}
-              accent={accent}
-            />
-            <div className="space-y-6">
-              {vendors.map((v, i) => (
-                <VendorDemoCard key={v.id} vendor={v} account={config.account} pageAccent={accent} index={i} />
-              ))}
-            </div>
-          </section>
-
-          {/* Cursor SDK live demo — the same multi-phase interactive demo
-              we ship on /partnerships/cursor-sdk/demo. Lets the prospect
-              build a real Cursor agent workflow end to end and see the
-              five artifacts the agent produces. */}
+          {/* Cursor SDK live demo — moved to the top of the page after
+              the stack matrix so prospects land on the "build a real
+              Cursor agent" surface first. The full multi-phase live
+              demo we ship publicly at /partnerships/cursor-sdk/demo. */}
           <section id="composer" className="mb-20">
             <SectionHeader
               icon={<Code2 className="w-4 h-4" />}
               eyebrow="Cursor SDK live demo"
               title="Build a real Cursor agent, live."
-              description={`Pick a tool, an alert, and what you want the agent to do. The TypeScript on the right updates as you click — that's actual code being built in real time. Press Run to watch the agent execute the workflow and produce five inspectable artifacts (Jira ticket, GitHub PR, Slack thread, audit timeline, SDK call trace).`}
+              description={`Pick automated response actions for any tool in your stack, and the demo will automatically produce runnable typescript code that can be used to programmatically launch headless Cursor agents. Press Run to watch the agent execute your workflow and produce five inspectable artifacts (Jira ticket, GitHub PR, Slack thread, audit timeline, SDK call trace).`}
               accent={accent}
             />
             <CursorSdkLiveDemo hero={false} />
           </section>
 
-          {/* ROI - shown for leadership / executive levels only */}
+          {/* ROI — leadership / executive levels only. Sits between the
+              SDK demo and the per-vendor automations so a Director / VP
+              who lands here sees workflow + ROI before drilling into
+              individual vendors. */}
           {showRoiCalculator && (
             <section id="roi" className="mb-20">
               <SectionHeader
@@ -295,9 +272,28 @@ export function ProspectPage({
             </section>
           )}
 
-          {/* Unmatched technologies — flagged as SDK automation candidates so
-              the rep has something concrete to discuss for tools that aren't
-              in our MCP catalog yet. */}
+          {/* Per-vendor automations — these live below the SDK demo + ROI
+              so prospects see the strategic case before drilling into
+              individual vendor workflows. */}
+          <section id="integrations" className="mb-20">
+            <SectionHeader
+              icon={<Sparkles className="w-4 h-4" />}
+              eyebrow={`${vendors.length} per-vendor automations`}
+              title={`What Cursor automates across ${config.account}'s existing technology stack.`}
+              description={`Each automation plays the agent steps end to end so the ${config.account} team can see exactly what Cursor does in their environment.`}
+              accent={accent}
+            />
+            <div className="space-y-6">
+              {vendors.map((v, i) => (
+                <VendorDemoCard key={v.id} vendor={v} account={config.account} pageAccent={accent} index={i} />
+              ))}
+            </div>
+          </section>
+
+          {/* Unmatched technologies — the SDK fallback cards land at the
+              very bottom (just above the next-step CTA) so the rep has
+              something concrete to discuss for tools that aren't in our
+              MCP catalog yet. */}
           {unmatchedTechnologies.length > 0 && (
             <section className="mb-20">
               <SectionHeader
@@ -334,22 +330,22 @@ export function ProspectPage({
               Suggested next step
             </p>
             <h3 className="text-2xl md:text-3xl font-semibold text-text-primary mb-3">
-              Pick one workflow above and pilot it on a {config.account} repo this quarter.
+              Want to see these automations in action?
             </h3>
             <p className="text-sm text-text-secondary max-w-2xl mb-5">
               Cursor stands up the integration with the {config.account} team, the agent runs against a sandbox, and
-              the team sees end-to-end value before any commitment. The ROI calc above is the floor, not the ceiling.
+              the team sees end-to-end value before any commitment.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <a
-                href="https://cursor.com/contact"
+                href="https://calendly.com/omar-simon-anysphere/30min"
                 target="_blank"
                 rel="noreferrer"
-                onClick={() => track('cta.click', { target: 'set_up_pilot' })}
+                onClick={() => track('cta.click', { target: 'book_demo' })}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all"
                 style={{ background: accent, color: '#0a0a0a' }}
               >
-                Set up the pilot
+                Book a 30-minute Demo
                 <ExternalLink className="w-4 h-4" />
               </a>
               <Link

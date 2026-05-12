@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft,
   Calculator,
   ChevronDown,
   Code2,
@@ -22,8 +21,8 @@ import {
 import { AccountLogo } from '@/components/prospect/account-logo';
 import { AuroraBackdrop } from '@/components/prospect/aurora-backdrop';
 import { VendorDemoCard } from '@/components/prospect/vendor-demo-card';
-import { SdkComposer } from '@/components/prospect/sdk-composer';
 import { RoiCalculator } from '@/components/prospect/roi-calculator';
+import { CursorSdkLiveDemo } from '@/components/sdk-demo/cursor-sdk-live-demo';
 
 type Props = {
   config: ProspectConfig;
@@ -67,11 +66,13 @@ export function ProspectPage({
       <nav className="fixed top-0 left-0 right-0 z-30 py-4 px-6 bg-dark-bg backdrop-blur-xl border-b border-dark-border">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link
-            href="/prospect-builder"
+            href="https://cursor.com"
+            target="_blank"
+            rel="noreferrer"
             className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Builder
+            <AccountLogo domain="cursor.com" account="Cursor" accent="#edecec" size={20} />
+            Cursor
           </Link>
           <span className="text-sm text-text-tertiary font-mono">
             Cursor x {config.account}
@@ -117,7 +118,7 @@ export function ProspectPage({
             </h1>
             <p className="text-base md:text-lg text-text-secondary max-w-2xl mt-5">
               {config.tagline ||
-                `An interactive demo of Cursor's MCP integrations and SDK automations against the tools ${config.account} already uses. Every workflow below is playable; the SDK composer and ROI calculator are scoped to ${config.account} specifically.`}
+                `An interactive demo of Cursor's MCP integrations and SDK automations against the tools ${config.account} already uses. Every workflow below is playable, plus a live Cursor SDK demo and an ROI calculator scoped to ${config.account}.`}
             </p>
             {config.rep && (
               <p className="text-xs text-text-tertiary font-mono mt-2">
@@ -138,8 +139,8 @@ export function ProspectPage({
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium border transition-colors hover:bg-dark-surface"
                 style={{ borderColor: `${accent}55`, color: accent }}
               >
-                Compose a workflow
-                <Workflow className="w-4 h-4" />
+                Try the SDK demo
+                <Code2 className="w-4 h-4" />
               </a>
               {showRoiCalculator && (
                 <a
@@ -165,7 +166,7 @@ export function ProspectPage({
                 icon={<Workflow className="w-3.5 h-3.5" />}
                 label="Workflows playable"
                 value={String(vendors.length + 5)}
-                hint="Per-vendor demos + SDK composer presets"
+                hint="Per-vendor demos + live SDK demo"
                 accent={accent}
               />
               <HeroStat
@@ -242,16 +243,19 @@ export function ProspectPage({
             </div>
           </section>
 
-          {/* SDK Composer */}
+          {/* Cursor SDK live demo — the same multi-phase interactive demo
+              we ship on /partnerships/cursor-sdk/demo. Lets the prospect
+              build a real Cursor agent workflow end to end and see the
+              five artifacts the agent produces. */}
           <section id="composer" className="mb-20">
             <SectionHeader
               icon={<Code2 className="w-4 h-4" />}
-              eyebrow="SDK workflow composer"
-              title="String the same tools together into a custom Cursor agent."
-              description={`Drop steps from ${config.account}'s stack into the canvas. Cursor's SDK turns the resulting workflow into a runnable agent: scheduled, on-demand, or wired to a webhook.`}
+              eyebrow="Cursor SDK live demo"
+              title="Build a real Cursor agent, live."
+              description={`Pick a tool, an alert, and what you want the agent to do. The TypeScript on the right updates as you click — that's actual code being built in real time. Press Run to watch the agent execute the workflow and produce five inspectable artifacts (Jira ticket, GitHub PR, Slack thread, audit timeline, SDK call trace).`}
               accent={accent}
             />
-            <SdkComposer account={config.account} accent={accent} vendorIds={vendors.map(v => v.id)} />
+            <CursorSdkLiveDemo hero={false} />
           </section>
 
           {/* ROI - shown for leadership / executive levels only */}

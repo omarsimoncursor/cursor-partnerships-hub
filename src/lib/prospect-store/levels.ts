@@ -12,16 +12,48 @@ export type ProspectLevel =
   | 'c_level'
   | 'unknown';
 
+// Order matters: more specific patterns (SVP, EVP) must come BEFORE
+// the broader VP / Vice President patterns so "Senior Vice President"
+// doesn't get demoted to plain VP. Each pattern uses word-boundary
+// matches (`\b`) instead of `^...$` anchors so it works inside
+// realistic full titles like "Vice President of Engineering" or
+// "AVP, Cloud Modernization".
 const LEVEL_ALIASES: Array<[RegExp, ProspectLevel]> = [
+  // C-suite first — wins over "Chief of Staff" too, which is fine
+  // since CoS is more c_level than anything else in our schema.
   [/^c[\s\-_]?level$/i, 'c_level'],
   [/\b(ceo|cto|cio|cfo|coo|cmo|cpo|cdo|chief)\b/i, 'c_level'],
-  [/\bexecutive\b/i, 'executive'],
-  [/\bsvp\b|^senior vp$|^senior vice president$/i, 'svp'],
-  [/\bvp\b|^vice president$/i, 'vp'],
-  [/\bdirector\b|^dir$/i, 'director'],
-  [/\bhead\sof\b/i, 'director'],
-  [/\bmanager\b|^mgr$/i, 'manager'],
-  [/\bteam[\s\-]?lead\b|\blead engineer\b|\btech[\s\-]?lead\b/i, 'team_lead'],
+
+  // SVP / EVP / Senior VP variants must come before plain VP so
+  // "Senior Vice President" maps to svp, not vp.
+  [/\bsvp\b|\bsenior\s+vp\b|\bsenior\s+vice\s+president\b|\bsr\.?\s+vice\s+president\b|\bsr\.?\s+vp\b/i, 'svp'],
+  [/\bevp\b|\bexecutive\s+vice\s+president\b|\bexecutive\s+vp\b/i, 'svp'],
+
+  // Stand-alone "Executive" title only. Things like "Executive Director"
+  // resolve to director below, "Executive VP" already resolved to svp
+  // above — we don't want to over-flag mid-level "Executive Something"
+  // titles as executive.
+  [/^executive$/i, 'executive'],
+
+  // Plain VP variants — including AVP (Associate VP), AsstVP, Group VP,
+  // Deputy VP, Vice President anywhere in the title, etc.
+  [
+    /\bvp\b|\bavp\b|\bvice\s+president\b|\bassociate\s+vice\s+president\b|\bassistant\s+vice\s+president\b|\bgroup\s+vp\b|\bdeputy\s+vp\b/i,
+    'vp',
+  ],
+
+  // Director variants. Plain \bdirector\b covers most real-world
+  // titles ("Director of Delivery", "Studio Director", "Senior
+  // Director, Cloud Modernization"). "Head of X" is the GSI / studio
+  // convention for the same level.
+  [/\bdirector\b|\bdir\.?\b|\bhead\s+of\b/i, 'director'],
+
+  // Manager variants. We bias to manager (not team_lead) when both
+  // "manager" and "lead" appear in the same title.
+  [/\bmanager\b|\bmgr\.?\b/i, 'manager'],
+
+  // Team Lead / Tech Lead / Lead Engineer.
+  [/\bteam[\s\-]?lead\b|\blead\s+engineer\b|\btech[\s\-]?lead\b|\bstaff\s+engineer\b|\bprincipal\s+engineer\b/i, 'team_lead'],
 ];
 
 const LEADERSHIP: ProspectLevel[] = ['director', 'vp', 'svp', 'executive', 'c_level'];

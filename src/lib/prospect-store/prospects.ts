@@ -225,6 +225,183 @@ export async function recordView(
 }
 
 // ---------------------------------------------------------------------------
+// Edit + delete
+
+// Whitelist of fields the admin Edit modal can update. Anything outside
+// this list is silently ignored so the API can't be coerced into
+// changing the slug, password, build state, etc.
+const EDITABLE_TEXT_FIELDS = new Set([
+  'name',
+  'email',
+  'linkedin_url',
+  'company_name',
+  'company_domain',
+  'company_accent',
+  'sdk_workflow',
+  'gmail_draft_link',
+  'linkedin_message_link',
+  'notion_page_id',
+]);
+
+const EDITABLE_BOOL_FIELDS = new Set([
+  'mcp_relevant',
+  'show_roi_calculator',
+]);
+
+export type ProspectPatch = Partial<{
+  name: string;
+  email: string | null;
+  level: string | null;
+  linkedin_url: string | null;
+  company_name: string;
+  company_domain: string;
+  company_accent: string | null;
+  vendor_ids: string[];
+  unmatched_technologies: string[];
+  mcp_relevant: boolean;
+  sdk_workflow: string | null;
+  show_roi_calculator: boolean;
+  gmail_draft_link: string | null;
+  linkedin_message_link: string | null;
+  notion_page_id: string | null;
+  tagline: string;
+  metadata: Record<string, unknown>;
+}>;
+
+export async function updateProspect(
+  id: string,
+  patch: ProspectPatch,
+): Promise<ProspectRow | null> {
+  const sets: string[] = [];
+  const values: unknown[] = [];
+
+  function set(column: string, value: unknown): void {
+    values.push(value);
+    sets.push(`${column} = $${values.length}`);
+  }
+
+  // Plain text + bool fields (the easy ones).
+  for (const [field, value] of Object.entries(patch)) {
+    if (EDITABLE_TEXT_FIELDS.has(field) && (typeof value === 'string' || value === null)) {
+      const trimmed = typeof value === 'string' ? value.trim() : null;
+      set(field, trimmed && trimmed.length > 0 ? trimmed : null);
+    } else if (EDITABLE_BOOL_FIELDS.has(field) && typeof value === 'boolean') {
+      set(field, value);
+    }
+  }
+
+  // Special-cased fields.
+  if (typeof patch.level === 'string') {
+    set('level_raw', patch.level.trim() || null);
+    set('level_normalized', normalizeLevel(patch.level));
+    // Don't auto-toggle show_roi_calculator when level changes — let the
+    // operator decide explicitly via the bool field. This is what the
+    // edit modal hint promises.
+  }
+  if (Array.isArray(patch.vendor_ids)) {
+    set('vendor_ids', patch.vendor_ids.filter((v) => typeof v === 'string'));
+  }
+  if (Array.isArray(patch.unmatched_technologies)) {
+    set(
+      'unmatched_technologies',
+      patch.unmatched_technologies.filter((v) => typeof v === 'string'),
+    );
+  }
+
+  // metadata + tagline both live in / extend the metadata JSONB column.
+  const metaPatch: Record<string, unknown> = {};
+  if (patch.metadata && typeof patch.metadata === 'object') Object.assign(metaPatch, patch.metadata);
+  if (typeof patch.tagline === 'string') metaPatch.tagline = patch.tagline.trim();
+  if (Object.keys(metaPatch).length > 0) {
+    values.push(JSON.stringify(metaPatch));
+    sets.push(`metadata = metadata || $${values.length}::jsonb`);
+  }
+
+  if (sets.length === 0) {
+    // Nothing to update; return the row as-is so the caller can show it.
+    return getProspectById(id);
+  }
+
+  values.push(id);
+  const { rows } = await query<ProspectRow>(
+    `UPDATE prospects SET ${sets.join(', ')}, updated_at = now() WHERE id = $${values.length} RETURNING *`,
+    values,
+  );
+  return rows[0] ?? null;
+}
+
+export async function deleteProspect(id: string): Promise<boolean> {
+  const { rowCount } = await query(
+    `DELETE FROM prospects WHERE id = $1`,
+    [id],
+  );
+  return rowCount > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Engagement events (clicks, runs, artifact opens, ...)
+
+export type ProspectEventRow = {
+  id: string;
+  prospect_id: string;
+  slug: string;
+  event_type: string;
+  event_data: Record<string, unknown>;
+  occurred_at: string;
+  session_id: string | null;
+  ip: string | null;
+  user_agent: string | null;
+};
+
+// Hard cap for event_data so a misbehaving client can't blow up the row.
+const MAX_EVENT_DATA_BYTES = 4 * 1024;
+
+export async function recordEvent(args: {
+  prospectId: string;
+  slug: string;
+  eventType: string;
+  eventData?: Record<string, unknown> | null;
+  sessionId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+}): Promise<void> {
+  const payload =
+    args.eventData && typeof args.eventData === 'object'
+      ? args.eventData
+      : {};
+  const serialized = JSON.stringify(payload);
+  const safePayload = serialized.length > MAX_EVENT_DATA_BYTES ? '{"_truncated":true}' : serialized;
+  await query(
+    `INSERT INTO prospect_events (prospect_id, slug, event_type, event_data, session_id, ip, user_agent)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)`,
+    [
+      args.prospectId,
+      args.slug,
+      String(args.eventType).slice(0, 64),
+      safePayload,
+      args.sessionId ? String(args.sessionId).slice(0, 128) : null,
+      args.ip ?? null,
+      args.userAgent ? String(args.userAgent).slice(0, 512) : null,
+    ],
+  );
+}
+
+export async function listEvents(
+  prospectId: string,
+  limit = 500,
+): Promise<ProspectEventRow[]> {
+  const { rows } = await query<ProspectEventRow>(
+    `SELECT id::text, prospect_id, slug, event_type, event_data, occurred_at, session_id, ip, user_agent
+       FROM prospect_events
+       WHERE prospect_id = $1
+       ORDER BY occurred_at DESC
+       LIMIT $2`,
+    [prospectId, limit],
+  );
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
 // Build state machine
 
 /**

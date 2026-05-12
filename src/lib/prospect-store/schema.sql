@@ -78,3 +78,25 @@ CREATE TABLE IF NOT EXISTS prospect_views (
 );
 
 CREATE INDEX IF NOT EXISTS prospect_views_prospect_idx ON prospect_views(prospect_id, viewed_at DESC);
+
+-- Fine-grained engagement events emitted by the prospect's browser
+-- (vendor demo runs, SDK demo runs, artifact opens, ROI slider changes,
+-- hero CTA clicks, ...). Used by the admin "Activity" view to see what
+-- the prospect actually engaged with after opening their personalized
+-- demo. Append-only; the client posts here from /p/[slug] and the slug
+-- is the implicit auth.
+CREATE TABLE IF NOT EXISTS prospect_events (
+  id          BIGSERIAL PRIMARY KEY,
+  prospect_id UUID NOT NULL REFERENCES prospects(id) ON DELETE CASCADE,
+  slug        TEXT NOT NULL,
+  event_type  TEXT NOT NULL,
+  event_data  JSONB NOT NULL DEFAULT '{}'::jsonb,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  session_id  TEXT,
+  ip          TEXT,
+  user_agent  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS prospect_events_prospect_idx ON prospect_events(prospect_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS prospect_events_slug_idx     ON prospect_events(slug, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS prospect_events_type_idx     ON prospect_events(event_type);

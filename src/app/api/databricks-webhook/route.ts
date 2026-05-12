@@ -8,7 +8,7 @@ import crypto from 'crypto';
  *
  * Setup:
  * 1. Register a Databricks workspace webhook pointing at
- *    https://cursor.omarsimon.com/api/databricks-webhook
+ *    https://cursorpartners.omarsimon.com/api/databricks-webhook
  *    (e.g. `databricks workspace webhooks create --url ... --events pipelines.run`)
  * 2. Set the shared HMAC-SHA256 secret in DATABRICKS_WEBHOOK_SECRET.
  *    Databricks signs the raw body with `X-Databricks-Signature: sha256=<hex>`.

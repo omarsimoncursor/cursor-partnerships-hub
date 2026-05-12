@@ -8,7 +8,7 @@ import crypto from 'crypto';
  *
  * Setup:
  * 1. Configure a Snowflake Notification Integration of TYPE = WEBHOOK with
- *    WEBHOOK_URL = https://cursor.omarsimon.com/api/snowflake-webhook
+ *    WEBHOOK_URL = https://cursorpartners.omarsimon.com/api/snowflake-webhook
  *    WEBHOOK_SECRET = <shared HMAC secret>
  * 2. Set SNOWFLAKE_WEBHOOK_SECRET to the same value.
  *    Snowflake signs the payload with HMAC-SHA256 — we accept either the

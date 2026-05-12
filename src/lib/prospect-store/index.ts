@@ -8,3 +8,4 @@ export * from './company-seeds';
 export * from './prospects';
 export * from './gate-cookie';
 export * from './builder';
+export * from './presentation';

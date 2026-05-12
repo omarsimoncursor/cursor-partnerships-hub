@@ -7,7 +7,7 @@ import crypto from 'crypto';
  *
  * Setup:
  * 1. Create a Sentry Internal Integration with "issue" webhook
- * 2. Set the webhook URL to https://cursor.omarsimon.com/api/sentry-webhook
+ * 2. Set the webhook URL to https://cursorpartners.omarsimon.com/api/sentry-webhook
  * 3. Copy the webhook signing secret to SENTRY_WEBHOOK_SECRET env var
  * 4. Set CURSOR_API_KEY for triggering Background Agents
  */

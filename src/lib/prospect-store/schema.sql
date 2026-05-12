@@ -58,11 +58,15 @@ ALTER TABLE prospects ADD COLUMN IF NOT EXISTS build_started_at   TIMESTAMPTZ;
 ALTER TABLE prospects ADD COLUMN IF NOT EXISTS build_completed_at TIMESTAMPTZ;
 ALTER TABLE prospects ADD COLUMN IF NOT EXISTS build_error        TEXT;
 ALTER TABLE prospects ADD COLUMN IF NOT EXISTS build_artifacts    JSONB NOT NULL DEFAULT '{}'::jsonb;
+-- Promoted from metadata.category so the demo page can drive a category-
+-- aware presentation (hero copy, vendor ordering, SDK composer preset).
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS category           TEXT NOT NULL DEFAULT 'unknown';
 
 CREATE INDEX IF NOT EXISTS prospects_company_domain_idx ON prospects(company_domain);
 CREATE INDEX IF NOT EXISTS prospects_email_idx           ON prospects(email);
 CREATE INDEX IF NOT EXISTS prospects_created_at_idx      ON prospects(created_at DESC);
 CREATE INDEX IF NOT EXISTS prospects_build_status_idx    ON prospects(build_status);
+CREATE INDEX IF NOT EXISTS prospects_category_idx        ON prospects(category);
 
 CREATE TABLE IF NOT EXISTS prospect_views (
   id          BIGSERIAL PRIMARY KEY,

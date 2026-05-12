@@ -34,7 +34,7 @@ flips to the demo as soon as the build finishes.
 
 ## API contract
 
-Base URL: `https://cursor.omarsimon.com` (or the preview URL in PRs).
+Base URL: `https://cursorpartners.omarsimon.com` (or the preview URL in PRs).
 
 ### Authentication
 
@@ -119,7 +119,7 @@ Hard limit: **100 prospects per request** (`413 batch_too_large` past that). Seq
       "input_index": 0,
       "id": "435f3d87-9921-4d17-8297-efaa98796999",
       "slug": "ZlHiS8eq3M",
-      "url": "https://cursor.omarsimon.com/p/ZlHiS8eq3M",
+      "url": "https://cursorpartners.omarsimon.com/p/ZlHiS8eq3M",
       "password": "Jane3146",
       "level": "vp",
       "show_roi_calculator": true,
@@ -161,7 +161,7 @@ Each successful row carries an `input_index` so ChatGTM can correlate the result
   "ok": true,
   "id": "87ed9e1c-71bb-4d9a-a1dc-4fe961a4aed2",
   "slug": "i9Eyvj8me5",
-  "url": "https://cursor.omarsimon.com/p/i9Eyvj8me5",
+  "url": "https://cursorpartners.omarsimon.com/p/i9Eyvj8me5",
   "password": "Jane3146",
   "level": "vp",
   "show_roi_calculator": true,

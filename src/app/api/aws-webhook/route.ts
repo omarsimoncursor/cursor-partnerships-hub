@@ -7,7 +7,7 @@ import crypto from 'crypto';
  *
  * Setup:
  * 1. Create an EventBridge rule (or API Destination) targeted at
- *    https://cursor.omarsimon.com/api/aws-webhook
+ *    https://cursorpartners.omarsimon.com/api/aws-webhook
  *    Events fire from CloudWatch alarms, CodeBuild, CloudFormation, or from
  *    a manual PutEvents call with detail-type "cursor.modernization.request".
  * 2. The API Destination signs payloads with AWS_WEBHOOK_SECRET; we verify

@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  Check,
+  Copy,
   ExternalLink,
+  Eye,
+  EyeOff,
   KeyRound,
   Loader2,
   RefreshCw,
@@ -31,6 +35,7 @@ type ProspectRow = {
   gmail_draft_link: string | null;
   linkedin_message_link: string | null;
   source: string;
+  password: string;
   build_status: 'queued' | 'building' | 'ready' | 'failed';
   build_started_at: string | null;
   build_completed_at: string | null;
@@ -64,7 +69,7 @@ export default function AdminProspectsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/chatgtm/prospects?limit=200', {
+      const res = await fetch('/api/chatgtm/prospects?limit=200&include=password', {
         headers: { Authorization: `Bearer ${apiToken.trim()}` },
       });
       if (!res.ok) {
@@ -168,8 +173,9 @@ export default function AdminProspectsPage() {
                     <th className="text-left px-4 py-3">Vendors</th>
                     <th className="text-left px-4 py-3">ROI</th>
                     <th className="text-left px-4 py-3">Build</th>
-                    <th className="text-left px-4 py-3">Created</th>
                     <th className="text-left px-4 py-3">Demo</th>
+                    <th className="text-left px-4 py-3">Password</th>
+                    <th className="text-left px-4 py-3">Created</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -214,9 +220,6 @@ export default function AdminProspectsPage() {
                       <td className="px-4 py-3 align-top">
                         <BuildBadge status={p.build_status} error={p.build_error} />
                       </td>
-                      <td className="px-4 py-3 align-top text-[11px] text-text-tertiary tabular-nums">
-                        {new Date(p.created_at).toLocaleString()}
-                      </td>
                       <td className="px-4 py-3 align-top">
                         <a
                           href={`/p/${p.slug}`}
@@ -227,6 +230,12 @@ export default function AdminProspectsPage() {
                           /p/{p.slug}
                           <ExternalLink className="w-3 h-3" />
                         </a>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <PasswordCell password={p.password} />
+                      </td>
+                      <td className="px-4 py-3 align-top text-[11px] text-text-tertiary tabular-nums">
+                        {new Date(p.created_at).toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -262,6 +271,50 @@ function BuildBadge({
       >
         {m.label}
       </span>
+    </div>
+  );
+}
+
+function PasswordCell({ password }: { password: string }) {
+  const [revealed, setRevealed] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore clipboard restrictions
+    }
+  };
+
+  // Render a fixed-width dot mask so the column doesn't change width when
+  // toggling reveal — keeps the table tidy.
+  const masked = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+
+  return (
+    <div className="inline-flex items-center gap-1.5">
+      <span className="font-mono text-xs text-text-primary tabular-nums select-all min-w-[7ch]">
+        {revealed ? password : masked}
+      </span>
+      <button
+        onClick={() => setRevealed((r) => !r)}
+        className="p-1 text-text-tertiary hover:text-text-primary transition-colors"
+        aria-label={revealed ? 'Hide password' : 'Show password'}
+        title={revealed ? 'Hide' : 'Reveal'}
+      >
+        {revealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+      </button>
+      <button
+        onClick={onCopy}
+        className="p-1 text-text-tertiary hover:text-text-primary transition-colors"
+        aria-label="Copy password"
+        title="Copy"
+        style={copied ? { color: '#4ade80' } : undefined}
+      >
+        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+      </button>
     </div>
   );
 }

@@ -11,7 +11,6 @@ import {
   runBuild,
   verifyGateCookie,
 } from '@/lib/prospect-store';
-import { levelDisplayName } from '@/lib/prospect-store/levels';
 import { resolvedAccent, type ProspectConfig } from '@/lib/prospect/config';
 import { UnlockGate } from '@/components/prospect/unlock-gate';
 import { BuildingState } from '@/components/prospect/building-state';
@@ -105,8 +104,12 @@ export default async function PersonalizedProspectPage({ params, searchParams }:
     domain: prospect.company_domain,
     accent: prospect.company_accent || undefined,
     vendors: prospect.vendor_ids,
+    // Custom tagline can be set per-prospect via the admin Edit modal
+    // (stored in metadata.tagline). When unset we let ProspectPage's
+    // default copy ("Every workflow illustrates how Cursor adds
+    // autonomy and integration across X's existing stack.") render.
     tagline:
-      `An interactive Cursor demo prepared for ${prospect.name} at ${prospect.company_name}. Every workflow below targets ${prospect.company_name}'s actual stack.`,
+      typeof prospect.metadata?.tagline === 'string' ? (prospect.metadata.tagline as string) : '',
     rep: '',
   };
 
@@ -117,9 +120,6 @@ export default async function PersonalizedProspectPage({ params, searchParams }:
     <ProspectPage
       config={config}
       prospectName={prospect.name}
-      prospectLevelLabel={
-        prospect.level_normalized === 'unknown' ? undefined : levelDisplayName(prospect.level_normalized)
-      }
       showRoiCalculator={prospect.show_roi_calculator}
       unmatchedTechnologies={prospect.unmatched_technologies}
       trackingSlug={prospect.slug}

@@ -280,14 +280,14 @@ export const VENDORS: Vendor[] = [
     scenario: {
       headline: repl('PR review feedback executed as a multi-file refactor.'),
       subheadline: repl(
-        'A reviewer leaves five comments on a {{ACCOUNT}} PR. Cursor reads each thread, executes the refactor across files, regenerates tests, and pushes the update.'
+        'A reviewer leaves five comments on a {{ACCOUNT}} PR. Cursor reads each thread, executes the refactor across files, regenerates tests, and updates the pull request.'
       ),
       steps: [
         { label: 'Read review threads', detail: 'Pull every unresolved comment on the PR', code: 'await github.listReviewComments({ pr })' },
         { label: 'Plan refactor', detail: 'Group comments by file + intent', code: 'await cursor.plan.fromComments(comments)' },
         { label: 'Apply edits', detail: 'Multi-file edits, preserve formatting', code: 'await cursor.editor.applyEdits(plan.edits)' },
         { label: 'Regenerate tests', detail: 'Update tests, run them locally', code: 'await cursor.runTests({ pattern: plan.scope })' },
-        { label: 'Push update', detail: 'Reply inline + push the new commit', code: 'await github.pushAndReply(plan.replies)' },
+        { label: 'Update the pull request', detail: 'Reply inline + push the new commit to the PR for human review (Cursor never auto-merges)', code: 'await github.pushAndReply(plan.replies)' },
       ],
       outcomes: [
         'Reviewer\'s comments resolved in a single push',

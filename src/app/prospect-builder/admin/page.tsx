@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
+  Activity,
   ArrowLeft,
   Check,
   Copy,
@@ -11,9 +12,13 @@ import {
   EyeOff,
   KeyRound,
   Loader2,
+  Pencil,
   RefreshCw,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
+import { EditProspectModal, type EditableProspect } from './edit-modal';
+import { ActivityModal } from './activity-modal';
 
 const TOKEN_STORAGE_KEY = 'cursor.prospect-builder.api-token';
 
@@ -24,6 +29,7 @@ type ProspectRow = {
   email: string | null;
   level_normalized: string;
   level_raw: string | null;
+  linkedin_url: string | null;
   company_name: string;
   company_domain: string;
   company_accent: string | null;
@@ -36,6 +42,7 @@ type ProspectRow = {
   linkedin_message_link: string | null;
   source: string;
   password: string;
+  metadata?: Record<string, unknown>;
   build_status: 'queued' | 'building' | 'ready' | 'failed';
   build_started_at: string | null;
   build_completed_at: string | null;
@@ -49,6 +56,9 @@ export default function AdminProspectsPage() {
   const [prospects, setProspects] = useState<ProspectRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<ProspectRow | null>(null);
+  const [activityTarget, setActivityTarget] = useState<ProspectRow | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -93,6 +103,28 @@ export default function AdminProspectsPage() {
     if (tokenLoaded && apiToken) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenLoaded]);
+
+  const handleDelete = async (p: ProspectRow) => {
+    const confirmed = window.confirm(
+      `Delete the demo for ${p.name} at ${p.company_name}?\n\nThis removes the URL ${window.location.origin}/p/${p.slug} permanently, along with every view + event recorded for them. This cannot be undone.`,
+    );
+    if (!confirmed) return;
+    setDeleting(p.id);
+    try {
+      const res = await fetch(`/api/chatgtm/prospects/${p.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${apiToken.trim()}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body?.detail || `Delete failed (${res.status})`);
+        return;
+      }
+      setProspects((prev) => prev.filter((x) => x.id !== p.id));
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -162,6 +194,28 @@ export default function AdminProspectsPage() {
             </div>
           )}
 
+          {editTarget && (
+            <EditProspectModal
+              prospect={editTarget as EditableProspect}
+              apiToken={apiToken.trim()}
+              onClose={() => setEditTarget(null)}
+              onSaved={load}
+            />
+          )}
+
+          {activityTarget && (
+            <ActivityModal
+              prospect={{
+                id: activityTarget.id,
+                slug: activityTarget.slug,
+                name: activityTarget.name,
+                company_name: activityTarget.company_name,
+              }}
+              apiToken={apiToken.trim()}
+              onClose={() => setActivityTarget(null)}
+            />
+          )}
+
           {prospects.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-dark-border bg-dark-surface">
               <table className="w-full text-sm">
@@ -176,6 +230,7 @@ export default function AdminProspectsPage() {
                     <th className="text-left px-4 py-3">Demo</th>
                     <th className="text-left px-4 py-3">Password</th>
                     <th className="text-left px-4 py-3">Created</th>
+                    <th className="text-right px-4 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -236,6 +291,39 @@ export default function AdminProspectsPage() {
                       </td>
                       <td className="px-4 py-3 align-top text-[11px] text-text-tertiary tabular-nums">
                         {new Date(p.created_at).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setActivityTarget(p)}
+                            className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-dark-surface-hover transition-colors"
+                            aria-label="View activity"
+                            title="Activity timeline"
+                          >
+                            <Activity className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setEditTarget(p)}
+                            className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-dark-surface-hover transition-colors"
+                            aria-label="Edit prospect"
+                            title="Edit prospect"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p)}
+                            disabled={deleting === p.id}
+                            className="p-1.5 rounded text-text-tertiary hover:text-accent-red hover:bg-accent-red/10 transition-colors disabled:opacity-50"
+                            aria-label="Delete prospect"
+                            title="Delete prospect"
+                          >
+                            {deleting === p.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

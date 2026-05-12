@@ -1,4 +1,5 @@
 import type { ProspectLevel } from './levels';
+import type { Category } from './presentation';
 
 export type BuildStatus = 'queued' | 'building' | 'ready' | 'failed';
 
@@ -25,6 +26,7 @@ export type ProspectRow = {
   notion_page_id: string | null;
   source: string;
   metadata: Record<string, unknown>;
+  category: Category;
   build_status: BuildStatus;
   build_started_at: string | null;
   build_completed_at: string | null;

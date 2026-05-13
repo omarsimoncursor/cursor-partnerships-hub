@@ -266,6 +266,10 @@ export type ProspectPatch = Partial<{
   notion_page_id: string | null;
   tagline: string;
   metadata: Record<string, unknown>;
+  // Analytics-tab toggle for "I've reached out to them on LinkedIn".
+  // true sets reached_out_at = now(); false clears it. The actual
+  // timestamp is stored server-side so the rep can sort by recency.
+  reached_out: boolean;
 }>;
 
 export async function updateProspect(
@@ -306,6 +310,15 @@ export async function updateProspect(
       'unmatched_technologies',
       patch.unmatched_technologies.filter((v) => typeof v === 'string'),
     );
+  }
+
+  // reached_out toggle. true => stamp now(), false => clear.
+  if (typeof patch.reached_out === 'boolean') {
+    if (patch.reached_out) {
+      sets.push('reached_out_at = now()');
+    } else {
+      sets.push('reached_out_at = NULL');
+    }
   }
 
   // metadata + tagline both live in / extend the metadata JSONB column.

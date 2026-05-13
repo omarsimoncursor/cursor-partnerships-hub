@@ -27,6 +27,7 @@ export type ProspectRow = {
   source: string;
   metadata: Record<string, unknown>;
   category: Category;
+  reached_out_at: string | null;
   build_status: BuildStatus;
   build_started_at: string | null;
   build_completed_at: string | null;

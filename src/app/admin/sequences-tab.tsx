@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Check,
   CheckCircle2,
-  ChevronRight,
   Circle,
   Copy,
   ExternalLink,
@@ -45,6 +44,11 @@ type SequenceRow = {
   next_email_send_date: string | null;
   replied: boolean;
   linkedin_sent: boolean;
+  // Computed by the API from slug + canonical origin + the existing
+  // password column. Surfaced here so the LinkedinSendDialog can
+  // append both to the composed message without re-fetching.
+  demo_url: string | null;
+  demo_password: string | null;
   unlocked_view_count?: number;
   first_unlocked_at?: string | null;
   last_unlocked_at?: string | null;
@@ -147,8 +151,6 @@ export function SequencesTab({ apiToken }: Props) {
     }
   };
 
-  const todayUtc = () => new Date().toISOString().slice(0, 10);
-
   // Toggle the replied flag. When turning replied on we also clear the
   // would-be next-send (the API derives that anyway from
   // last_sequence_sent + replied, so no extra payload needed).
@@ -157,17 +159,11 @@ export function SequencesTab({ apiToken }: Props) {
   const toggleLinkedinSent = (p: SequenceRow) =>
     patchProspect(p.id, { linkedin_sent: !p.linkedin_sent });
 
-  // "Advance to next email" button: bumps last_sequence_sent by 1
-  // (capped at 6) and stamps last_email_send_date with today (UTC).
-  // This is the single most common action a rep takes on this tab,
-  // so a one-click affordance saves a lot of modal-clicking.
-  const advanceStep = (p: SequenceRow) => {
-    const next = Math.min(6, (p.last_sequence_sent ?? 0) + 1);
-    return patchProspect(p.id, {
-      last_sequence_sent: next,
-      last_email_send_date: todayUtc(),
-    });
-  };
+  // The "advance to next step" affordance is now inside the
+  // SequenceEditModal (pencil) so the row stays focused on the
+  // primary outreach action (Send LI). The modal handles the bump
+  // by mutating its own form state — no top-level handler needed
+  // here.
 
   const load = async () => {
     if (!apiToken) return;
@@ -440,7 +436,6 @@ export function SequencesTab({ apiToken }: Props) {
                   key={p.id}
                   p={p}
                   busy={busyId === p.id}
-                  onAdvance={() => advanceStep(p)}
                   onToggleReplied={() => toggleReplied(p)}
                   onToggleLinkedinSent={() => toggleLinkedinSent(p)}
                   onEdit={() => setEditTarget(p)}
@@ -464,7 +459,6 @@ export function SequencesTab({ apiToken }: Props) {
 function SequenceRowView({
   p,
   busy,
-  onAdvance,
   onToggleReplied,
   onToggleLinkedinSent,
   onEdit,
@@ -472,7 +466,6 @@ function SequenceRowView({
 }: {
   p: SequenceRow;
   busy: boolean;
-  onAdvance: () => void;
   onToggleReplied: () => void;
   onToggleLinkedinSent: () => void;
   onEdit: () => void;
@@ -495,11 +488,6 @@ function SequenceRowView({
   const nextDate = p.next_email_send_date;
   const overdue = nextDate != null && status === 'active' && nextDate <= today;
   const readyToSend = nextDate != null && status === 'not_started';
-
-  // The "advance" button is only useful when a next email is actually
-  // due. Disable it for replied / sequence-complete prospects so the
-  // affordance can't accidentally jump the state machine.
-  const canAdvance = !p.replied && (p.last_sequence_sent ?? 0) < 6;
 
   return (
     <tr className="border-b border-dark-border/60 hover:bg-dark-surface-hover transition-colors">
@@ -603,22 +591,6 @@ function SequenceRowView({
       <td className="px-4 py-3 align-top text-right">
         <div className="inline-flex items-center gap-1 justify-end">
           <LinkedinSendButton p={p} busy={busy} onClick={onLinkedinSend} />
-          <button
-            type="button"
-            onClick={onAdvance}
-            disabled={busy || !canAdvance}
-            title={
-              canAdvance
-                ? `Mark Email ${(p.last_sequence_sent ?? 0) + 1} sent today`
-                : p.replied
-                ? 'Prospect already replied'
-                : 'Sequence complete'
-            }
-            className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-dark-border hover:border-accent-blue hover:text-accent-blue text-text-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-            +1<ChevronRight className="w-3 h-3" />
-          </button>
           <button
             type="button"
             onClick={onEdit}

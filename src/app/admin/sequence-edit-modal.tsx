@@ -204,18 +204,45 @@ export function SequenceEditModal({ prospect, apiToken, onClose, onSaved }: Prop
           <Section title="Email sequence">
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="Last sequence step" hint="Which of the 6 emails was last sent. Leave blank for not-started.">
-                <select
-                  value={step}
-                  onChange={(e) => setStep(e.target.value)}
-                  className={inputClass + (fieldHasError('last_sequence_sent') ? errorBorder : '')}
-                >
-                  <option value="">— Not started</option>
-                  {[1, 2, 3, 4, 5, 6].map((n) => (
-                    <option key={n} value={n}>
-                      Email {n} of 6
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={step}
+                    onChange={(e) => setStep(e.target.value)}
+                    className={inputClass + ' flex-1' + (fieldHasError('last_sequence_sent') ? errorBorder : '')}
+                  >
+                    <option value="">— Not started</option>
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <option key={n} value={n}>
+                        Email {n} of 6
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // One-click "advance to next step" — bumps the
+                      // step select by 1 (capped at 6) and stamps
+                      // today (UTC) into the date field. Equivalent
+                      // to the inline +1 affordance that used to live
+                      // on the row, just inside the modal so the row
+                      // can stay focused on the LinkedIn flow. The
+                      // rep clicks Save to commit.
+                      const current = step === '' ? 0 : Number(step);
+                      const next = Math.min(6, current + 1);
+                      setStep(String(next));
+                      setLastSendDate(new Date().toISOString().slice(0, 10));
+                    }}
+                    disabled={step === '6'}
+                    title={
+                      step === '6'
+                        ? 'Sequence already complete'
+                        : 'Advance to the next step and stamp today as the send date'
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium border border-dark-border hover:border-accent-blue hover:text-accent-blue text-text-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                  >
+                    +1 today
+                  </button>
+                </div>
               </Field>
               <Field label="Last send date" hint="Date the last email went out (UTC).">
                 <input

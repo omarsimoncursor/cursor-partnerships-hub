@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { SequenceEditModal, type EditableSequenceProspect } from './sequence-edit-modal';
+import { LinkedinSendDialog, type LinkedinSendTarget } from './linkedin-send-dialog';
 
 // Row shape returned by GET /api/chatgtm/prospects?include=opens.
 // Only the columns the dashboard actually renders or sends back via
@@ -84,7 +85,17 @@ export function SequencesTab({ apiToken }: Props) {
   const [companyFilter, setCompanyFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<SequenceStatus | ''>('');
   const [openedOnly, setOpenedOnly] = useState(false);
+  // "LinkedIn outreach pending" filter — drives the dashboard's
+  // primary manual-workflow loop. The rep filters to "everyone who
+  // has a draft + URL but hasn't been DM'd yet" and works through
+  // them with the Send LI button.
+  const [liPendingOnly, setLiPendingOnly] = useState(false);
   const [editTarget, setEditTarget] = useState<SequenceRow | null>(null);
+  // The LinkedIn send dialog targets a single row at a time. We
+  // capture the row by id so we can re-derive the latest data on
+  // every render (in case the row is mutated by the inline toggle
+  // while the dialog is open).
+  const [liTargetId, setLiTargetId] = useState<string | null>(null);
   // Per-row "operation in flight" lock. Drives the spinner on the
   // inline toggles + advance button so the rep can't double-click and
   // create a race on the same row.
@@ -210,12 +221,19 @@ export function SequencesTab({ apiToken }: Props) {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
+  // A row "needs LinkedIn outreach" when there's a profile URL to
+  // open, the message hasn't been sent yet, and the prospect hasn't
+  // already replied (sending after a reply is just noise).
+  const needsLinkedinOutreach = (r: SequenceRow): boolean =>
+    Boolean(r.linkedin_url) && !r.linkedin_sent && !r.replied;
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
       if (companyFilter && r.company_name !== companyFilter) return false;
       if (statusFilter && statusOf(r) !== statusFilter) return false;
       if (openedOnly && (r.unlocked_view_count ?? 0) === 0) return false;
+      if (liPendingOnly && !needsLinkedinOutreach(r)) return false;
       if (!q) return true;
       const hay = [
         r.name,
@@ -230,27 +248,51 @@ export function SequencesTab({ apiToken }: Props) {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [rows, search, companyFilter, statusFilter, openedOnly]);
+  }, [rows, search, companyFilter, statusFilter, openedOnly, liPendingOnly]);
 
   const counts = useMemo(() => {
-    const c = { total: rows.length, not_started: 0, active: 0, complete: 0, replied: 0, opened: 0 };
+    const c = {
+      total: rows.length,
+      not_started: 0,
+      active: 0,
+      complete: 0,
+      replied: 0,
+      opened: 0,
+      li_pending: 0,
+    };
     for (const r of rows) {
       c[statusOf(r)] += 1;
       if ((r.unlocked_view_count ?? 0) > 0) c.opened += 1;
+      if (needsLinkedinOutreach(r)) c.li_pending += 1;
     }
     return c;
   }, [rows]);
 
+  // Re-derive the LinkedIn dialog target from the canonical rows
+  // array on every render, so any inline pill toggle / batch update
+  // that mutates the row is reflected inside the open dialog.
+  const liTarget = liTargetId ? rows.find((r) => r.id === liTargetId) ?? null : null;
+
   return (
     <div>
       {/* Top-level counts strip — gives the rep a 2-second read on
-          the state of every account before they touch any filter. */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          the state of every account before they touch any filter.
+          The LI tile is clickable: it toggles the same filter as the
+          "LI pending" filter chip below. */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
         <CountTile label="Prospects" value={counts.total} icon={<Inbox className="w-3.5 h-3.5" />} />
         <CountTile label="Not started" value={counts.not_started} icon={<Circle className="w-3.5 h-3.5" />} tone="muted" />
         <CountTile label="In sequence" value={counts.active} icon={<Send className="w-3.5 h-3.5" />} tone="blue" />
         <CountTile label="Replied" value={counts.replied} icon={<Reply className="w-3.5 h-3.5" />} tone="green" />
         <CountTile label="Opened demo" value={counts.opened} icon={<MailOpen className="w-3.5 h-3.5" />} tone="amber" />
+        <CountTile
+          label="LI pending"
+          value={counts.li_pending}
+          icon={<Linkedin className="w-3.5 h-3.5" />}
+          tone="linkedin"
+          active={liPendingOnly}
+          onClick={() => setLiPendingOnly((v) => !v)}
+        />
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -302,6 +344,24 @@ export function SequencesTab({ apiToken }: Props) {
           Opened only
         </label>
 
+        <label
+          className={`inline-flex items-center gap-2 px-3 py-2 rounded-md border text-sm cursor-pointer transition-colors ${
+            liPendingOnly
+              ? 'bg-[#0a66c2]/15 border-[#0a66c2]/40 text-[#9ec5f1]'
+              : 'bg-dark-surface border-dark-border text-text-secondary hover:border-dark-border-hover'
+          }`}
+          title="Show only prospects with a LinkedIn URL whose connection request hasn't been sent yet (and who haven't replied)."
+        >
+          <Linkedin className="w-3.5 h-3.5" />
+          <input
+            type="checkbox"
+            checked={liPendingOnly}
+            onChange={(e) => setLiPendingOnly(e.target.checked)}
+            className="accent-[#0a66c2]"
+          />
+          LI pending
+        </label>
+
         <button
           onClick={load}
           disabled={loading}
@@ -341,6 +401,15 @@ export function SequencesTab({ apiToken }: Props) {
         />
       )}
 
+      {liTarget && (
+        <LinkedinSendDialog
+          prospect={liTarget as LinkedinSendTarget}
+          apiToken={apiToken}
+          onClose={() => setLiTargetId(null)}
+          onUpdated={(patch) => mergeRow(liTarget.id, patch as Partial<SequenceRow>)}
+        />
+      )}
+
       {!loading && rows.length === 0 && (
         <div className="rounded-2xl border border-dashed border-dark-border p-10 text-center">
           <p className="text-sm text-text-secondary">
@@ -375,6 +444,7 @@ export function SequencesTab({ apiToken }: Props) {
                   onToggleReplied={() => toggleReplied(p)}
                   onToggleLinkedinSent={() => toggleLinkedinSent(p)}
                   onEdit={() => setEditTarget(p)}
+                  onLinkedinSend={() => setLiTargetId(p.id)}
                 />
               ))}
             </tbody>
@@ -398,6 +468,7 @@ function SequenceRowView({
   onToggleReplied,
   onToggleLinkedinSent,
   onEdit,
+  onLinkedinSend,
 }: {
   p: SequenceRow;
   busy: boolean;
@@ -405,6 +476,7 @@ function SequenceRowView({
   onToggleReplied: () => void;
   onToggleLinkedinSent: () => void;
   onEdit: () => void;
+  onLinkedinSend: () => void;
 }) {
   const status = statusOf(p);
   const opened = (p.unlocked_view_count ?? 0) > 0;
@@ -530,6 +602,7 @@ function SequenceRowView({
       </td>
       <td className="px-4 py-3 align-top text-right">
         <div className="inline-flex items-center gap-1 justify-end">
+          <LinkedinSendButton p={p} busy={busy} onClick={onLinkedinSend} />
           <button
             type="button"
             onClick={onAdvance}
@@ -569,6 +642,65 @@ function SequenceRowView({
         </div>
       </td>
     </tr>
+  );
+}
+
+// Per-row LinkedIn outreach affordance. Three visual states:
+//
+//   - "Send LI" (primary blue, LinkedIn icon) — when the row has a
+//     URL, no send yet, no reply. This is the canonical CTA: clicking
+//     it opens LinkedinSendDialog where the rep can preview / edit
+//     the draft, copy + open LinkedIn, and confirm-as-sent.
+//
+//   - "Sent" (muted, with check) — when linkedin_sent = true. Still
+//     clickable so the rep can re-open the dialog, re-send, or
+//     mark-as-unsent. The dialog renders a "already sent" banner.
+//
+//   - Disabled with tooltip — when linkedin_url is missing. The rep
+//     needs to open the prospect Edit modal to add the URL first.
+//
+// Tooltips on every variant explain the state so the rep doesn't
+// need to guess why a button is disabled.
+function LinkedinSendButton({
+  p,
+  busy,
+  onClick,
+}: {
+  p: SequenceRow;
+  busy: boolean;
+  onClick: () => void;
+}) {
+  const noUrl = !p.linkedin_url;
+  if (p.linkedin_sent) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={busy}
+        title="LinkedIn message already sent. Click to re-open the dialog (re-send, edit draft, or undo)."
+        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-accent-green/30 text-accent-green hover:bg-accent-green/10 transition-colors disabled:opacity-40"
+      >
+        <Linkedin className="w-3 h-3" />
+        Sent
+        <Check className="w-3 h-3" />
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy || noUrl}
+      title={
+        noUrl
+          ? 'No LinkedIn URL on file. Add one via the prospect Edit modal first.'
+          : 'Open the LinkedIn outreach dialog: preview/edit draft, copy to clipboard, and open LinkedIn in a new tab.'
+      }
+      className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-[#0a66c2] text-white hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+    >
+      <Linkedin className="w-3 h-3" />
+      Send LI
+    </button>
   );
 }
 
@@ -676,11 +808,18 @@ function CountTile({
   value,
   icon,
   tone = 'default',
+  active = false,
+  onClick,
 }: {
   label: string;
   value: number;
   icon: React.ReactNode;
-  tone?: 'default' | 'muted' | 'blue' | 'green' | 'amber';
+  tone?: 'default' | 'muted' | 'blue' | 'green' | 'amber' | 'linkedin';
+  // When `onClick` is set the tile becomes a button that mirrors a
+  // filter chip. `active` paints the border + label in the tone color
+  // so it's obvious the filter is engaged.
+  active?: boolean;
+  onClick?: () => void;
 }) {
   const toneClass =
     tone === 'blue'
@@ -691,14 +830,35 @@ function CountTile({
       ? 'text-accent-amber'
       : tone === 'muted'
       ? 'text-text-tertiary'
+      : tone === 'linkedin'
+      ? 'text-[#9ec5f1]'
       : 'text-text-primary';
-  return (
-    <div className="rounded-xl border border-dark-border bg-dark-surface p-3">
+  const activeBorderClass =
+    tone === 'linkedin'
+      ? 'border-[#0a66c2]/60 bg-[#0a66c2]/10'
+      : 'border-accent-blue/60 bg-accent-blue/10';
+  const className = `rounded-xl border p-3 text-left w-full transition-colors ${
+    active
+      ? activeBorderClass
+      : onClick
+      ? 'border-dark-border bg-dark-surface hover:border-dark-border-hover'
+      : 'border-dark-border bg-dark-surface'
+  }`;
+  const inner = (
+    <>
       <p className={`text-[10px] uppercase tracking-wider font-mono inline-flex items-center gap-1.5 ${toneClass}`}>
         {icon}
         {label}
       </p>
       <p className="text-2xl font-semibold text-text-primary tabular-nums mt-1">{value}</p>
-    </div>
+    </>
   );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} aria-pressed={active} className={className}>
+        {inner}
+      </button>
+    );
+  }
+  return <div className={className}>{inner}</div>;
 }

@@ -226,6 +226,7 @@ Pagination is **cursor-based**: callers iterate by passing `cursor` from a previ
 | `last_sequence_sent_lt`    | Integer 1-7. Includes NULL ("never started"). Pass 6 to select every "not-yet-complete" prospect. |
 | `limit`                    | 1-500. Defaults to 200. |
 | `cursor`                   | Opaque cursor from a previous page's `next_cursor`. Resumes strictly after that row. |
+| `include`                  | Comma-separated. Currently supports `opens` — joins `prospect_views` and adds `unlocked_view_count` / `first_unlocked_at` / `last_unlocked_at` to every row. Used by the Sequences dashboard to compute the read/unread badge. |
 
 **Response shape** (per prospect):
 
@@ -263,12 +264,39 @@ Pagination is **cursor-based**: callers iterate by passing `cursor` from a previ
 
   "demo_url": "https://<host>/p/<slug> | null",
   "demo_password": "string | null",
+  "next_email_send_date": "YYYY-MM-DD | null",
 
   "reached_out_at": "ISO datetime | null",
   "created_at": "ISO datetime",
   "updated_at": "ISO datetime"
 }
 ```
+
+`next_email_send_date` is computed server-side from
+`last_sequence_sent` + `last_email_send_date` + the per-step cadence
+in `src/lib/setup-config.ts` (`sequenceCadenceDays`). Semantics:
+
+- `last_sequence_sent = null` and `replied = false` → today's date
+  (UTC), meaning Email 1 is ready to send.
+- `last_sequence_sent ∈ [1..5]` and `replied = false` →
+  `last_email_send_date + sequenceCadenceDays[step - 1]`.
+- `last_sequence_sent = 6` or `replied = true` → `null` (no further
+  send is expected).
+
+When `?include=opens` is passed, each prospect also carries:
+
+```json
+{
+  "unlocked_view_count": 0,
+  "first_unlocked_at": "ISO datetime | null",
+  "last_unlocked_at":  "ISO datetime | null"
+}
+```
+
+`unlocked_view_count > 0` is the canonical "demo opened" / "read"
+signal — locked views (drive-by URL hits without a successful
+password unlock) are excluded so crawlers don't flip the read/unread
+badge.
 
 Top-level body:
 
@@ -296,7 +324,7 @@ with status 400.
 | Field                  | Type                | Notes |
 | ---------------------- | ------------------- | ----- |
 | `last_sequence_sent`   | integer (1-6)       | Which step of the 6-step sequence was last sent. |
-| `last_email_send_date` | "YYYY-MM-DD"        | Date the last email went out. |
+| `last_email_send_date` | "YYYY-MM-DD"        | Date the last email went out. The `next_email_send_date` field on the GET response is computed from this + the cadence in `setup-config.ts`. |
 | `thread_id`            | string              | Gmail thread id (captured after Email 1). |
 | `replied`              | boolean             | Reply Detector flips this. |
 | `linkedin_sent`        | boolean             | Whether the LinkedIn message went out. |
@@ -363,6 +391,25 @@ updates per request.
   ]
 }
 ```
+
+### Sequences dashboard
+
+The `/prospect-builder/admin` page has a **Sequences** tab that
+reads this same `GET /api/chatgtm/prospects?include=opens` endpoint
+and surfaces the email-tracking state ChatGTM's Sequence
+Orchestrator reads/writes:
+
+- Thread ID (copy-on-click chip)
+- Last email send date
+- Next email send date (computed; rendered red when overdue)
+- 6-step progress indicator
+- Demo opened / unread (from `prospect_views.unlocked = true`)
+- Replied / In sequence / Sequence complete / Not started status
+
+Filters: company, sequence status, opened-only, free-text search.
+The dashboard walks the full cursor-paginated set on load so all
+filtering happens client-side, which keeps the experience snappy
+even as the working set grows.
 
 ### Outreach enum values
 

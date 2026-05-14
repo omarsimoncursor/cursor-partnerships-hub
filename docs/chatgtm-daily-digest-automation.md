@@ -4,7 +4,9 @@ A short reference for the ChatGTM automation that posts a daily Slack digest of 
 
 ## Endpoint
 
-`GET https://cursorpartners.omarsimon.com/api/chatgtm/digest/opened?since=24h`
+`GET https://cursor.omarsimon.com/api/chatgtm/digest/opened?since=24h`
+
+> The legacy `cursorpartners.omarsimon.com` host still resolves to the same Vercel project, so an automation that hasn't been updated yet won't break — but new automations should target `cursor.omarsimon.com`.
 
 | | |
 | --- | --- |
@@ -24,7 +26,7 @@ A short reference for the ChatGTM automation that posts a daily Slack digest of 
     {
       "id": "uuid",
       "slug": "abc123XYZ0",
-      "url": "https://cursorpartners.omarsimon.com/p/abc123XYZ0",
+      "url": "https://cursor.omarsimon.com/p/abc123XYZ0",
       "name": "Maria Rodriguez",
       "email": "maria@globant.com",
       "linkedin_url": "https://linkedin.com/in/mariarodriguez",
@@ -53,7 +55,7 @@ Cursor demo in the prior 24 hours, so I can DM each one on LinkedIn.
 Step 1 — Fetch the digest
 
 Make a GET request to:
-  https://cursorpartners.omarsimon.com/api/chatgtm/digest/opened?since=24h
+  https://cursor.omarsimon.com/api/chatgtm/digest/opened?since=24h
 
 Headers:
   Authorization: Bearer {{CHATGTM_API_TOKEN}}

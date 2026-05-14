@@ -198,7 +198,7 @@ Prompt to paste into the digest automation builder:
   see docs/chatgtm-daily-digest-automation.md
 ```
 
-Both docs are in this repo. Don't rewrite them — just point the user to them and remind them to substitute their domain + token wherever they see `cursorpartners.omarsimon.com` or `$CHATGTM_API_TOKEN`.
+Both docs are in this repo. Don't rewrite them — just point the user to them and remind them to substitute their domain + token wherever they see `cursor.omarsimon.com` (or the legacy `cursorpartners.omarsimon.com`) or `$CHATGTM_API_TOKEN`.
 
 ---
 
@@ -239,6 +239,7 @@ If all eight tick, the user is live. Congratulate them.
 | ChatGTM contract | `docs/chatgtm-integration.md` |
 | Daily digest prompt | `docs/chatgtm-daily-digest-automation.md` |
 | API token rotation | Change env in Vercel + redeploy + update ChatGTM stored token |
+| ChatGTM-agent playbook | `docs/chatgtm-agent-instructions.md` (paste-into-ChatGTM instructions for the three automations) |
 
 ## When something goes wrong
 

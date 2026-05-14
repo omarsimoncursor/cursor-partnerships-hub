@@ -101,6 +101,10 @@ Hard limit: **100 prospects per request** (`413 batch_too_large` past that). Seq
 | `linkedin_message_link`   | string    |          | Stored for the audit trail.                                             |
 | `notion_page_id`          | string    |          | If ChatGTM has a Notion page id, store it for cross-reference.          |
 | `metadata`                | object    |          | Free-form JSONB, persisted as-is.                                       |
+| `linkedin_draft`          | string    |          | Personalized LinkedIn connect-request copy (Prospecting Blitz writes; ~300-char target). |
+| `mcp_detail`              | string    |          | Two-sentence "how Cursor MCP/SDK applies to this person's role" blurb.  |
+| `team`                    | string    |          | Classified functional team. See enum values below.                       |
+| `classified_level`        | string    |          | Classified seniority bucket: `Executive` / `Leader (Dir/VP+)` / `Manager` / `IC`. Distinct from the raw title in `level`. |
 
 **Batch response**:
 
@@ -203,15 +207,224 @@ Each successful row carries an `input_index` so ChatGTM can correlate the result
 
 Validation errors on individual rows in a batch never fail the whole batch — the row gets `{ok:false, error, detail}` and the rest are still created.
 
-### `GET /api/chatgtm/prospects?limit=N`
+### `GET /api/chatgtm/prospects`
 
-Lists recent prospects. Used by the `/prospect-builder/admin` UI and any
-internal monitoring. Same auth.
+Lists prospects with optional filters. Three callers today:
+
+| Caller | Query | Purpose |
+| --- | --- | --- |
+| Prospecting Blitz | `?company_domain=unisys.com` | The dedup query — pull every existing row for a target account so the Blitz can skip duplicates. |
+| Sequence Orchestrator | `?company_domain=unisys.com&replied=false&last_sequence_sent_lt=6` | "Active sequence" pull — every prospect whose 6-step email sequence isn't done and who hasn't replied. |
+| Admin UI / monitoring | (no params) | Recent rows, ordered by `created_at DESC`. |
+
+Pagination is **cursor-based**: callers iterate by passing `cursor` from a previous response's `next_cursor` until `next_cursor` is null. There is no fixed row cap on filtered queries — the Blitz dedup query needs the entire set.
+
+| Query param                | Notes |
+| -------------------------- | ----- |
+| `company_domain`           | Exact lowercase match. The dedup key for the Blitz. |
+| `replied`                  | `true` / `false`. Filters by the replied flag. |
+| `last_sequence_sent_lt`    | Integer 1-7. Includes NULL ("never started"). Pass 6 to select every "not-yet-complete" prospect. |
+| `limit`                    | 1-500. Defaults to 200. |
+| `cursor`                   | Opaque cursor from a previous page's `next_cursor`. Resumes strictly after that row. |
+| `include`                  | Comma-separated. Currently supports `opens` — joins `prospect_views` and adds `unlocked_view_count` / `first_unlocked_at` / `last_unlocked_at` to every row. Used by the Sequences dashboard to compute the read/unread badge. |
+
+**Response shape** (per prospect):
+
+```json
+{
+  "id": "uuid",
+  "slug": "string",
+  "name": "string",
+  "email": "string | null",
+  "level_raw": "string | null",
+  "level_normalized": "team_lead | manager | director | vp | svp | executive | c_level | unknown",
+  "linkedin_url": "string | null",
+  "company_name": "string",
+  "company_domain": "string",
+  "company_accent": "string | null",
+  "technologies_raw": ["string"],
+  "vendor_ids": ["string"],
+  "unmatched_technologies": ["string"],
+  "mcp_relevant": "boolean",
+  "sdk_workflow": "string | null",
+  "show_roi_calculator": "boolean",
+  "source": "string",
+  "metadata": {},
+  "category": "string",
+
+  "linkedin_draft": "string | null",
+  "linkedin_sent": "boolean",
+  "mcp_detail": "string | null",
+  "team": "string | null",
+  "classified_level": "string | null",
+  "last_sequence_sent": "integer | null",
+  "last_email_send_date": "YYYY-MM-DD | null",
+  "replied": "boolean",
+  "thread_id": "string | null",
+
+  "demo_url": "https://<host>/p/<slug> | null",
+  "demo_password": "string | null",
+  "next_email_send_date": "YYYY-MM-DD | null",
+
+  "reached_out_at": "ISO datetime | null",
+  "created_at": "ISO datetime",
+  "updated_at": "ISO datetime"
+}
+```
+
+`next_email_send_date` is computed server-side from
+`last_sequence_sent` + `last_email_send_date` + the per-step cadence
+in `src/lib/setup-config.ts` (`sequenceCadenceDays`). Semantics:
+
+- `last_sequence_sent = null` and `replied = false` → today's date
+  (UTC), meaning Email 1 is ready to send.
+- `last_sequence_sent ∈ [1..5]` and `replied = false` →
+  `last_email_send_date + sequenceCadenceDays[step - 1]`.
+- `last_sequence_sent = 6` or `replied = true` → `null` (no further
+  send is expected).
+
+When `?include=opens` is passed, each prospect also carries:
+
+```json
+{
+  "unlocked_view_count": 0,
+  "first_unlocked_at": "ISO datetime | null",
+  "last_unlocked_at":  "ISO datetime | null"
+}
+```
+
+`unlocked_view_count > 0` is the canonical "demo opened" / "read"
+signal — locked views (drive-by URL hits without a successful
+password unlock) are excluded so crawlers don't flip the read/unread
+badge.
+
+Top-level body:
+
+```json
+{ "ok": true, "count": N, "next_cursor": "..." | null, "prospects": [...] }
+```
 
 ### `GET /api/chatgtm/prospects/:id`
 
-Looks up a prospect by either UUID or slug. Useful for ChatGTM to
-double-check state after a create.
+Looks up a prospect by either UUID or slug. Returns the same shape as
+`GET /api/chatgtm/prospects` (one row instead of a list).
+
+### `PATCH /api/chatgtm/prospects/:id`
+
+Partial update for outreach tracking. Used by the Sequence
+Orchestrator after each email send and by the Reply Detector when a
+prospect replies.
+
+The `:id` param accepts either a UUID or a 10-char slug. Body is a
+partial — only provided fields are updated. `updated_at` is auto-set
+to `now()`. Validation is strict: unknown fields, wrong shapes, and
+out-of-range values return `{error: "invalid_field", field, message}`
+with status 400.
+
+| Field                  | Type                | Notes |
+| ---------------------- | ------------------- | ----- |
+| `last_sequence_sent`   | integer (1-6)       | Which step of the 6-step sequence was last sent. |
+| `last_email_send_date` | "YYYY-MM-DD"        | Date the last email went out. The `next_email_send_date` field on the GET response is computed from this + the cadence in `setup-config.ts`. |
+| `thread_id`            | string              | Gmail thread id (captured after Email 1). |
+| `replied`              | boolean             | Reply Detector flips this. |
+| `linkedin_sent`        | boolean             | Whether the LinkedIn message went out. |
+| `linkedin_draft`       | string              | Update the draft copy. |
+| `reached_out_at`       | ISO datetime        | Stamps when the rep reached out. |
+| `mcp_detail`           | string              | |
+| `team`                 | string              | See enum values below. |
+| `classified_level`     | string              | `Executive` / `Leader (Dir/VP+)` / `Manager` / `IC`. |
+| `email`                | string              | Correct a bad email. |
+| `linkedin_url`         | string              | Correct a bad LinkedIn URL. |
+
+**Response (200)**: `{ ok: true, prospect: {...} }` (full updated row in
+the GET shape above).
+
+**Errors**:
+
+| Status | Body                                                                                | When |
+| ------ | ----------------------------------------------------------------------------------- | ---- |
+| 400    | `{error: "invalid_field", field: "last_sequence_sent", message: "Must be 1-6."}`    | Validation failure on a known field. |
+| 400    | `{error: "invalid_field", field: "linkedin_sent", message: "Must be a boolean."}`   | Wrong type. |
+| 400    | `{error: "invalid_body"}`                                                           | Body wasn't a JSON object. |
+| 401    | `{error: "unauthorized"}`                                                           | Bearer token missing or wrong. |
+| 404    | `{error: "not_found"}`                                                              | No prospect with that id/slug. |
+
+**Note on the legacy admin path**: this same route still accepts the
+admin-edit-modal payload (`name`, `vendor_ids`, `tagline`, `level`
+(=raw title), `metadata`, …) for backwards compatibility. The router
+picks the path by inspecting which fields are present in the body —
+if every key is in the outreach set above, the strict validator runs;
+otherwise the legacy whitelist runs (silently dropping unknown keys).
+
+### `PATCH /api/chatgtm/prospects` (batch)
+
+Batch outreach update. The Sequence Orchestrator typically updates
+5-15 prospects per run (one per email it just sent); sending one
+HTTP call instead of N keeps both the Vercel function and the Neon
+pool happy.
+
+```json
+{
+  "updates": [
+    { "id": "<uuid|slug>", "last_sequence_sent": 1, "last_email_send_date": "2026-05-14", "thread_id": "18f3a2..." },
+    { "id": "<uuid|slug>", "replied": true }
+  ]
+}
+```
+
+Each `updates[i]` is validated independently — a bad row never aborts
+the batch; instead it lands in the response as `{ok:false, error,
+field, message}` while the rest are still applied. Hard cap: 100
+updates per request.
+
+**Response (200 when every row succeeded; 207 multi-status otherwise)**:
+
+```json
+{
+  "ok": true,
+  "count": 2,
+  "succeeded": 2,
+  "failed": 0,
+  "results": [
+    { "ok": true,  "input_index": 0, "id": "...", "prospect": { /* full row */ } },
+    { "ok": false, "input_index": 1, "id": "...", "error": "invalid_field", "field": "last_sequence_sent", "message": "Must be 1-6." }
+  ]
+}
+```
+
+### Sequences dashboard
+
+The `/prospect-builder/admin` page has a **Sequences** tab that
+reads this same `GET /api/chatgtm/prospects?include=opens` endpoint
+and surfaces the email-tracking state ChatGTM's Sequence
+Orchestrator reads/writes:
+
+- Thread ID (copy-on-click chip)
+- Last email send date
+- Next email send date (computed; rendered red when overdue)
+- 6-step progress indicator
+- Demo opened / unread (from `prospect_views.unlocked = true`)
+- Replied / In sequence / Sequence complete / Not started status
+
+Filters: company, sequence status, opened-only, free-text search.
+The dashboard walks the full cursor-paginated set on load so all
+filtering happens client-side, which keeps the experience snappy
+even as the working set grows.
+
+### Outreach enum values
+
+The enum-shaped TEXT columns (`team`, `classified_level`) are
+validated at the application layer so new values can be added
+without DB migrations.
+
+`team` values:
+`Cloud & Infrastructure`, `Cybersecurity`, `Platform`, `AI/ML`,
+`Software Engineering`, `Data Engineering`, `DevOps`, `Security`,
+`QA`, `Cloud`, `IT/Infrastructure`, `Product`, `Design`,
+`Embedded Systems`, `Computer Vision`, `Other`.
+
+`classified_level` values: `Executive`, `Leader (Dir/VP+)`,
+`Manager`, `IC`.
 
 ### `GET /api/p/[slug]/status`
 

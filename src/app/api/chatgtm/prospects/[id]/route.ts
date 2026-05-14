@@ -4,24 +4,27 @@ import {
   getProspectById,
   getProspectBySlug,
   isDatabaseConfigured,
+  toChatgtmResponse,
   toPublic,
   updateProspect,
+  updateProspectOutreach,
+  validateOutreachPatch,
+  type OutreachPatch,
   type ProspectPatch,
 } from '@/lib/prospect-store';
-import { checkBearerToken } from '@/lib/prospect-store/api-auth';
+import { checkBearerToken, originFromRequest } from '@/lib/prospect-store/api-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/chatgtm/prospects/:id?include=password
+ * GET /api/chatgtm/prospects/:id
  *
  * Lookup a single prospect by either UUID or slug. ChatGTM uses this
- * to confirm state after `POST /api/chatgtm/prospects` returns.
- *
- * `?include=password` opts in to including the demo password in the
- * response (used by the admin UI and ChatGTM resync flows). Always
- * Bearer-authed; the explicit opt-in is a second layer of defense.
+ * to confirm state after `POST /api/chatgtm/prospects` returns. The
+ * response shape is the same `ChatgtmProspectResponse` returned by
+ * `GET /api/chatgtm/prospects` (includes outreach columns + demo_url
+ * + demo_password) so callers can use either interchangeably.
  */
 export async function GET(
   req: NextRequest,
@@ -39,28 +42,67 @@ export async function GET(
   if (!row) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
-  const include = (req.nextUrl.searchParams.get('include') || '')
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
+  const origin = originFromRequest(req);
   return NextResponse.json({
     ok: true,
-    prospect: include.includes('password') ? row : toPublic(row),
+    prospect: toChatgtmResponse(row, origin),
   });
 }
+
+// Fields owned by the ChatGTM Sequence Orchestrator + Reply Detector.
+// When ALL keys in the request body are in this set, we route the
+// PATCH through the strict outreach validator (which surfaces
+// field-level errors). When any key is outside this set, we fall back
+// to the admin-edit-modal path (loose whitelist; silently drops
+// unknown keys; backward-compatible with the existing `level` ->
+// raw-title semantics).
+const OUTREACH_PATCH_FIELDS = new Set([
+  'last_sequence_sent',
+  'last_email_send_date',
+  'thread_id',
+  'replied',
+  'linkedin_sent',
+  'linkedin_draft',
+  'reached_out_at',
+  'mcp_detail',
+  'team',
+  'classified_level',
+  // `email` and `linkedin_url` overlap with the admin path. The
+  // outreach validator's stricter shape matters when these are the
+  // only fields in the body — that's a Sequence Orchestrator call to
+  // correct a bad email — so list them here too.
+  'email',
+  'linkedin_url',
+]);
 
 /**
  * PATCH /api/chatgtm/prospects/:id
  *
- * Partial update used by the admin edit modal. Body is a partial
- * ProspectPatch (see `src/lib/prospect-store/prospects.ts`). The store
- * silently drops any field that isn't on the editable whitelist, so
- * the slug, password, and build state are guaranteed immutable here.
+ * Two callers, two semantics, one route:
  *
- * `level` is re-normalized server-side. `vendor_ids` is the primary
- * "add/remove components" knob (which vendor demo cards the page
- * renders, in order). A custom `tagline` lands in metadata.tagline and
- * is rendered by the prospect page's hero when set.
+ *   1. Sequence Orchestrator + Reply Detector (the new path):
+ *      Body is an OutreachPatch — `last_sequence_sent`, `replied`,
+ *      `thread_id`, `linkedin_sent`, `linkedin_draft`, `mcp_detail`,
+ *      `team`, `classified_level`, `last_email_send_date`,
+ *      `reached_out_at`, `email`, `linkedin_url`. Every accepted
+ *      field is strictly validated and bad shapes return
+ *      `{error: "invalid_field", field: "...", message: "..."}`.
+ *
+ *   2. Admin edit modal (the legacy path):
+ *      Body is a ProspectPatch — `name`, `email`, `linkedin_url`,
+ *      `company_*`, `vendor_ids`, `mcp_relevant`, `sdk_workflow`,
+ *      `show_roi_calculator`, `gmail_draft_link`,
+ *      `linkedin_message_link`, `notion_page_id`, `tagline`,
+ *      `metadata`, `reached_out` (stamps reached_out_at), and
+ *      `level` (= raw title; re-normalized server-side). Anything
+ *      outside the whitelist is silently dropped.
+ *
+ * The route picks the path by inspecting the request body's keys:
+ * if every key is an outreach field, it goes through the strict
+ * validator; otherwise the admin path runs. The slug, password, and
+ * build state are immutable on both paths.
+ *
+ * The `:id` param accepts either a UUID or a 10-char slug.
  */
 export async function PATCH(
   req: NextRequest,
@@ -74,7 +116,6 @@ export async function PATCH(
 
   const { id } = await context.params;
   const isUuid = /^[0-9a-fA-F-]{36}$/.test(id);
-  // Resolve slug -> id first so the caller can PATCH by slug too.
   let resolvedId: string;
   if (isUuid) {
     resolvedId = id;
@@ -94,7 +135,22 @@ export async function PATCH(
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
+  const bodyKeys = Object.keys(body as Record<string, unknown>);
+  const isOutreachPatch =
+    bodyKeys.length > 0 && bodyKeys.every((k) => OUTREACH_PATCH_FIELDS.has(k));
+
   try {
+    if (isOutreachPatch) {
+      const validated = validateOutreachPatch(body);
+      if (!validated.ok) {
+        return NextResponse.json(validated.error, { status: 400 });
+      }
+      const updated = await updateProspectOutreach(resolvedId, validated.patch as OutreachPatch);
+      if (!updated) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+      const origin = originFromRequest(req);
+      return NextResponse.json({ ok: true, prospect: toChatgtmResponse(updated, origin) });
+    }
+
     const updated = await updateProspect(resolvedId, body as ProspectPatch);
     if (!updated) return NextResponse.json({ error: 'not_found' }, { status: 404 });
     return NextResponse.json({ ok: true, prospect: toPublic(updated) });

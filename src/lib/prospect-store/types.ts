@@ -35,6 +35,21 @@ export type ProspectRow = {
   build_artifacts: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  // ChatGTM outreach-tracking columns. See `schema.sql` for the
+  // per-column write-owner. All are nullable / default-FALSE so
+  // pre-migration rows just look "not started" to the automations.
+  linkedin_draft: string | null;
+  linkedin_sent: boolean;
+  mcp_detail: string | null;
+  team: string | null;
+  // Classified seniority bucket (Executive / Leader (Dir/VP+) /
+  // Manager / IC). Distinct from `level_normalized`, which is the
+  // lowercase regex normalization of the raw title.
+  classified_level: string | null;
+  last_sequence_sent: number | null;
+  last_email_send_date: string | null;
+  replied: boolean;
+  thread_id: string | null;
 };
 
 // Public view of the prospect — never exposes the password to the
@@ -49,6 +64,8 @@ export type ChatgtmProspectInput = {
   company: string;
   // Recommended
   email?: string | null;
+  // Free-form full job title (e.g. "Senior Engineering Manager").
+  // Normalized into `level_normalized` server-side.
   level?: string | null;
   linkedin_url?: string | null;
   company_domain?: string | null;
@@ -64,4 +81,13 @@ export type ChatgtmProspectInput = {
   notion_page_id?: string | null;
   // Free-form additional metadata; stored as JSONB.
   metadata?: Record<string, unknown> | null;
+  // ChatGTM outreach-tracking inputs. The Prospecting Blitz writes
+  // these on create; the rest of the lifecycle (linkedin_sent /
+  // last_sequence_sent / ...) is updated via PATCH.
+  linkedin_draft?: string | null;
+  mcp_detail?: string | null;
+  team?: string | null;
+  // The Executive/Leader/Manager/IC bucket. Named distinctly from
+  // `level` (the raw title) so the API contract is unambiguous.
+  classified_level?: string | null;
 };

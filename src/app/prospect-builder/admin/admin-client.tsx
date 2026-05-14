@@ -27,6 +27,7 @@ import { EditProspectModal, type EditableProspect } from './edit-modal';
 import { ActivityModal } from './activity-modal';
 import { AnalyticsTab } from './analytics-tab';
 import { CreateProspectModal } from './create-modal';
+import { SequencesTab } from './sequences-tab';
 
 const TOKEN_STORAGE_KEY = 'cursor.prospect-builder.api-token';
 
@@ -49,7 +50,12 @@ type ProspectRow = {
   gmail_draft_link: string | null;
   linkedin_message_link: string | null;
   source: string;
-  password: string;
+  // The personalized-demo password. Returned by the ChatGTM list
+  // endpoint as `demo_password` (post the outreach-tracking
+  // migration); the older `password` field is kept here as a fallback
+  // in case the admin is loaded against a stale build.
+  demo_password: string | null;
+  password?: string;
   metadata?: Record<string, unknown>;
   build_status: 'queued' | 'building' | 'ready' | 'failed';
   build_started_at: string | null;
@@ -72,7 +78,7 @@ export function AdminClient() {
   const [query, setQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState<string>('');
   const [page, setPage] = useState(0);
-  const [activeTab, setActiveTab] = useState<'prospects' | 'analytics'>('prospects');
+  const [activeTab, setActiveTab] = useState<'prospects' | 'sequences' | 'analytics'>('prospects');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
@@ -264,12 +270,19 @@ export function AdminClient() {
                 label="Prospects"
               />
               <TabButton
+                active={activeTab === 'sequences'}
+                onClick={() => setActiveTab('sequences')}
+                label="Sequences"
+              />
+              <TabButton
                 active={activeTab === 'analytics'}
                 onClick={() => setActiveTab('analytics')}
                 label="Analytics"
               />
             </div>
           )}
+
+          {apiToken && activeTab === 'sequences' && <SequencesTab apiToken={apiToken.trim()} />}
 
           {apiToken && activeTab === 'analytics' && <AnalyticsTab apiToken={apiToken.trim()} />}
 
@@ -492,7 +505,7 @@ export function AdminClient() {
                         </a>
                       </td>
                       <td className="px-4 py-3 align-top">
-                        <PasswordCell password={p.password} />
+                        <PasswordCell password={p.demo_password ?? p.password ?? ''} />
                       </td>
                       <td className="px-4 py-3 align-top text-[11px] text-text-tertiary tabular-nums">
                         {new Date(p.created_at).toLocaleString()}

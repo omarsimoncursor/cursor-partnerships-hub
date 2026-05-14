@@ -16,6 +16,15 @@ import {
 // The minimal shape the dialog needs from a prospect row. Kept narrow
 // so callers can pass a row from any of the admin tabs without
 // adopting the full SequenceRow type.
+//
+// `demo_url` + `demo_password` come from the GET response's computed
+// fields (the API derives them from the slug + the canonical origin
+// + the existing password column). The dialog appends them to the
+// composed message that gets copied to the clipboard, because the
+// rep's LinkedIn DM workflow needs the demo link inline — the
+// upstream Prospecting Blitz writes only the prose into
+// `linkedin_draft` and trails off at "...take a look:" expecting the
+// URL + password to follow.
 export type LinkedinSendTarget = {
   id: string;
   slug: string;
@@ -25,6 +34,8 @@ export type LinkedinSendTarget = {
   linkedin_draft: string | null;
   linkedin_sent: boolean;
   replied: boolean;
+  demo_url: string | null;
+  demo_password: string | null;
 };
 
 type Props = {
@@ -74,11 +85,53 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
   }, [status]);
 
   const draftChanged = (draft.trim() || null) !== (prospect.linkedin_draft ?? null);
-  const charCount = draft.length;
-  // LinkedIn caps connection-request notes at 300 characters. We
-  // surface the count + a soft warning past 300 so the rep can
-  // tighten the copy before pasting.
-  const overLimit = charCount > 300;
+  const draftCharCount = draft.length;
+
+  // Compose the full message that actually gets pasted into LinkedIn.
+  // The rep's workflow is a DM (not a 300-char connect note): paste
+  // the prose, then a blank line, then the demo URL + password so
+  // the prospect can click through and unlock.
+  //
+  // Dedupe: the upstream Prospecting Blitz can sometimes embed the
+  // URL or password directly in the draft prose, and the rep can
+  // also paste them in manually mid-edit. If either is already
+  // present in the draft we skip the corresponding append so the
+  // pasted message doesn't duplicate.
+  const composedMessage = (() => {
+    const lines: string[] = [draft];
+    const trimmed = draft.trim();
+    const lower = trimmed.toLowerCase();
+    const hasUrl = prospect.demo_url
+      ? lower.includes(prospect.demo_url.toLowerCase())
+      : false;
+    const hasPassword = prospect.demo_password
+      ? trimmed.includes(prospect.demo_password)
+      : false;
+    const appendBits: string[] = [];
+    if (prospect.demo_url && !hasUrl) {
+      appendBits.push(prospect.demo_url);
+    }
+    if (prospect.demo_password && !hasPassword) {
+      appendBits.push(`Password: ${prospect.demo_password}`);
+    }
+    if (appendBits.length > 0 && trimmed.length > 0) {
+      // Blank line separator between prose and link block.
+      lines.push('', ...appendBits);
+    } else if (appendBits.length > 0) {
+      // No prose yet — just the bits, no leading blank.
+      lines.push(...appendBits);
+    }
+    return lines.join('\n');
+  })();
+  const composedCharCount = composedMessage.length;
+
+  // LinkedIn caps connection-request notes at 300 characters. The
+  // counter is informational only — most reps DM (no 300-char cap)
+  // and even when they connect-with-note, the trailing URL + password
+  // are typically pasted in a follow-up DM rather than the connect
+  // note itself. We highlight the *draft* length past 300 so the rep
+  // notices, but don't block.
+  const draftOverLimit = draftCharCount > 300;
 
   const patch = async (body: Record<string, unknown>): Promise<boolean> => {
     setPhase('saving');
@@ -139,17 +192,18 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
       // open the LinkedIn tab so the rep isn't stuck.
     }
 
-    // 2. Copy to clipboard. Use the modern Clipboard API; fall back
-    //    to a hidden <textarea> + execCommand for browsers that lock
-    //    it down (Safari in some configs).
+    // 2. Copy the composed message (draft + demo_url + demo_password)
+    //    to the clipboard. Same content the "Will be copied" preview
+    //    in the UI shows. Modern Clipboard API with a hidden-textarea
+    //    + execCommand fallback for browsers that lock the API down.
     let copied = false;
     try {
-      await navigator.clipboard.writeText(draft);
+      await navigator.clipboard.writeText(composedMessage);
       copied = true;
     } catch {
       try {
         const ta = document.createElement('textarea');
-        ta.value = draft;
+        ta.value = composedMessage;
         ta.style.position = 'fixed';
         ta.style.left = '-9999px';
         document.body.appendChild(ta);
@@ -238,15 +292,15 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label htmlFor="li-draft" className="text-xs text-text-secondary">
-                Connection-request message
+                Message draft
               </label>
               <span
                 className={`text-[10px] font-mono tabular-nums ${
-                  overLimit ? 'text-accent-red' : 'text-text-tertiary'
+                  draftOverLimit ? 'text-accent-amber' : 'text-text-tertiary'
                 }`}
-                title="LinkedIn caps connection-request notes at 300 characters."
+                title="LinkedIn caps connection-request notes at 300 characters. DMs are much longer (~8000)."
               >
-                {charCount} / 300
+                {draftCharCount} chars{draftOverLimit ? ' (300+ for connect note)' : ''}
               </span>
             </div>
             <textarea
@@ -255,19 +309,56 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={5}
-              placeholder="Write a personalized note (≤300 chars). The rep usually drafts via the Prospecting Blitz; edit here if it needs a tweak."
-              className={`w-full px-3 py-2 rounded-md bg-dark-surface border text-sm text-text-primary placeholder:text-text-tertiary outline-none transition-colors resize-y ${
-                overLimit
-                  ? 'border-accent-red focus:border-accent-red'
-                  : 'border-dark-border focus:border-accent-blue'
-              }`}
+              placeholder="Write a personalized note. The rep usually drafts via the Prospecting Blitz; edit here if it needs a tweak. The demo URL + password are appended automatically — see the preview below."
+              className="w-full px-3 py-2 rounded-md bg-dark-surface border border-dark-border focus:border-accent-blue text-sm text-text-primary placeholder:text-text-tertiary outline-none transition-colors resize-y"
             />
-            {overLimit && (
-              <p className="text-[11px] text-accent-red mt-1 inline-flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                LinkedIn truncates connection notes at 300 characters.
+          </div>
+
+          {/* Demo link block — read-only chips so the rep can grab
+              the URL or password individually if they want, plus a
+              clear note that they're auto-appended to the copied
+              message. Hides cleanly when both are missing. */}
+          {(prospect.demo_url || prospect.demo_password) && (
+            <div className="rounded-lg border border-dark-border bg-dark-surface/50 p-3 space-y-2">
+              <p className="text-[11px] uppercase tracking-wider font-mono text-text-tertiary">
+                Demo link (auto-appended to the copied message)
               </p>
-            )}
+              {prospect.demo_url && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-text-tertiary font-mono w-[60px] shrink-0">URL</span>
+                  <CopyableValue value={prospect.demo_url} />
+                </div>
+              )}
+              {prospect.demo_password && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-text-tertiary font-mono w-[60px] shrink-0">Password</span>
+                  <CopyableValue value={prospect.demo_password} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Will-be-copied preview. Source of truth for what hits
+              the clipboard — no surprises for the rep. Renders the
+              composed message verbatim with whitespace preserved so
+              it matches LinkedIn's paste output character-for-char. */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs text-text-secondary inline-flex items-center gap-1.5">
+                <Copy className="w-3 h-3" />
+                Will be copied to your clipboard
+              </p>
+              <span className="text-[10px] font-mono tabular-nums text-text-tertiary">
+                {composedCharCount} chars
+              </span>
+            </div>
+            <pre className="w-full px-3 py-2 rounded-md bg-dark-surface/30 border border-dark-border text-[12px] text-text-primary whitespace-pre-wrap break-words font-sans max-h-40 overflow-y-auto">
+              {composedMessage || (
+                <span className="text-text-tertiary italic">
+                  (write a draft above to see the full message)
+                </span>
+              )}
+            </pre>
           </div>
 
           {phase === 'awaiting_confirm' ? (
@@ -381,13 +472,13 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
             <button
               type="button"
               onClick={onCopyAndOpen}
-              disabled={sendDisabled || phase === 'saving' || !draft.trim()}
+              disabled={sendDisabled || phase === 'saving' || !composedMessage.trim()}
               title={
                 noUrl
                   ? 'Add a LinkedIn URL on the prospect first'
-                  : !draft.trim()
+                  : !composedMessage.trim()
                   ? 'Write a draft first'
-                  : 'Copy the message to your clipboard and open LinkedIn in a new tab'
+                  : 'Copy the full message (draft + demo URL + password) to your clipboard and open LinkedIn in a new tab'
               }
               className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold bg-[#0a66c2] text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -404,6 +495,40 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
           </div>
         </footer>
       </div>
+    </div>
+  );
+}
+
+// Read-only inline value with a copy-to-clipboard button. Used in
+// the "Demo link" block to expose the URL + password as individual
+// chips alongside the auto-append behavior, so the rep can grab one
+// piece independently if they're, e.g., quoting just the password
+// in a follow-up reply.
+function CopyableValue({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // ignore clipboard restrictions
+    }
+  };
+  return (
+    <div className="flex-1 min-w-0 flex items-center gap-1.5">
+      <code className="flex-1 min-w-0 truncate font-mono text-[11px] text-text-primary bg-dark-surface px-2 py-1 rounded border border-dark-border">
+        {value}
+      </code>
+      <button
+        type="button"
+        onClick={onCopy}
+        title={copied ? 'Copied!' : 'Copy to clipboard'}
+        className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-dark-surface-hover transition-colors"
+        aria-label="Copy"
+      >
+        {copied ? <Check className="w-3.5 h-3.5 text-accent-green" /> : <Copy className="w-3.5 h-3.5" />}
+      </button>
     </div>
   );
 }

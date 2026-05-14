@@ -10,8 +10,14 @@ import {
   resolveCompanyDefaults,
   type CompanyDefaults,
 } from './company-seeds';
-import { SETUP_CONFIG } from '../setup-config';
+import { computeNextEmailSendDate, normalizeDateOnly } from './sequence-cadence';
 import type { BuildStatus, ChatgtmProspectInput, ProspectPublic, ProspectRow } from './types';
+
+// Re-export so the existing `import { computeNextEmailSendDate } from
+// '@/lib/prospect-store'` calls keep working. The implementation
+// lives in `sequence-cadence.ts` (no `pg` import) so client-side
+// admin modules can pull it in safely.
+export { computeNextEmailSendDate } from './sequence-cadence';
 
 // ---------------------------------------------------------------------------
 // Migrations
@@ -258,49 +264,6 @@ export type ChatgtmProspectResponse = Omit<ProspectRow, 'password'> & {
   first_unlocked_at?: string | null;
   last_unlocked_at?: string | null;
 };
-
-function normalizeDateOnly(v: unknown): string | null {
-  if (v instanceof Date) return v.toISOString().slice(0, 10);
-  if (typeof v === 'string' && v.length > 0) return v.slice(0, 10);
-  return null;
-}
-
-/**
- * Compute the date the next sequence email is due, from
- * `last_sequence_sent` + `last_email_send_date` + the configured
- * cadence. Returns null when the sequence is complete (step 6),
- * the prospect replied, or we don't have a base date to extrapolate
- * from.
- *
- * - last_sequence_sent = null, replied = false:
- *     "Email 1 hasn't been sent yet" — returns today (UTC) as the
- *     earliest send date so the dashboard can surface "ready to send".
- * - last_sequence_sent in 1..5, replied = false, last_email_send_date set:
- *     last_email_send_date + cadence[step-1] days.
- * - last_sequence_sent = 6 OR replied = true:
- *     null (no further send is expected).
- */
-export function computeNextEmailSendDate(args: {
-  last_sequence_sent: number | null;
-  last_email_send_date: string | Date | null;
-  replied: boolean;
-}): string | null {
-  if (args.replied) return null;
-  const step = args.last_sequence_sent;
-  if (step != null && step >= 6) return null;
-  if (step == null) {
-    return new Date().toISOString().slice(0, 10);
-  }
-  if (step < 1 || step > 5) return null;
-  const baseDateStr = normalizeDateOnly(args.last_email_send_date);
-  if (!baseDateStr) return null;
-  const base = new Date(`${baseDateStr}T00:00:00Z`);
-  if (Number.isNaN(base.getTime())) return null;
-  const gap = SETUP_CONFIG.sequenceCadenceDays[step - 1];
-  if (typeof gap !== 'number' || !Number.isFinite(gap)) return null;
-  base.setUTCDate(base.getUTCDate() + gap);
-  return base.toISOString().slice(0, 10);
-}
 
 export function toChatgtmResponse(
   row: ProspectRow & Partial<ProspectOpenStats>,

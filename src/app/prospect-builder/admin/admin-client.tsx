@@ -20,11 +20,13 @@ import {
   Search,
   Sparkles,
   Trash2,
+  UserPlus,
   X,
 } from 'lucide-react';
 import { EditProspectModal, type EditableProspect } from './edit-modal';
 import { ActivityModal } from './activity-modal';
 import { AnalyticsTab } from './analytics-tab';
+import { CreateProspectModal } from './create-modal';
 
 const TOKEN_STORAGE_KEY = 'cursor.prospect-builder.api-token';
 
@@ -71,6 +73,7 @@ export function AdminClient() {
   const [companyFilter, setCompanyFilter] = useState<string>('');
   const [page, setPage] = useState(0);
   const [activeTab, setActiveTab] = useState<'prospects' | 'analytics'>('prospects');
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -305,6 +308,15 @@ export function AdminClient() {
               </select>
 
               <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold bg-accent-blue text-dark-bg transition-all hover:opacity-90"
+                title="Generate a personalized demo for a new prospect"
+              >
+                <UserPlus className="w-4 h-4" />
+                New prospect
+              </button>
+
+              <button
                 onClick={load}
                 disabled={loading}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-dark-border hover:bg-dark-surface transition-colors disabled:opacity-50"
@@ -351,6 +363,14 @@ export function AdminClient() {
                 </span>
               )}
             </div>
+          )}
+
+          {showCreateModal && (
+            <CreateProspectModal
+              apiToken={apiToken.trim()}
+              onClose={() => setShowCreateModal(false)}
+              onCreated={load}
+            />
           )}
 
           {editTarget && (

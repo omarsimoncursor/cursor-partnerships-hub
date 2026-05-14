@@ -333,6 +333,12 @@ export async function GET(req: NextRequest) {
 
   const cursor = params.get('cursor') || null;
 
+  const include = (params.get('include') || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const includeOpens = include.includes('opens');
+
   try {
     await ensureSchema();
     const origin = originFromRequest(req);
@@ -342,6 +348,7 @@ export async function GET(req: NextRequest) {
       lastSequenceSentLt,
       cursor,
       limit,
+      includeOpens,
     });
     return NextResponse.json({
       ok: true,

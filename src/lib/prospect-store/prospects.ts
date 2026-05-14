@@ -10,6 +10,7 @@ import {
   resolveCompanyDefaults,
   type CompanyDefaults,
 } from './company-seeds';
+import { SETUP_CONFIG } from '../setup-config';
 import type { BuildStatus, ChatgtmProspectInput, ProspectPublic, ProspectRow } from './types';
 
 // ---------------------------------------------------------------------------
@@ -101,13 +102,17 @@ export type ListProspectsFilter = {
   // cap value but it stays large enough for the Blitz dedup query
   // (Unisys today sits at well under 200 rows).
   limit?: number | null;
+  // When true, joins prospect_views to surface unlocked_view_count +
+  // first/last_unlocked_at on every row. Powers the Sequences
+  // dashboard's read/unread column.
+  includeOpens?: boolean;
 };
 
 const MAX_LIST_LIMIT = 500;
 const DEFAULT_LIST_LIMIT = 200;
 
 export type ListProspectsPage = {
-  rows: ProspectRow[];
+  rows: Array<ProspectRow & Partial<ProspectOpenStats>>;
   nextCursor: string | null;
 };
 
@@ -181,13 +186,37 @@ export async function listProspectsFiltered(
 
   values.push(limit + 1);
   const limitIdx = values.length;
-  const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-  const { rows } = await query<ProspectRow>(
-    `SELECT * FROM prospects ${whereSql}
-       ORDER BY created_at DESC, id DESC
-       LIMIT $${limitIdx}`,
-    values,
-  );
+  // The WHERE clauses we built above all reference `prospects` columns
+  // unqualified. Re-prefix the column names that need it before
+  // concatenating into the final SQL — only company_domain, replied,
+  // last_sequence_sent, created_at, id show up.
+  const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ').replace(/\b(company_domain|replied|last_sequence_sent|created_at|id)\b/g, 'p.$1')}` : '';
+
+  const sql = filter.includeOpens
+    ? `SELECT
+         p.*,
+         COALESCE(v.unlocked_view_count, 0)::int AS unlocked_view_count,
+         v.first_unlocked_at::text AS first_unlocked_at,
+         v.last_unlocked_at::text AS last_unlocked_at
+       FROM prospects p
+       LEFT JOIN (
+         SELECT
+           prospect_id,
+           MIN(viewed_at) AS first_unlocked_at,
+           MAX(viewed_at) AS last_unlocked_at,
+           COUNT(*) AS unlocked_view_count
+         FROM prospect_views
+         WHERE unlocked = TRUE
+         GROUP BY prospect_id
+       ) v ON v.prospect_id = p.id
+       ${whereSql}
+       ORDER BY p.created_at DESC, p.id DESC
+       LIMIT $${limitIdx}`
+    : `SELECT p.* FROM prospects p ${whereSql}
+       ORDER BY p.created_at DESC, p.id DESC
+       LIMIT $${limitIdx}`;
+
+  const { rows } = await query<ProspectRow & Partial<ProspectOpenStats>>(sql, values);
 
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
@@ -203,41 +232,110 @@ export function toPublic(row: ProspectRow): ProspectPublic {
   return rest;
 }
 
+// Optional engagement aggregates joined from prospect_views (only
+// populated when the caller passes ?include=opens). The "read" signal
+// in the Sequences dashboard is `unlocked_view_count > 0` — i.e. the
+// prospect entered their password at least once. We deliberately
+// ignore locked views (someone hitting the URL but not unlocking) so
+// drive-by crawlers don't flip the dashboard's read/unread badge.
+export type ProspectOpenStats = {
+  unlocked_view_count: number;
+  first_unlocked_at: string | null;
+  last_unlocked_at: string | null;
+};
+
 // Shape returned to the ChatGTM automations from GET / PATCH / batch
-// endpoints. Adds the computed `demo_url` and exposes the existing
-// internal `password` column as `demo_password` so the Sequence
-// Orchestrator can paste it straight into email templates without
-// having to look the password up via a second call.
+// endpoints. Adds the computed `demo_url` + `next_email_send_date` and
+// exposes the existing internal `password` column as `demo_password`
+// so the Sequence Orchestrator can paste it straight into email
+// templates without having to look the password up via a second call.
 export type ChatgtmProspectResponse = Omit<ProspectRow, 'password'> & {
   demo_url: string | null;
   demo_password: string | null;
+  next_email_send_date: string | null;
+  // Optional — only populated when the caller passes ?include=opens.
+  unlocked_view_count?: number;
+  first_unlocked_at?: string | null;
+  last_unlocked_at?: string | null;
 };
 
+function normalizeDateOnly(v: unknown): string | null {
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === 'string' && v.length > 0) return v.slice(0, 10);
+  return null;
+}
+
+/**
+ * Compute the date the next sequence email is due, from
+ * `last_sequence_sent` + `last_email_send_date` + the configured
+ * cadence. Returns null when the sequence is complete (step 6),
+ * the prospect replied, or we don't have a base date to extrapolate
+ * from.
+ *
+ * - last_sequence_sent = null, replied = false:
+ *     "Email 1 hasn't been sent yet" — returns today (UTC) as the
+ *     earliest send date so the dashboard can surface "ready to send".
+ * - last_sequence_sent in 1..5, replied = false, last_email_send_date set:
+ *     last_email_send_date + cadence[step-1] days.
+ * - last_sequence_sent = 6 OR replied = true:
+ *     null (no further send is expected).
+ */
+export function computeNextEmailSendDate(args: {
+  last_sequence_sent: number | null;
+  last_email_send_date: string | Date | null;
+  replied: boolean;
+}): string | null {
+  if (args.replied) return null;
+  const step = args.last_sequence_sent;
+  if (step != null && step >= 6) return null;
+  if (step == null) {
+    return new Date().toISOString().slice(0, 10);
+  }
+  if (step < 1 || step > 5) return null;
+  const baseDateStr = normalizeDateOnly(args.last_email_send_date);
+  if (!baseDateStr) return null;
+  const base = new Date(`${baseDateStr}T00:00:00Z`);
+  if (Number.isNaN(base.getTime())) return null;
+  const gap = SETUP_CONFIG.sequenceCadenceDays[step - 1];
+  if (typeof gap !== 'number' || !Number.isFinite(gap)) return null;
+  base.setUTCDate(base.getUTCDate() + gap);
+  return base.toISOString().slice(0, 10);
+}
+
 export function toChatgtmResponse(
-  row: ProspectRow,
+  row: ProspectRow & Partial<ProspectOpenStats>,
   origin: string | null,
 ): ChatgtmProspectResponse {
   const trimmedOrigin = origin ? origin.replace(/\/$/, '') : '';
   const { password, ...rest } = row;
   // pg returns DATE columns as JS Date objects (and timestamptz too).
-  // Normalize last_email_send_date to a YYYY-MM-DD string so the
-  // wire-format matches the "ISO date" the spec promises and so the
-  // Sequence Orchestrator can compare dates without re-parsing.
-  let lastEmailSendDate: string | null = null;
-  const v = rest.last_email_send_date as unknown;
-  if (v instanceof Date) {
-    lastEmailSendDate = v.toISOString().slice(0, 10);
-  } else if (typeof v === 'string' && v.length > 0) {
-    // Could be "YYYY-MM-DD" already, or an ISO datetime string. Slice
-    // off any time portion to keep the format stable.
-    lastEmailSendDate = v.slice(0, 10);
-  }
-  return {
+  // Normalize last_email_send_date to YYYY-MM-DD so the wire-format
+  // matches the "ISO date" the spec promises and so the Sequence
+  // Orchestrator can compare dates without re-parsing.
+  const lastEmailSendDate = normalizeDateOnly(rest.last_email_send_date);
+  const nextEmailSendDate = computeNextEmailSendDate({
+    last_sequence_sent: rest.last_sequence_sent,
+    last_email_send_date: lastEmailSendDate,
+    replied: rest.replied,
+  });
+  const out: ChatgtmProspectResponse = {
     ...rest,
     last_email_send_date: lastEmailSendDate,
     demo_url: trimmedOrigin ? `${trimmedOrigin}/p/${row.slug}` : null,
     demo_password: password ?? null,
+    next_email_send_date: nextEmailSendDate,
   };
+  // Pass through optional open stats when the caller joined them in.
+  // We test against `'unlocked_view_count' in row` so the field is
+  // omitted from the response (rather than defaulted to 0) when the
+  // caller didn't ask for opens — that distinguishes "no opens" from
+  // "didn't fetch" on the wire.
+  if ('unlocked_view_count' in row && typeof row.unlocked_view_count === 'number') {
+    out.unlocked_view_count = row.unlocked_view_count;
+    out.first_unlocked_at = row.first_unlocked_at ?? null;
+    out.last_unlocked_at = row.last_unlocked_at ?? null;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

@@ -23,6 +23,17 @@ export type SetupConfig = {
    * this via the ProspectConfig.rep field instead.
    */
   prospectTeamName: string;
+
+  /**
+   * Day-gap between each step of the 6-step ChatGTM email sequence.
+   * Index `i` is the gap between Email (i+1) and Email (i+2), so the
+   * tuple has length 5 (there are 5 gaps for 6 emails). Used by the
+   * Sequences dashboard to compute `next_email_send_date` from
+   * `last_email_send_date` + the cadence for the next step. Tweak per
+   * team — typical cold sequences widen the gap as the sequence ages
+   * to avoid hammering the inbox.
+   */
+  sequenceCadenceDays: [number, number, number, number, number];
 };
 
 export const SETUP_CONFIG: SetupConfig = {
@@ -31,4 +42,9 @@ export const SETUP_CONFIG: SetupConfig = {
 
   // EDIT ME: your team / brand attribution.
   prospectTeamName: 'Cursor Partnerships',
+
+  // EDIT ME (optional): widening cadence between sequence emails. The
+  // default 3/4/5/6/7 means Email 2 is sent 3 days after Email 1,
+  // Email 3 is 4 days after Email 2, etc.
+  sequenceCadenceDays: [3, 4, 5, 6, 7],
 };

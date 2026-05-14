@@ -105,7 +105,7 @@ Hard limit: **100 prospects per request** (`413 batch_too_large` past that). Seq
 | `linkedin_message_link`   | string    |          | Stored for the audit trail.                                             |
 | `notion_page_id`          | string    |          | If ChatGTM has a Notion page id, store it for cross-reference.          |
 | `metadata`                | object    |          | Free-form JSONB, persisted as-is.                                       |
-| `linkedin_draft`          | string    |          | Personalized LinkedIn connect-request copy (Prospecting Blitz writes; ~300-char target). |
+| `linkedin_draft`          | string    |          | Personalized LinkedIn connect-request copy (Prospecting Blitz writes; ≤ 300-char target — LinkedIn truncates connection notes past 300). The rep pastes this into LinkedIn's compose box manually via the Sequences-tab `Send LI` button, so write it as if it were going straight into the LinkedIn UI. |
 | `mcp_detail`              | string    |          | Two-sentence "how Cursor MCP/SDK applies to this person's role" blurb.  |
 | `team`                    | string    |          | Classified functional team. See enum values below.                       |
 | `classified_level`        | string    |          | Classified seniority bucket: `Executive` / `Leader (Dir/VP+)` / `Manager` / `IC`. Distinct from the raw title in `level`. |
@@ -417,14 +417,34 @@ even as the working set grows.
 
 **Inline edits** — every row exposes:
 
+- A blue `Send LI` button that opens a focused **LinkedIn outreach
+  dialog**. The dialog shows the connection-request draft (editable
+  in-place, with a 300-char counter), copies it to the clipboard +
+  opens the prospect's LinkedIn profile in a new tab in a single
+  click, and after the rep confirms they actually pasted-and-sent,
+  flips `linkedin_sent` automatically. When `linkedin_sent` is
+  already `true` the button renders as a green "Sent ✓" pill that
+  re-opens the same dialog (re-send copy, mark-as-unsent, or save
+  draft edits). When `linkedin_url` is missing the button is
+  disabled with a tooltip that points the rep at the prospect Edit
+  modal.
 - A `Replied` pill that toggles the flag in one click. Flipping it
   off un-archives the prospect (the Sequence Orchestrator stops
   skipping them).
-- A `LinkedIn` pill that toggles `linkedin_sent`.
+- A `LinkedIn` pill (in the Flags column) that toggles `linkedin_sent`
+  manually — useful for backfill when the rep already sent the
+  message outside the dialog flow.
 - A `+1 ›` advance button that bumps `last_sequence_sent` by 1 and
   stamps `last_email_send_date` with today (UTC). Disabled when the
   prospect replied or the sequence is complete.
 - A pencil icon that opens the **Edit sequence state** modal.
+
+A clickable **LI pending** count tile (top-right of the counts strip)
+mirrors the `LI pending` filter chip — toggling either one filters
+the table to prospects with a LinkedIn URL whose connection request
+hasn't been sent yet (and who haven't replied). This is the
+canonical batch-outreach loop: filter → for each row click `Send LI`
+→ paste in LinkedIn → confirm sent.
 
 **Edit sequence state** modal — focused per-prospect editor for the
 outreach fields the Orchestrator + Reply Detector own:

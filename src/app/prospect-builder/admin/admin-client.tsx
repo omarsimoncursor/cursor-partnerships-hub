@@ -49,7 +49,12 @@ type ProspectRow = {
   gmail_draft_link: string | null;
   linkedin_message_link: string | null;
   source: string;
-  password: string;
+  // The personalized-demo password. Returned by the ChatGTM list
+  // endpoint as `demo_password` (post the outreach-tracking
+  // migration); the older `password` field is kept here as a fallback
+  // in case the admin is loaded against a stale build.
+  demo_password: string | null;
+  password?: string;
   metadata?: Record<string, unknown>;
   build_status: 'queued' | 'building' | 'ready' | 'failed';
   build_started_at: string | null;
@@ -492,7 +497,7 @@ export function AdminClient() {
                         </a>
                       </td>
                       <td className="px-4 py-3 align-top">
-                        <PasswordCell password={p.password} />
+                        <PasswordCell password={p.demo_password ?? p.password ?? ''} />
                       </td>
                       <td className="px-4 py-3 align-top text-[11px] text-text-tertiary tabular-nums">
                         {new Date(p.created_at).toLocaleString()}

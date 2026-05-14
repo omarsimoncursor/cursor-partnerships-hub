@@ -1,10 +1,27 @@
-// Pre-set company defaults so a ChatGTM payload with just a name (no
-// domain, no accent, no tech list) still produces a fully branded
-// demo. The accents below are the closest match to each company's
-// public brand color; the default tech stacks reflect what these
-// companies publicly disclose using (annual reports, careers pages,
-// etc.) and are only used as a fallback when ChatGTM doesn't pass
-// technologies along.
+// ============================================================================
+//  AGENT-EDITED: target-account seed list for this fork of the template.
+// ============================================================================
+//
+// Replace the entries below with YOUR target accounts. Each entry gives the
+// app a fallback for the demo branding when ChatGTM doesn't pass the full
+// payload (no accent, no tech stack, no domain). All entries also show up
+// as suggestions in the admin "New prospect" company picker.
+//
+// Fields:
+//   - name:        Display name. Becomes "Cursor x <name>" in the demo nav.
+//   - domain:      Drives logo lookup + the company hero badge. Lowercase.
+//   - accent:      Hex brand color (e.g. "#FFB81C"). Used everywhere on the
+//                  demo page. Eyeball the company's website / wordmark.
+//   - defaultTechs: Free-form tech names the demo falls back to when
+//                   ChatGTM doesn't send any. Anything in
+//                   `src/lib/prospect-store/technologies.ts` aliases will
+//                   normalize to a vendor demo card; the rest become SDK
+//                   automation fallback cards.
+//   - notes:       (optional) Internal note for the rep.
+//
+// See AGENTS.md for the full setup playbook including how the agent should
+// gather this info from the user (typically 5-10 accounts they sell to).
+// ============================================================================
 
 export type CompanyDefaults = {
   domain: string;

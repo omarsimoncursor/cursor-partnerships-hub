@@ -23,6 +23,7 @@ import { VendorDemoCard } from '@/components/prospect/vendor-demo-card';
 import { RoiCalculator } from '@/components/prospect/roi-calculator';
 import { CursorSdkLiveDemo } from '@/components/sdk-demo/cursor-sdk-live-demo';
 import { configureTracker, track } from '@/lib/prospect/tracker';
+import { SETUP_CONFIG } from '@/lib/setup-config';
 
 type Props = {
   config: ProspectConfig;
@@ -338,7 +339,7 @@ export function ProspectPage({
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <a
-                href="https://calendly.com/omar-simon-anysphere/30min"
+                href={SETUP_CONFIG.bookDemoUrl}
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => track('cta.click', { target: 'book_demo' })}

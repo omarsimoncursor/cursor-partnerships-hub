@@ -4,10 +4,10 @@ import { useState } from 'react';
 import { ArrowRight, Lock, Sparkles } from 'lucide-react';
 
 /**
- * Password gate for `/prospect-builder/admin`. The actual password is
- * never sent to the browser — we POST what the user types to
- * `/api/admin/auth` and the server compares against ADMIN_PASSWORD
- * (env, defaulting to a fixed value baked into the server route).
+ * Password gate for `/admin`. The actual password is never sent to
+ * the browser — we POST what the user types to `/api/admin/auth`
+ * and the server compares against ADMIN_PASSWORD (env, defaulting
+ * to a fixed value baked into the server route).
  *
  * This component receives no password-related prop, so the value can
  * never leak through React server-component serialization.

@@ -96,9 +96,9 @@ export default async function PersonalizedProspectPage({ params, searchParams }:
     );
   }
 
-  // The prospect-builder catalog drives the demo content. The vendor
-  // ids stored on the prospect row come from technologies normalized
-  // at create time; the URL-encoded ProspectConfig path is bypassed.
+  // The vendor catalog drives the demo content. The vendor ids
+  // stored on the prospect row come from technologies normalized at
+  // create time; the URL-encoded ProspectConfig path is bypassed.
   const config: ProspectConfig = {
     account: prospect.company_name,
     domain: prospect.company_domain,

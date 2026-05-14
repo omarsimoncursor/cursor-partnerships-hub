@@ -1,9 +1,11 @@
 import crypto from 'crypto';
 
-// Admin-page session cookie used by /prospect-builder/admin. Signed
-// HMAC-SHA256 + a timestamp for expiry. Distinct from the prospect
-// demo unlock cookie (`pdemo_<slug>`) so the two auth surfaces never
-// shadow each other.
+// Admin-page session cookie used by /admin (originally lived under
+// /prospect-builder/admin, hence the `pb_` cookie-name prefix —
+// kept unchanged so existing sessions aren't invalidated by the
+// route move). Signed HMAC-SHA256 + a timestamp for expiry. Distinct
+// from the prospect demo unlock cookie (`pdemo_<slug>`) so the two
+// auth surfaces never shadow each other.
 //
 // IMPORTANT: this module is server-only. The admin password lives in
 // `process.env.ADMIN_PASSWORD` and is **required** — there is no

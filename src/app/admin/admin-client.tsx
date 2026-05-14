@@ -29,6 +29,10 @@ import { AnalyticsTab } from './analytics-tab';
 import { CreateProspectModal } from './create-modal';
 import { SequencesTab } from './sequences-tab';
 
+// Legacy localStorage key — left unchanged when the route moved
+// from /prospect-builder/admin to /admin so existing reps don't
+// have to re-paste their CHATGTM_API_TOKEN. The string is only
+// referenced here and in the (now-removed) save-prospect-panel.
 const TOKEN_STORAGE_KEY = 'cursor.prospect-builder.api-token';
 
 type ProspectRow = {
@@ -203,11 +207,11 @@ export function AdminClient() {
       <nav className="fixed top-0 left-0 right-0 z-30 py-4 px-6 bg-dark-bg/80 backdrop-blur-xl border-b border-dark-border">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link
-            href="/prospect-builder"
+            href="/"
             className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to builder
+            Back to hub
           </Link>
           <div className="flex items-center gap-3">
             <span className="text-sm text-text-tertiary font-mono">Saved prospects</span>

@@ -411,6 +411,28 @@ The dashboard walks the full cursor-paginated set on load so all
 filtering happens client-side, which keeps the experience snappy
 even as the working set grows.
 
+**Inline edits** — every row exposes:
+
+- A `Replied` pill that toggles the flag in one click. Flipping it
+  off un-archives the prospect (the Sequence Orchestrator stops
+  skipping them).
+- A `LinkedIn` pill that toggles `linkedin_sent`.
+- A `+1 ›` advance button that bumps `last_sequence_sent` by 1 and
+  stamps `last_email_send_date` with today (UTC). Disabled when the
+  prospect replied or the sequence is complete.
+- A pencil icon that opens the **Edit sequence state** modal.
+
+**Edit sequence state** modal — focused per-prospect editor for the
+outreach fields the Orchestrator + Reply Detector own:
+`last_sequence_sent`, `last_email_send_date`, `thread_id`, `replied`,
+`linkedin_sent`, `linkedin_draft`, `mcp_detail`, `team`,
+`classified_level`, `email`, `linkedin_url`. Includes a live
+"Computed next send" preview that runs the same
+`computeNextEmailSendDate()` helper the server uses, so the UI never
+disagrees with the stored value. Server validation errors come back
+as `{error, field, message}` and are rendered inline next to the
+offending input. Only changed fields are sent in the PATCH body.
+
 ### Outreach enum values
 
 The enum-shaped TEXT columns (`team`, `classified_level`) are

@@ -1,8 +1,21 @@
 # Cursor Partnerships Hub
 
-**Live site:** [cursorpartners.omarsimon.com](https://cursorpartners.omarsimon.com)
+**Reference deployment:** [cursorpartners.omarsimon.com](https://cursorpartners.omarsimon.com)
 
-A collection of interactive co-sell demos that show, concretely, how Cursor transforms the tools enterprises already use into automated, agentic workflows. Every demo is built on a realistic scenario, dramatizes a full workflow from incident/signal to merged PR, and exposes artifacts (Jira tickets, Snowsight / Databricks workspaces, GitHub PRs, triage reports) that make the value legible to both technical and non-technical buyers.
+A collection of interactive co-sell demos that show, concretely, how Cursor transforms the tools enterprises already use into automated, agentic workflows. The headline feature is a **per-prospect personalized demo automation**: a ChatGTM workflow pushes a prospect's name + company + tech stack into this app's API, the app generates a password-gated demo branded for that account, and the URL + password come back synchronously for ChatGTM to paste into the outreach.
+
+## Use this as your own template
+
+This repo is the **template every Cursor partnerships rep can fork**. You'll deploy your own copy to your own Vercel project at your own subdomain, point it at your own Neon database, and connect it to your own ChatGTM automation. The original author's deployment at `cursorpartners.omarsimon.com` is one instance — yours will be different.
+
+The fastest path:
+
+1. **Fork this repo** (GitHub → "Use this template" → create your own repo from it).
+2. Clone your fork locally and open it in Cursor.
+3. Send a Cursor agent this prompt: *"Set this repo up for me. Read AGENTS.md and walk me through it."*
+4. The agent will ask ~6 questions (Calendly URL, your target accounts, admin password, …) and drive the rest — editing the personalization files, generating Bearer tokens, walking you through Vercel + Neon clicks, and verifying with a smoke-test prospect.
+
+If you'd rather do it yourself, [`AGENTS.md`](./AGENTS.md) is also a perfectly readable manual setup guide.
 
 Each partner gets two routes:
 

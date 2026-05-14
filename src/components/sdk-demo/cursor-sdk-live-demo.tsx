@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Code2, FileText, GitPullRequest, MessageSquare, RotateCcw } from 'lucide-react';
 import type { Workflow } from '@/lib/sdk-demo/types';
 import { pickScript } from '@/lib/sdk-demo/scripts/pick-script';
@@ -56,6 +56,36 @@ export function CursorSdkLiveDemo({ hero = true }: Props = {}) {
   const [phase, setPhase] = useState<Phase>('draft');
   const [workflow, setWorkflow] = useState<Workflow>(EMPTY_WORKFLOW);
   const [artifact, setArtifact] = useState<SdkArtifact | null>(null);
+
+  // The WorkflowBuilder (draft phase) is several hundred px taller than
+  // the RuntimeSplit that replaces it on Run. Without an explicit scroll
+  // the page collapses and the viewport ends up pointing at content
+  // below the demo (the ROI calculator on /p/[slug]). Pull the demo
+  // back into view whenever the phase flips so the prospect actually
+  // sees the runtime stream + artifact strip.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const previousPhaseRef = useRef<Phase>(phase);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const previous = previousPhaseRef.current;
+    previousPhaseRef.current = phase;
+    if (previous === phase) return;
+    // Only scroll when entering the runtime states. Entering draft is
+    // either the initial mount (no scroll needed) or a manual reset
+    // (the user already chose to come back, don't yank them further).
+    if (phase !== 'running' && phase !== 'complete') return;
+    const node = wrapperRef.current;
+    if (!node) return;
+    // Wait for the layout reflow caused by the phase change to fully
+    // settle before initiating a smooth scroll. Without the timeout,
+    // the WorkflowBuilder is still in the process of unmounting when
+    // scrollIntoView is called, which collapses the smooth animation
+    // into an instant snap.
+    const t = setTimeout(() => {
+      node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   const script = useMemo(() => pickScript(workflow), [workflow]);
 
@@ -128,7 +158,7 @@ export function CursorSdkLiveDemo({ hero = true }: Props = {}) {
     workflow.excludedMcpIds.length > 0;
 
   return (
-    <div className="w-full">
+    <div ref={wrapperRef} className="w-full scroll-mt-24">
       {/* Inline control toolbar — replaces the page-level nav buttons so the
           demo is fully self-contained when embedded. Hidden in the draft
           phase if nothing has been touched yet (looks cleaner). */}

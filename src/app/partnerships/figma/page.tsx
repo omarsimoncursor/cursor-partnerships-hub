@@ -65,22 +65,33 @@ export default function FigmaPartnership() {
           <p data-figma-hero-text className="text-sm text-text-tertiary mb-4 max-w-lg mx-auto">
             Cursor is the central orchestration platform that bridges design and engineering through MCP integrations.
           </p>
-          <div data-figma-hero-text className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
+          <div data-figma-hero-text className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-4">
             <Link
-              href="/partnerships/figma/demo"
+              href="/partnerships/figma/journey"
               className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white transition-all duration-200"
               style={{
                 background: 'linear-gradient(135deg, #A259FF 0%, #6C3CE0 100%)',
                 boxShadow: '0 0 32px rgba(162,89,255,0.30)',
               }}
             >
-              Try the live design-drift demo
+              Walk the Figma × Cursor journey
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <span className="text-xs text-text-tertiary">
-              ~2 minute scripted run · click-to-trigger
-            </span>
+            <Link
+              href="/partnerships/figma/demo"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 border"
+              style={{
+                borderColor: 'rgba(162,89,255,0.4)',
+                color: '#A259FF',
+              }}
+            >
+              Or run the live design-drift demo
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
+          <p data-figma-hero-text className="text-xs text-text-tertiary mb-6">
+            Pick the journey for the 6-act story · pick the demo for the live MCP call
+          </p>
 
           <p data-figma-hero-text className="text-sm text-text-tertiary mb-12">
             Or scroll to experience the full workflow

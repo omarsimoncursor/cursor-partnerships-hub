@@ -1,12 +1,14 @@
 # Cursor Partnerships Hub
 
-**Reference deployment:** [cursorpartners.omarsimon.com](https://cursorpartners.omarsimon.com)
+**Reference deployment:** [cursor.omarsimon.com](https://cursor.omarsimon.com)
+
+> The legacy origin `cursorpartners.omarsimon.com` is still attached to the same Vercel project, so any demo URL that was already shared with a prospect keeps resolving. Newly-generated URLs use the new canonical domain.
 
 A collection of interactive co-sell demos that show, concretely, how Cursor transforms the tools enterprises already use into automated, agentic workflows. The headline feature is a **per-prospect personalized demo automation**: a ChatGTM workflow pushes a prospect's name + company + tech stack into this app's API, the app generates a password-gated demo branded for that account, and the URL + password come back synchronously for ChatGTM to paste into the outreach.
 
 ## Use this as your own template
 
-This repo is the **template every Cursor partnerships rep can fork**. You'll deploy your own copy to your own Vercel project at your own subdomain, point it at your own Neon database, and connect it to your own ChatGTM automation. The original author's deployment at `cursorpartners.omarsimon.com` is one instance — yours will be different.
+This repo is the **template every Cursor partnerships rep can fork**. You'll deploy your own copy to your own Vercel project at your own subdomain, point it at your own Neon database, and connect it to your own ChatGTM automation. The original author's deployment at `cursor.omarsimon.com` is one instance — yours will be different.
 
 The fastest path:
 
@@ -26,14 +28,14 @@ Each partner gets two routes:
 
 | Partner | Narrative page | Demo page |
 | --- | --- | --- |
-| ChatGTM personalized prospect demos | (internal) | [/p/<slug>](https://cursorpartners.omarsimon.com/p/) — password-gated, per-prospect, branded demo. See [docs/chatgtm-integration.md](docs/chatgtm-integration.md). |
-| Cursor SDK (security) | [/partnerships/cursor-sdk](https://cursorpartners.omarsimon.com/partnerships/cursor-sdk) | [/partnerships/cursor-sdk/demo](https://cursorpartners.omarsimon.com/partnerships/cursor-sdk/demo) (interactive builder) |
-| AWS | [/partnerships/aws](https://cursorpartners.omarsimon.com/partnerships/aws) | [/partnerships/aws/demo](https://cursorpartners.omarsimon.com/partnerships/aws/demo) and [/partnerships/aws/journey](https://cursorpartners.omarsimon.com/partnerships/aws/journey) (7-act) |
-| Databricks | [/partnerships/databricks](https://cursorpartners.omarsimon.com/partnerships/databricks) | [/partnerships/databricks/demo](https://cursorpartners.omarsimon.com/partnerships/databricks/demo) |
-| Datadog | [/partnerships/datadog](https://cursorpartners.omarsimon.com/partnerships/datadog) | [/partnerships/datadog/demo](https://cursorpartners.omarsimon.com/partnerships/datadog/demo) |
-| Figma | [/partnerships/figma](https://cursorpartners.omarsimon.com/partnerships/figma) | [/partnerships/figma/demo](https://cursorpartners.omarsimon.com/partnerships/figma/demo) |
-| Sentry | [/partnerships/sentry](https://cursorpartners.omarsimon.com/partnerships/sentry) | [/partnerships/sentry/demo](https://cursorpartners.omarsimon.com/partnerships/sentry/demo) |
-| Snowflake | [/partnerships/snowflake](https://cursorpartners.omarsimon.com/partnerships/snowflake) | [/partnerships/snowflake/demo](https://cursorpartners.omarsimon.com/partnerships/snowflake/demo) (7-act cinematic) |
+| ChatGTM personalized prospect demos | (internal) | [/p/<slug>](https://cursor.omarsimon.com/p/) — password-gated, per-prospect, branded demo. See [docs/chatgtm-integration.md](docs/chatgtm-integration.md). |
+| Cursor SDK (security) | [/partnerships/cursor-sdk](https://cursor.omarsimon.com/partnerships/cursor-sdk) | [/partnerships/cursor-sdk/demo](https://cursor.omarsimon.com/partnerships/cursor-sdk/demo) (interactive builder) |
+| AWS | [/partnerships/aws](https://cursor.omarsimon.com/partnerships/aws) | [/partnerships/aws/demo](https://cursor.omarsimon.com/partnerships/aws/demo) and [/partnerships/aws/journey](https://cursor.omarsimon.com/partnerships/aws/journey) (7-act) |
+| Databricks | [/partnerships/databricks](https://cursor.omarsimon.com/partnerships/databricks) | [/partnerships/databricks/demo](https://cursor.omarsimon.com/partnerships/databricks/demo) |
+| Datadog | [/partnerships/datadog](https://cursor.omarsimon.com/partnerships/datadog) | [/partnerships/datadog/demo](https://cursor.omarsimon.com/partnerships/datadog/demo) |
+| Figma | [/partnerships/figma](https://cursor.omarsimon.com/partnerships/figma) | [/partnerships/figma/demo](https://cursor.omarsimon.com/partnerships/figma/demo) |
+| Sentry | [/partnerships/sentry](https://cursor.omarsimon.com/partnerships/sentry) | [/partnerships/sentry/demo](https://cursor.omarsimon.com/partnerships/sentry/demo) |
+| Snowflake | [/partnerships/snowflake](https://cursor.omarsimon.com/partnerships/snowflake) | [/partnerships/snowflake/demo](https://cursor.omarsimon.com/partnerships/snowflake/demo) (7-act cinematic) |
 | GitHub, GitLab | Coming soon | — |
 
 ## Tech stack
@@ -86,7 +88,7 @@ curl -X POST $APP_ORIGIN/api/chatgtm/prospects \
   ]}'
 # Response (synchronous):
 # { "ok": true, "count": 2, "prospects": [
-#     { "url": "https://cursorpartners.omarsimon.com/p/<slug>", "password": "Jane3146", "build_status": "queued", ... },
+#     { "url": "https://cursor.omarsimon.com/p/<slug>", "password": "Jane3146", "build_status": "queued", ... },
 #     { "url": "...", "password": "Mark9277", "build_status": "queued", ... }
 # ] }
 # Background: the demo build (logo prefetch, brand-color match, ...) runs via Next.js after().
@@ -106,7 +108,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the scaffolding pattern. At a glanc
 
 ## Deployment
 
-Every push to `main` auto-deploys to Vercel at [cursorpartners.omarsimon.com](https://cursorpartners.omarsimon.com). Every PR gets a preview URL on its own subdomain for review.
+Every push to `main` auto-deploys to Vercel at [cursor.omarsimon.com](https://cursor.omarsimon.com) (the legacy [cursorpartners.omarsimon.com](https://cursorpartners.omarsimon.com) domain is still attached to the same project so older shared URLs keep resolving). Every PR gets a preview URL on its own subdomain for review.
 
 ## Repository conventions
 

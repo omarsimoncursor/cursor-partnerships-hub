@@ -34,7 +34,11 @@ flips to the demo as soon as the build finishes.
 
 ## API contract
 
-Base URL: `https://cursorpartners.omarsimon.com` (or the preview URL in PRs).
+Base URL: `https://cursor.omarsimon.com` (or the preview URL in PRs).
+
+> The legacy `https://cursorpartners.omarsimon.com` host is still attached to the same Vercel project so any prospect URL ChatGTM has already shared keeps resolving. New API calls and new generated URLs should use `cursor.omarsimon.com`.
+
+> Also see [`chatgtm-agent-instructions.md`](./chatgtm-agent-instructions.md) for copy-pasteable instructions to drop into each ChatGTM automation builder (Prospecting Blitz / Sequence Orchestrator / Reply Detector). This doc is the underlying API reference; the agent-instructions doc is the operational playbook.
 
 ### Authentication
 
@@ -123,7 +127,7 @@ Hard limit: **100 prospects per request** (`413 batch_too_large` past that). Seq
       "input_index": 0,
       "id": "435f3d87-9921-4d17-8297-efaa98796999",
       "slug": "ZlHiS8eq3M",
-      "url": "https://cursorpartners.omarsimon.com/p/ZlHiS8eq3M",
+      "url": "https://cursor.omarsimon.com/p/ZlHiS8eq3M",
       "password": "Jane3146",
       "level": "vp",
       "show_roi_calculator": true,
@@ -165,7 +169,7 @@ Each successful row carries an `input_index` so ChatGTM can correlate the result
   "ok": true,
   "id": "87ed9e1c-71bb-4d9a-a1dc-4fe961a4aed2",
   "slug": "i9Eyvj8me5",
-  "url": "https://cursorpartners.omarsimon.com/p/i9Eyvj8me5",
+  "url": "https://cursor.omarsimon.com/p/i9Eyvj8me5",
   "password": "Jane3146",
   "level": "vp",
   "show_roi_calculator": true,

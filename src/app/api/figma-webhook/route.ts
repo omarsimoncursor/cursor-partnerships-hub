@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * 1. Create a Figma webhook (POST https://api.figma.com/v2/webhooks):
  *      event_type: "FILE_UPDATE" (or LIBRARY_PUBLISH)
  *      team_id:    <your team id>
- *      endpoint:   https://cursorpartners.omarsimon.com/api/figma-webhook
+ *      endpoint:   https://cursor.omarsimon.com/api/figma-webhook
  *      passcode:   <random secret>
  * 2. Set FIGMA_WEBHOOK_PASSCODE to the same value.
  * 3. Set CURSOR_API_KEY to trigger Background Agents.

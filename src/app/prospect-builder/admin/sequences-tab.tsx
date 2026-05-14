@@ -4,23 +4,27 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Check,
   CheckCircle2,
+  ChevronRight,
   Circle,
   Copy,
   ExternalLink,
   Inbox,
+  Linkedin,
   Loader2,
   Mail,
   MailOpen,
+  Pencil,
   RefreshCw,
   Reply,
   Search,
   Send,
   X,
 } from 'lucide-react';
+import { SequenceEditModal, type EditableSequenceProspect } from './sequence-edit-modal';
 
 // Row shape returned by GET /api/chatgtm/prospects?include=opens.
-// Only the columns the dashboard actually renders are typed here;
-// extra fields on the wire are tolerated.
+// Only the columns the dashboard actually renders or sends back via
+// PATCH are typed here; extra fields on the wire are tolerated.
 type SequenceRow = {
   id: string;
   slug: string;
@@ -32,6 +36,9 @@ type SequenceRow = {
   classified_level: string | null;
   team: string | null;
   thread_id: string | null;
+  linkedin_url: string | null;
+  linkedin_draft: string | null;
+  mcp_detail: string | null;
   last_sequence_sent: number | null;
   last_email_send_date: string | null;
   next_email_send_date: string | null;
@@ -77,6 +84,79 @@ export function SequencesTab({ apiToken }: Props) {
   const [companyFilter, setCompanyFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<SequenceStatus | ''>('');
   const [openedOnly, setOpenedOnly] = useState(false);
+  const [editTarget, setEditTarget] = useState<SequenceRow | null>(null);
+  // Per-row "operation in flight" lock. Drives the spinner on the
+  // inline toggles + advance button so the rep can't double-click and
+  // create a race on the same row.
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
+
+  // Apply a partial update to a single row in local state. Used after
+  // a successful PATCH so the UI reflects the change without
+  // re-fetching the whole list.
+  const mergeRow = (id: string, patch: Partial<SequenceRow>) => {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  };
+
+  // Inline PATCH driver. Sends the patch via the strict outreach
+  // endpoint and merges the returned prospect into local state. Any
+  // server validation error gets surfaced via the inline-error
+  // banner above the table.
+  const patchProspect = async (id: string, patch: Record<string, unknown>) => {
+    setBusyId(id);
+    setInlineError(null);
+    try {
+      const res = await fetch(`/api/chatgtm/prospects/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiToken}`,
+        },
+        body: JSON.stringify(patch),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const fieldHint = typeof body?.field === 'string' ? `${body.field}: ` : '';
+        setInlineError(fieldHint + (body?.message || body?.detail || `Save failed (${res.status})`));
+        return;
+      }
+      const updated = body?.prospect as Partial<SequenceRow> | undefined;
+      if (updated) {
+        mergeRow(id, updated);
+      } else {
+        // The single-prospect PATCH always echoes the row back, but
+        // be defensive: drop straight to the local merge so the UI
+        // still reflects the user's intent.
+        mergeRow(id, patch as Partial<SequenceRow>);
+      }
+    } catch (err) {
+      setInlineError((err as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const todayUtc = () => new Date().toISOString().slice(0, 10);
+
+  // Toggle the replied flag. When turning replied on we also clear the
+  // would-be next-send (the API derives that anyway from
+  // last_sequence_sent + replied, so no extra payload needed).
+  const toggleReplied = (p: SequenceRow) => patchProspect(p.id, { replied: !p.replied });
+
+  const toggleLinkedinSent = (p: SequenceRow) =>
+    patchProspect(p.id, { linkedin_sent: !p.linkedin_sent });
+
+  // "Advance to next email" button: bumps last_sequence_sent by 1
+  // (capped at 6) and stamps last_email_send_date with today (UTC).
+  // This is the single most common action a rep takes on this tab,
+  // so a one-click affordance saves a lot of modal-clicking.
+  const advanceStep = (p: SequenceRow) => {
+    const next = Math.min(6, (p.last_sequence_sent ?? 0) + 1);
+    return patchProspect(p.id, {
+      last_sequence_sent: next,
+      last_email_send_date: todayUtc(),
+    });
+  };
 
   const load = async () => {
     if (!apiToken) return;
@@ -239,6 +319,28 @@ export function SequencesTab({ apiToken }: Props) {
         </div>
       )}
 
+      {inlineError && (
+        <div className="rounded-md border border-accent-red/40 bg-accent-red/5 px-3 py-2 text-sm text-accent-red mb-4 flex items-start justify-between gap-2">
+          <span>{inlineError}</span>
+          <button
+            onClick={() => setInlineError(null)}
+            className="p-0.5 text-accent-red hover:opacity-80"
+            aria-label="Dismiss error"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {editTarget && (
+        <SequenceEditModal
+          prospect={editTarget as EditableSequenceProspect}
+          apiToken={apiToken}
+          onClose={() => setEditTarget(null)}
+          onSaved={load}
+        />
+      )}
+
       {!loading && rows.length === 0 && (
         <div className="rounded-2xl border border-dashed border-dark-border p-10 text-center">
           <p className="text-sm text-text-secondary">
@@ -259,12 +361,21 @@ export function SequencesTab({ apiToken }: Props) {
                 <th className="text-left px-4 py-3">Next send</th>
                 <th className="text-left px-4 py-3">Thread</th>
                 <th className="text-left px-4 py-3">Demo opened</th>
-                <th className="text-right px-4 py-3">Demo</th>
+                <th className="text-left px-4 py-3">Flags</th>
+                <th className="text-right px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((p) => (
-                <SequenceRowView key={p.id} p={p} />
+                <SequenceRowView
+                  key={p.id}
+                  p={p}
+                  busy={busyId === p.id}
+                  onAdvance={() => advanceStep(p)}
+                  onToggleReplied={() => toggleReplied(p)}
+                  onToggleLinkedinSent={() => toggleLinkedinSent(p)}
+                  onEdit={() => setEditTarget(p)}
+                />
               ))}
             </tbody>
           </table>
@@ -280,7 +391,21 @@ export function SequencesTab({ apiToken }: Props) {
   );
 }
 
-function SequenceRowView({ p }: { p: SequenceRow }) {
+function SequenceRowView({
+  p,
+  busy,
+  onAdvance,
+  onToggleReplied,
+  onToggleLinkedinSent,
+  onEdit,
+}: {
+  p: SequenceRow;
+  busy: boolean;
+  onAdvance: () => void;
+  onToggleReplied: () => void;
+  onToggleLinkedinSent: () => void;
+  onEdit: () => void;
+}) {
   const status = statusOf(p);
   const opened = (p.unlocked_view_count ?? 0) > 0;
   const lastOpenedShort = opened && p.last_unlocked_at
@@ -298,6 +423,11 @@ function SequenceRowView({ p }: { p: SequenceRow }) {
   const nextDate = p.next_email_send_date;
   const overdue = nextDate != null && status === 'active' && nextDate <= today;
   const readyToSend = nextDate != null && status === 'not_started';
+
+  // The "advance" button is only useful when a next email is actually
+  // due. Disable it for replied / sequence-complete prospects so the
+  // affordance can't accidentally jump the state machine.
+  const canAdvance = !p.replied && (p.last_sequence_sent ?? 0) < 6;
 
   return (
     <tr className="border-b border-dark-border/60 hover:bg-dark-surface-hover transition-colors">
@@ -378,18 +508,109 @@ function SequenceRowView({ p }: { p: SequenceRow }) {
           </div>
         )}
       </td>
+      <td className="px-4 py-3 align-top">
+        <div className="flex flex-col gap-1.5">
+          <InlineToggle
+            label="Replied"
+            on={p.replied}
+            disabled={busy}
+            onClick={onToggleReplied}
+            accent="green"
+            icon={<Reply className="w-3 h-3" />}
+          />
+          <InlineToggle
+            label="LinkedIn"
+            on={p.linkedin_sent}
+            disabled={busy}
+            onClick={onToggleLinkedinSent}
+            accent="blue"
+            icon={<Linkedin className="w-3 h-3" />}
+          />
+        </div>
+      </td>
       <td className="px-4 py-3 align-top text-right">
-        <a
-          href={`/p/${p.slug}`}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-accent-blue hover:underline"
-        >
-          /p/{p.slug}
-          <ExternalLink className="w-3 h-3" />
-        </a>
+        <div className="inline-flex items-center gap-1 justify-end">
+          <button
+            type="button"
+            onClick={onAdvance}
+            disabled={busy || !canAdvance}
+            title={
+              canAdvance
+                ? `Mark Email ${(p.last_sequence_sent ?? 0) + 1} sent today`
+                : p.replied
+                ? 'Prospect already replied'
+                : 'Sequence complete'
+            }
+            className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-dark-border hover:border-accent-blue hover:text-accent-blue text-text-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+            +1<ChevronRight className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={busy}
+            title="Edit sequence state"
+            className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-dark-surface-hover transition-colors disabled:opacity-40"
+            aria-label="Edit sequence state"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <a
+            href={`/p/${p.slug}`}
+            target="_blank"
+            rel="noreferrer"
+            title="Open the personalized demo"
+            className="p-1.5 rounded text-text-tertiary hover:text-accent-blue transition-colors"
+            aria-label="Open demo"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </td>
     </tr>
+  );
+}
+
+function InlineToggle({
+  label,
+  on,
+  disabled,
+  onClick,
+  accent,
+  icon,
+}: {
+  label: string;
+  on: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  accent: 'green' | 'blue';
+  icon: React.ReactNode;
+}) {
+  // Visual: pill-shaped chip that's filled when on, outlined when
+  // off. Click flips it. Disabled state suppresses the hover paint
+  // so the rep doesn't think their click registered.
+  const onClass =
+    accent === 'green'
+      ? 'bg-accent-green/15 border-accent-green/40 text-accent-green'
+      : 'bg-accent-blue/15 border-accent-blue/40 text-accent-blue';
+  const offClass =
+    'border-dark-border text-text-tertiary hover:border-dark-border-hover hover:text-text-secondary';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      role="switch"
+      aria-checked={on}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+        on ? onClass : offClass
+      }`}
+    >
+      {icon}
+      {label}
+      {on && <Check className="w-3 h-3" />}
+    </button>
   );
 }
 

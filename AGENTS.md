@@ -50,7 +50,7 @@ There are exactly **two files** you need to edit. Both have `AGENT-EDITED` comme
 
 ### 2a. `src/lib/setup-config.ts`
 
-Set `bookDemoUrl` to the user's Calendly URL. Set `prospectTeamName` to their team name (defaults to "Cursor Partnerships" — usually fine to leave).
+Set `bookDemoUrl` to the user's Calendly URL. Set `prospectTeamName` to their team name (defaults to "Cursor Partnerships" — usually fine to leave). Set `canonicalOrigin` to `https://<their-domain>` — this is the build-baked default for the URL embedded in every API response (`url`, `demo_url`, `og:url`). The default `https://cursor.omarsimon.com` is the original author's deployment; the user's deployment must override it.
 
 ### 2b. `src/lib/prospect-store/company-seeds.ts`
 
@@ -116,7 +116,7 @@ In Vercel **Project → Settings → Environment Variables**, add the five secre
 | `DB_INIT_TOKEN` | (from step 3) | Production + Preview |
 | `DEMO_GATE_SECRET` | (from step 3) | Production + Preview |
 | `ADMIN_PASSWORD` | (from step 3) | Production + Preview |
-| `PUBLIC_APP_ORIGIN` | `https://<their-domain>` | Production |
+| `PUBLIC_APP_ORIGIN` *(optional)* | `https://<their-domain>` | Production. **Optional** — when unset, the build-baked `SETUP_CONFIG.canonicalOrigin` (from step 2a) is used in production. Set this var only when staging or pinning the canonical at runtime without a code change. |
 | `ADMIN_SESSION_SECRET` *(optional)* | `openssl rand -hex 32` — only if they want to rotate the admin session independently from `DEMO_GATE_SECRET` | Production |
 
 Then **Deployments → ⋯ on the latest deployment → Redeploy** **without** the build cache so the new env vars are baked into the build.
@@ -250,6 +250,6 @@ If all eight tick, the user is live. Congratulate them.
 | `/api/db/init` returns `db_not_configured` | Neon integration didn't inject env vars into Production scope | In Vercel env vars list, find a `*_DATABASE_URL` value, copy it to a plain `DATABASE_URL` (Production), redeploy |
 | `POST /api/chatgtm/prospects` returns 401 | Bearer token mismatch | Make sure ChatGTM and Vercel both have the same `CHATGTM_API_TOKEN` value |
 | Prospect demo loads but logo is missing | Logo.dev couldn't find the domain | Add the logo file to `public/logos/` and reference it from the vendor catalog |
-| Demo URLs use `localhost` or wrong host | `PUBLIC_APP_ORIGIN` missing or wrong | Set it to `https://<your-domain>` in Vercel, redeploy |
+| Demo URLs use `localhost` or wrong host | `SETUP_CONFIG.canonicalOrigin` not pointing at the deployment domain (or `PUBLIC_APP_ORIGIN` set to a stale value) | Update `canonicalOrigin` in `src/lib/setup-config.ts` to `https://<your-domain>` and redeploy. Or pin via the env var: `PUBLIC_APP_ORIGIN=https://<your-domain>` in Vercel + redeploy. |
 
 Every other failure should produce a JSON error body with a `detail` field. Read it before guessing.

@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 import { ScrollToTop } from '@/components/scroll-to-top';
+import { SETUP_CONFIG } from '@/lib/setup-config';
 import './globals.css';
 
-// Build-time origin used for the OG meta tag. We read PUBLIC_APP_ORIGIN
-// so that operators who deploy this template at their own subdomain
-// (or who flip the canonical from cursorpartners.omarsimon.com to
-// cursor.omarsimon.com) get a correct og:url without a code change.
-// Falls back to the new canonical so a fresh fork that hasn't set
-// the env var yet still renders a sensible value.
-const OG_URL = (process.env.PUBLIC_APP_ORIGIN || 'https://cursor.omarsimon.com').replace(/\/$/, '');
+// Build-time origin used for the OG meta tag. Priority:
+//   1. PUBLIC_APP_ORIGIN env var — runtime override, wins anywhere.
+//   2. SETUP_CONFIG.canonicalOrigin — build-baked default per fork.
+// originFromRequest() in api-auth.ts uses the same priority for the
+// URLs the API embeds in responses, so og:url and demo_url stay in
+// sync regardless of which host serves the request.
+const OG_URL = (process.env.PUBLIC_APP_ORIGIN || SETUP_CONFIG.canonicalOrigin).replace(/\/$/, '');
 
 export const metadata: Metadata = {
   title: 'Cursor Partnerships — Co-sell demos for strategic partners',

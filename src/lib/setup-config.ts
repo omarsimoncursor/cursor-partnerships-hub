@@ -34,6 +34,26 @@ export type SetupConfig = {
    * to avoid hammering the inbox.
    */
   sequenceCadenceDays: [number, number, number, number, number];
+
+  /**
+   * Canonical public origin for this deployment, e.g.
+   * `https://cursor.omarsimon.com`. Used as the build-baked default
+   * for `originFromRequest()` and the `og:url` meta tag — anything
+   * that turns a slug into a full URL. ChatGTM's POST/GET responses
+   * (`url`, `demo_url`) and the OG meta tag pick this up so the
+   * automation always writes the canonical host into outbound
+   * Gmail / LinkedIn drafts, even when traffic comes in via a
+   * legacy / secondary domain.
+   *
+   * Priority order at request time (see `originFromRequest()`):
+   *   1. `process.env.PUBLIC_APP_ORIGIN` — runtime override; wins
+   *      if set, useful for staging or per-deploy pinning.
+   *   2. `canonicalOrigin` — build-baked default, used in
+   *      production so URLs stay stable regardless of inbound host.
+   *   3. Request `Host` header — fallback for previews + local dev
+   *      so demo URLs in preview deployments self-link correctly.
+   */
+  canonicalOrigin: string;
 };
 
 export const SETUP_CONFIG: SetupConfig = {
@@ -47,4 +67,10 @@ export const SETUP_CONFIG: SetupConfig = {
   // default 3/4/5/6/7 means Email 2 is sent 3 days after Email 1,
   // Email 3 is 4 days after Email 2, etc.
   sequenceCadenceDays: [3, 4, 5, 6, 7],
+
+  // EDIT ME: the public canonical origin for your deployment. The
+  // ChatGTM API responses and the og:url meta tag fall back to this
+  // when PUBLIC_APP_ORIGIN env var isn't set. Format: scheme + host
+  // with no trailing slash.
+  canonicalOrigin: 'https://cursor.omarsimon.com',
 };

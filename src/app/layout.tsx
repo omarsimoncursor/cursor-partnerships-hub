@@ -12,11 +12,11 @@ import './globals.css';
 const OG_URL = (process.env.PUBLIC_APP_ORIGIN || SETUP_CONFIG.canonicalOrigin).replace(/\/$/, '');
 
 export const metadata: Metadata = {
-  title: 'Cursor Partnerships — Co-sell demos for strategic partners',
-  description: 'Interactive co-sell demos showing how Cursor transforms partner tools into automated, agentic workflows across Databricks, Datadog, Figma, Sentry, Snowflake, and AWS.',
+  title: 'Cursor — Agentic automation for the stacks you already run',
+  description: 'Cursor brings agentic automation to existing technology stacks. Run live workflows across Datadog, GitHub, Sentry, Snowflake, Databricks, AWS, GitLab, and Figma.',
   openGraph: {
-    title: 'Cursor Partnerships — Co-sell demos for strategic partners',
-    description: 'Interactive co-sell demos for Cursor\'s strategic partners.',
+    title: 'Cursor — Agentic automation for the stacks you already run',
+    description: 'Cursor brings agentic automation to existing technology stacks.',
     type: 'website',
     url: OG_URL,
   },

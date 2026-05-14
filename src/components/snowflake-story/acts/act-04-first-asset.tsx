@@ -1,273 +1,569 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ChapterStage } from '../chapter-stage';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, GitCommit, ShieldCheck, Terminal } from 'lucide-react';
+import { ChapterStage, ChapterHeader } from '../chapter-stage';
+import { CursorLogo } from '../cursor-logo';
+import { CalendarWidget } from '../time/calendar-widget';
+import { OverrideCard } from '../override-card';
+import { AccelerationTile } from '../acceleration-tile';
 import { ACTS, type ActComponentProps } from '../story-types';
-import { BteqToDbtMorph } from '../bteq-to-dbt-morph';
-import { TimelineScrubber } from '../timeline-scrubber';
-import { CharacterDialogue } from '../character-dialogue';
-import { CharacterAvatar } from '../character-avatar';
-import { FileCode2, GitBranch, Play, TestTube2, UserCircle2 } from 'lucide-react';
+import { ACT_TIMING } from '../data/script';
+import { DAILY_REVENUE_BTEQ, FCT_DAILY_REVENUE_DBT, DBT_PATCHES } from '../data/dbt-source';
 
-type Phase = 0 | 1 | 2 | 3 | 4;
+type Step = 'idle' | 'typing' | 'tests-running' | 'patch' | 'patched' | 'review' | 'complete';
 
-interface PhaseMeta {
-  id: Phase;
+const DBT_LINES = FCT_DAILY_REVENUE_DBT.split('\n');
+const DBT_LINE_COUNT = DBT_LINES.length;
+
+const BTEQ_HIGHLIGHTS: Array<{
+  atLine: number;
+  bteqStartLine: number;
+  bteqEndLine: number;
   label: string;
-  when: string;
-  title: string;
-  body: React.ReactNode;
-  morphProgress: number;
-  highlight: 'multiset' | 'qualify' | 'collect-stats' | 'date-math' | null;
-  icon: React.ReactNode;
-  accent: string;
-  dialogue: Array<{ who: 'maya' | 'cursor' | 'jordan'; text: string }>;
-}
-
-const PHASES: PhaseMeta[] = [
-  {
-    id: 0,
-    label: 'Plan',
-    when: 'T+14m',
-    title: 'Opus proposes. Maya reviews before a line of code.',
-    body: (
-      <p>
-        Opus drafts the modernization plan — target shape (staging + fct + 14 tests), idiom map,
-        verification strategy (Cortex semantic diff + 1% row-equivalence harness). The plan
-        posts to <span className="font-mono text-[#7DD3F5]">#data-platform</span> and pings Maya
-        before any code gets written.
-      </p>
-    ),
-    morphProgress: 0.08,
-    highlight: null,
-    icon: <FileCode2 className="w-3.5 h-3.5" />,
-    accent: '#7DD3F5',
-    dialogue: [
-      { who: 'cursor', text: 'Plan drafted. Staging CTE replaces MULTISET VOLATILE, QUALIFY stays native, COLLECT STATS drops out. Ready for your eyes, Maya.' },
-      { who: 'maya', text: "Hold. Banker's rounding, not half-up. Our finance reconciles monthly against BTEQ. Drop the CTE and use a transient for staging." },
-    ],
-  },
-  {
-    id: 1,
-    label: 'Translate',
-    when: 'T+1h 05m',
-    title: 'Composer rewrites the BTEQ as a Snowflake-native dbt model.',
-    body: (
-      <p>
-        Each Teradata-specific token rewrites to its Snowflake equivalent, token by token.
-        <span className="font-mono text-[#29B5E8]"> MULTISET VOLATILE</span> folds into a CTE,
-        <span className="font-mono text-[#29B5E8]"> QUALIFY</span> stays native,{' '}
-        <span className="font-mono text-[#29B5E8]"> COLLECT STATS</span> disappears (Snowflake
-        maintains micro-partition stats automatically).
-      </p>
-    ),
-    morphProgress: 0.55,
-    highlight: 'multiset',
-    icon: <GitBranch className="w-3.5 h-3.5" />,
-    accent: '#29B5E8',
-    dialogue: [
-      { who: 'cursor', text: 'Translated. Diff is ~180 lines of dbt. Adding the bankers_round macro now — it vectorizes cleanly on Snowflake.' },
-    ],
-  },
-  {
-    id: 2,
-    label: 'Human override',
-    when: 'T+1h 47m',
-    title: 'Maya intervenes. Cursor adapts.',
-    body: (
-      <p>
-        Maya notices the QUALIFY ordering differs subtly from the BTEQ — a tie-break on{' '}
-        <span className="font-mono text-[#F59E0B]">customer_id</span> the original script relied
-        on implicitly. Cursor adjusts the window spec and re-runs the plan against the 1% sample.
-      </p>
-    ),
-    morphProgress: 0.75,
-    highlight: 'qualify',
-    icon: <UserCircle2 className="w-3.5 h-3.5" />,
-    accent: '#F59E0B',
-    dialogue: [
-      { who: 'maya', text: "The QUALIFY ties break on customer_id in the original — add it to the ORDER BY or we'll see rank drift on the top-100 leaderboard." },
-      { who: 'cursor', text: 'Good catch. Adjusted the ORDER BY and re-ran on the 1% sample. Top-100 rank drift is still 0.' },
-    ],
-  },
-  {
-    id: 3,
-    label: 'Run',
-    when: 'T+2h 14m',
-    title: 'First successful dbt run on Snowflake.',
-    body: (
-      <p>
-        <span className="font-mono text-[#4ADE80]">
-          dbt run --select fct_daily_revenue --target dev
-        </span>
-        <br />
-        X-Small warehouse. 12.8s wall-clock. 14 tests compile. Cursor opens the Snowsight
-        workspace so Maya can inspect the DAG and the query profile.
-      </p>
-    ),
-    morphProgress: 0.95,
-    highlight: null,
-    icon: <Play className="w-3.5 h-3.5" />,
-    accent: '#4ADE80',
-    dialogue: [
-      { who: 'cursor', text: 'dbt run · 12.8s · 1 model, 0 errors. Opening Snowsight so you can see the DAG. Next: run the 14 tests.' },
-    ],
-  },
-  {
-    id: 4,
-    label: 'Test',
-    when: 'T+2h 38m',
-    title: '13 of 14 pass. Cursor diagnoses the one that fails — unprompted.',
-    body: (
-      <p>
-        <span className="font-mono text-[#F87171]">✗ not_null_currency_code (4 rows)</span>.
-        Cursor diagnoses: XOF (CFA franc) FX rates deprecated in 2023 — the legacy BTEQ was
-        silently dropping them. Cursor proposes a <span className="font-mono">deprecated_currencies.csv</span>{' '}
-        seed + explicit audit table so finance can hand-review instead of losing rows.
-      </p>
-    ),
-    morphProgress: 1,
-    highlight: 'date-math',
-    icon: <TestTube2 className="w-3.5 h-3.5" />,
-    accent: '#C084FC',
-    dialogue: [
-      { who: 'cursor', text: "Test failure: currency_code is NULL on 4 rows. Root cause: XOF FX rate deprecated 2023. Legacy BTEQ silently dropped them. Proposing a seed + audit table instead of a silent COALESCE — finance should see those." },
-      { who: 'maya', text: "Exactly right. I'd rather surface 4 rows in an exceptions table than lose them. Ship it." },
-    ],
-  },
+}> = [
+  { atLine: 4, bteqStartLine: 4, bteqEndLine: 7, label: 'config block' },
+  { atLine: 12, bteqStartLine: 8, bteqEndLine: 14, label: 'MULTISET VOLATILE → CTE' },
+  { atLine: 22, bteqStartLine: 17, bteqEndLine: 21, label: 'fx + deprecation filter' },
+  { atLine: 27, bteqStartLine: 24, bteqEndLine: 27, label: 'COLLECT STATS dropped' },
+  { atLine: 35, bteqStartLine: 36, bteqEndLine: 41, label: 'QUALIFY + bankers_round' },
 ];
 
-export function Act04FirstAsset({ onOpenArtifact }: ActComponentProps) {
+const ACT4_TYPING_MS = 8500;
+
+/**
+ * Act 4 · Build.
+ *
+ * Three panes: legacy BTEQ on the left, dbt being authored by Cursor in the
+ * middle, Codex-style review cards + reviewer approval on the right. A
+ * terminal strip at the bottom plays the dbt test runner. The viewer
+ * approves the build gate (2/4) once the reviewer signs off.
+ *
+ * Mirrors AWS journey Act 4&rsquo;s structure 1:1 with Snowflake-tinted content.
+ */
+export function Act04FirstAsset({ onAdvance }: ActComponentProps) {
   const act = ACTS[3];
-  const [phase, setPhase] = useState<Phase>(0);
+  const [typedLines, setTypedLines] = useState(0);
+  const [step, setStep] = useState<Step>('idle');
+  const [appliedPatches, setAppliedPatches] = useState<Set<number>>(new Set());
+  const [patchVisible, setPatchVisible] = useState(false);
+  const [testState, setTestState] = useState<{ passed: number; failing: boolean; total: number }>(
+    { passed: 0, failing: false, total: 14 },
+  );
 
+  // Author-from-top progressive typing
   useEffect(() => {
-    if (phase >= PHASES.length - 1) return;
-    const t = setTimeout(() => setPhase((p) => Math.min(4, p + 1) as Phase), 7000);
-    return () => clearTimeout(t);
-  }, [phase]);
+    setStep('typing');
+    const startAt = performance.now();
+    let raf = 0;
+    const tick = () => {
+      const elapsed = performance.now() - startAt;
+      const pct = Math.min(1, elapsed / ACT4_TYPING_MS);
+      const count = Math.floor(pct * DBT_LINE_COUNT);
+      setTypedLines(count);
+      if (pct < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
-  const meta = PHASES[phase];
+  // Sequenced reveals: typing -> tests -> patch comment -> applied -> reviewer
+  useEffect(() => {
+    const t1 = setTimeout(() => setStep('tests-running'), ACT_TIMING.act4TerminalStartMs);
+    const t2 = setTimeout(() => {
+      setStep('patch');
+      setPatchVisible(true);
+    }, ACT_TIMING.act4PatchCommentsMs);
+    const t3 = setTimeout(() => {
+      setAppliedPatches(new Set([35]));
+      setStep('patched');
+    }, ACT_TIMING.act4PatchCommentsMs + 1800);
+    const t4 = setTimeout(
+      () => setStep('review'),
+      ACT_TIMING.act4ReviewerApprovalMs,
+    );
+    return () => [t1, t2, t3, t4].forEach(clearTimeout);
+  }, []);
+
+  // Test runner — fails at test 8 (the rev_rank ordering), then recovers after patch
+  useEffect(() => {
+    if (step === 'idle' || step === 'typing') return;
+    let cancelled = false;
+    let passed = 0;
+    const tick = async () => {
+      const runTest = () =>
+        new Promise<void>((resolve) => {
+          setTimeout(() => {
+            if (cancelled) return resolve();
+            if (passed === 8 && !appliedPatches.has(35)) {
+              setTestState({ passed, failing: true, total: 14 });
+              setTimeout(() => {
+                if (cancelled) return resolve();
+                resolve();
+              }, 800);
+            } else {
+              passed += 1;
+              setTestState({ passed, failing: false, total: 14 });
+              resolve();
+            }
+          }, 220);
+        });
+      while (!cancelled && passed < 14) {
+        if (passed === 8 && !appliedPatches.has(35)) {
+          // wait for patch
+          await new Promise((r) => setTimeout(r, 200));
+          continue;
+        }
+        await runTest();
+      }
+    };
+    tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, appliedPatches]);
+
+  const bteqLines = useMemo(() => DAILY_REVENUE_BTEQ.split('\n'), []);
+  const activeBteqBand = useMemo(() => {
+    const lastTrigger = [...BTEQ_HIGHLIGHTS]
+      .reverse()
+      .find((h) => typedLines >= h.atLine);
+    return lastTrigger;
+  }, [typedLines]);
+
+  const reviewerVisible = step === 'review' || step === 'complete';
 
   return (
-    <ChapterStage act={act}>
-      <div className="relative z-10 px-6 md:px-12 pb-32 pt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-8 items-start">
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <span
-                className="inline-flex items-center gap-1.5 text-[10.5px] font-mono uppercase tracking-[0.2em] px-2 py-1 rounded-full border"
-                style={{
-                  color: meta.accent,
-                  borderColor: `${meta.accent}40`,
-                  background: `${meta.accent}10`,
-                }}
-              >
-                {meta.icon}
-                Phase {meta.id + 1} · {meta.label}
-              </span>
-              <span className="text-[11px] font-mono text-text-tertiary">{meta.when}</span>
-            </div>
+    <ChapterStage
+      act={act}
+      topRight={
+        <CalendarWidget
+          currentDay={3}
+          targetDay={5}
+          contextLabel="Build"
+          accent="#29B5E8"
+          darkMode
+        />
+      }
+    >
+      <ChapterHeader
+        act={act}
+        eyebrow="Cursor Cloud Agent rewrites 214 lines of Teradata BTEQ as a 132-line Snowflake-native dbt model. Codex auto-patches the rounding regression. The reviewer approves."
+      />
 
-            <h2 className="text-[22px] md:text-[28px] font-semibold text-text-primary leading-tight mb-2">
-              {meta.title}
-            </h2>
-            <div className="text-[13.5px] text-text-secondary mb-5 max-w-2xl leading-relaxed">
-              {meta.body}
-            </div>
-
-            <BteqToDbtMorph progress={meta.morphProgress} highlight={meta.highlight} />
-
-            <div className="mt-5">
-              <TimelineScrubber
-                value={phase}
-                max={PHASES.length - 1}
-                onChange={(n) => setPhase(n as Phase)}
-                stops={PHASES.map((p) => ({ value: p.id, label: p.label }))}
-                topLabel={
-                  <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-text-tertiary">
-                    Drag to revisit any phase of the 4-hour build
-                  </p>
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr_380px]">
+        <Pane
+          title="daily_revenue_rollup.bteq"
+          subtitle="Legacy · Teradata 17"
+          language="bteq"
+          lines={bteqLines}
+          highlightBand={
+            activeBteqBand
+              ? {
+                  start: activeBteqBand.bteqStartLine,
+                  end: activeBteqBand.bteqEndLine,
+                  label: activeBteqBand.label,
                 }
-              />
-            </div>
+              : null
+          }
+          maxHeight={520}
+        />
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => onOpenArtifact('snowsight')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#29B5E8] text-[#0A1419] font-semibold text-[12.5px] hover:bg-[#4FC3EE] transition-colors cursor-pointer shadow-[0_0_20px_rgba(41,181,232,0.35)]"
-              >
-                Open Snowsight · see the dbt run
-              </button>
-              <button
-                onClick={() => onOpenArtifact('triage')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/15 text-text-secondary hover:text-text-primary hover:bg-white/5 text-[12.5px] cursor-pointer"
-              >
-                Read the triage report
-              </button>
-              <p className="text-[10.5px] font-mono text-text-tertiary ml-auto">
-                artifact · Snowsight workspace <span className="text-[#7DD3F5]">(hero)</span>
+        <Pane
+          title="fct_daily_revenue.sql"
+          subtitle="authored by Cursor · dbt + Snowflake"
+          language="sql"
+          lines={DBT_LINES.slice(0, typedLines)}
+          cursorLine={typedLines}
+          patchedLines={appliedPatches}
+          patchReplacements={Object.fromEntries(
+            DBT_PATCHES.map((p) => [p.line, p.after]),
+          )}
+          maxHeight={520}
+          authorTag
+        />
+
+        <div className="flex flex-col gap-3">
+          <AccelerationTile taskId="translate-bteq" tone="dark" variant="card" />
+
+          <PatchCard
+            patch={DBT_PATCHES[0]}
+            visible={patchVisible}
+            applied={appliedPatches.has(35)}
+          />
+
+          <OverrideCard speaker="chen" tone="approve" visible={reviewerVisible} darkMode>
+            <div className="space-y-2">
+              <p>
+                <span className="font-semibold">14 / 14 tests green.</span> Diff is clean —
+                rounding macro + transient swap match the plan we approved in Act 3.
+              </p>
+              <p className="text-[12px] opacity-80">
+                Queueing for the Friday change window. Cursor — open the backfill subtask for
+                the 4 deprecated XOF rows before merge.
               </p>
             </div>
-          </div>
+          </OverrideCard>
 
-          <div className="flex flex-col gap-4 lg:sticky lg:top-24">
-            <CharacterDialogue
-              autoplay
-              maxVisible={3}
-              lines={meta.dialogue.map((d) => ({
-                character: d.who,
-                holdMs: 3600,
-                text: d.text,
-                time: meta.when,
-              }))}
-              key={`dialogue-${phase}`}
-            />
-
-            <div className="rounded-xl border border-white/10 bg-[#0A1221]/70 backdrop-blur p-4">
-              <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-[#7DD3F5] mb-2">
-                Phase ledger
-              </p>
-              <ul className="space-y-1.5 text-[12.5px]">
-                {PHASES.map((p) => {
-                  const done = p.id < phase;
-                  const active = p.id === phase;
-                  return (
-                    <li
-                      key={p.id}
-                      className="flex items-center gap-2"
-                      style={{
-                        color: active ? p.accent : done ? 'rgba(237,236,236,0.75)' : 'rgba(237,236,236,0.35)',
-                      }}
-                    >
-                      <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{
-                          background: active ? p.accent : done ? '#4ADE80' : 'rgba(237,236,236,0.25)',
-                          boxShadow: active ? `0 0 8px ${p.accent}` : 'none',
-                        }}
-                      />
-                      <span className="w-20 shrink-0 font-mono text-[10.5px] text-text-tertiary">
-                        {p.when}
-                      </span>
-                      <span className="flex-1">{p.label}</span>
-                      {done && <span className="text-[10.5px] text-[#4ADE80] font-mono">✓</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-[#0A1221]/50 backdrop-blur p-4 flex items-center gap-3">
-              <CharacterAvatar character="cursor" size="sm" />
-              <p className="text-[11.5px] text-text-secondary leading-relaxed">
-                Cursor paused twice for Maya&apos;s input. Every intervention is logged in the PR
-                body so Jordan can audit it later.
-              </p>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={onAdvance}
+            disabled={!reviewerVisible}
+            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ background: '#29B5E8', color: '#0D1117' }}
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Approve build (gate 2/4)
+            <span>→</span>
+          </button>
         </div>
       </div>
+
+      <TerminalStrip
+        active={step !== 'idle' && step !== 'typing'}
+        passed={testState.passed}
+        total={testState.total}
+        failing={testState.failing}
+        patched={appliedPatches.has(35)}
+      />
     </ChapterStage>
+  );
+}
+
+function Pane({
+  title,
+  subtitle,
+  language,
+  lines,
+  cursorLine,
+  patchedLines,
+  patchReplacements,
+  highlightBand,
+  maxHeight,
+  authorTag,
+}: {
+  title: string;
+  subtitle: string;
+  language: 'bteq' | 'sql';
+  lines: string[];
+  cursorLine?: number;
+  patchedLines?: Set<number>;
+  patchReplacements?: Record<number, string>;
+  highlightBand?: { start: number; end: number; label: string } | null;
+  maxHeight?: number;
+  authorTag?: boolean;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (cursorLine !== undefined && scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [cursorLine]);
+
+  useEffect(() => {
+    if (highlightBand && scrollRef.current) {
+      const top = Math.max(0, (highlightBand.start - 4) * 19);
+      scrollRef.current.scrollTo({ top, behavior: 'smooth' });
+    }
+  }, [highlightBand?.start]);
+
+  return (
+    <div
+      className="flex flex-col overflow-hidden rounded-lg border"
+      style={{ background: '#0D1117', borderColor: 'rgba(125,211,245,0.15)' }}
+    >
+      <div
+        className="flex items-center gap-2 border-b px-3 py-2 font-mono text-[11px]"
+        style={{
+          background: '#161B22',
+          borderColor: 'rgba(255,255,255,0.08)',
+          color: '#E6EDF3',
+        }}
+      >
+        {authorTag ? (
+          <CursorLogo size={14} tone="dark" />
+        ) : (
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${
+              language === 'bteq' ? 'bg-amber-400' : 'bg-cyan-400'
+            }`}
+          />
+        )}
+        <span className="font-semibold">{title}</span>
+        <span className="opacity-50">· {subtitle}</span>
+        {highlightBand && (
+          <span className="ml-auto rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-amber-300">
+            {highlightBand.label}
+          </span>
+        )}
+      </div>
+
+      <div
+        ref={scrollRef}
+        className="relative flex-1 overflow-y-auto px-1 font-mono text-[12px] leading-[19px]"
+        style={{ maxHeight: maxHeight ?? 520, color: '#E6EDF3' }}
+      >
+        {lines.map((line, i) => {
+          const lineNumber = i + 1;
+          const inBand =
+            highlightBand &&
+            lineNumber >= highlightBand.start &&
+            lineNumber <= highlightBand.end;
+          const isPatched = patchedLines?.has(lineNumber) ?? false;
+          const displayLine =
+            isPatched && patchReplacements?.[lineNumber] ? patchReplacements[lineNumber] : line;
+          return (
+            <div
+              key={i}
+              className="flex gap-3 px-2 transition-colors"
+              style={{
+                background: inBand
+                  ? 'rgba(251, 191, 36, 0.1)'
+                  : isPatched
+                    ? 'rgba(125, 211, 245, 0.12)'
+                    : 'transparent',
+                borderLeft: inBand
+                  ? '2px solid #FBBF24'
+                  : isPatched
+                    ? '2px solid #29B5E8'
+                    : '2px solid transparent',
+              }}
+            >
+              <span
+                className="shrink-0 select-none text-right"
+                style={{ color: 'rgba(230,237,243,0.3)', width: 28 }}
+              >
+                {lineNumber}
+              </span>
+              <span className="flex-1 whitespace-pre">
+                <SyntaxLine line={displayLine} language={language} />
+              </span>
+            </div>
+          );
+        })}
+        {cursorLine !== undefined && cursorLine < DBT_LINE_COUNT && (
+          <div className="px-2 pl-[44px]">
+            <span
+              className="inline-block h-[13px] w-[7px] align-middle"
+              style={{ background: '#29B5E8', animation: 'blink 1.1s steps(2, start) infinite' }}
+            />
+          </div>
+        )}
+        <style jsx>{`
+          @keyframes blink {
+            to {
+              background: transparent;
+            }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
+/** Lightweight token highlighter — sufficient for the demo. */
+function SyntaxLine({ line, language }: { line: string; language: 'bteq' | 'sql' }) {
+  if (line.trim().startsWith('--') || line.trim().startsWith('.')) {
+    return <span style={{ color: '#8B949E', fontStyle: 'italic' }}>{line}</span>;
+  }
+  const keywords =
+    language === 'sql'
+      ? /\b(with|as|select|from|join|on|where|group by|qualify|order by|partition by|count|sum|distinct|rank|row_number|case|when|then|else|end|materialized|incremental|merge|append_new_columns|transient|true)\b/gi
+      : /\b(CREATE|MULTISET|VOLATILE|TABLE|ON COMMIT|PRESERVE ROWS|AS|WITH DATA|SELECT|FROM|JOIN|ON|WHERE|GROUP BY|SUM|COUNT|DISTINCT|RANK|ROW_NUMBER|PARTITION BY|ORDER BY|QUALIFY|INSERT INTO|COLLECT STATISTICS|COLUMN|BETWEEN|AND|DATE)\b/g;
+  const strings = /("[^"]*"|'[^']*'|`[^`]*`)/g;
+  const jinja = /(\{\{[^}]*\}\}|\{%[^%]*%\})/g;
+
+  const pieces: Array<{ text: string; type: 'keyword' | 'str' | 'jinja' | 'plain' }> = [];
+  let last = 0;
+  const regex = new RegExp(`${strings.source}|${jinja.source}|${keywords.source}`, 'gi');
+  let m;
+  while ((m = regex.exec(line)) !== null) {
+    if (m.index > last) pieces.push({ text: line.slice(last, m.index), type: 'plain' });
+    const tok = m[0];
+    if (/^["'`]/.test(tok)) pieces.push({ text: tok, type: 'str' });
+    else if (tok.startsWith('{{') || tok.startsWith('{%'))
+      pieces.push({ text: tok, type: 'jinja' });
+    else pieces.push({ text: tok, type: 'keyword' });
+    last = m.index + tok.length;
+  }
+  if (last < line.length) pieces.push({ text: line.slice(last), type: 'plain' });
+
+  return (
+    <>
+      {pieces.map((p, i) => {
+        switch (p.type) {
+          case 'keyword':
+            return (
+              <span key={i} style={{ color: '#FF7B72' }}>
+                {p.text}
+              </span>
+            );
+          case 'str':
+            return (
+              <span key={i} style={{ color: '#A5D6FF' }}>
+                {p.text}
+              </span>
+            );
+          case 'jinja':
+            return (
+              <span key={i} style={{ color: '#D2A8FF' }}>
+                {p.text}
+              </span>
+            );
+          default:
+            return <span key={i}>{p.text}</span>;
+        }
+      })}
+    </>
+  );
+}
+
+function PatchCard({
+  patch,
+  visible,
+  applied,
+}: {
+  patch: { line: number; summary: string; detail: string };
+  visible: boolean;
+  applied: boolean;
+}) {
+  return (
+    <div
+      className="rounded-lg border p-3 text-[12px] transition-all duration-500"
+      style={{
+        background: applied ? 'rgba(125, 211, 245, 0.06)' : 'rgba(234, 179, 8, 0.06)',
+        borderColor: applied ? 'rgba(125, 211, 245, 0.3)' : 'rgba(234, 179, 8, 0.35)',
+        color: '#E6EDF3',
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateX(0)' : 'translateX(16px)',
+      }}
+    >
+      <div
+        className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider"
+        style={{ color: applied ? '#29B5E8' : '#FBBF24' }}
+      >
+        <GitCommit className="h-3 w-3" />
+        Codex review · line {patch.line}
+        {applied && (
+          <span className="ml-auto flex items-center gap-1 text-[10px]">
+            <Check className="h-3 w-3" /> patched
+          </span>
+        )}
+      </div>
+      <div
+        className="text-[12px] font-semibold"
+        // patch.summary contains an HTML entity (&rsquo;) we want to render
+        dangerouslySetInnerHTML={{ __html: patch.summary }}
+      />
+      <p
+        className="mt-1 text-[11px] opacity-80"
+        dangerouslySetInnerHTML={{ __html: patch.detail }}
+      />
+    </div>
+  );
+}
+
+function TerminalStrip({
+  active,
+  passed,
+  total,
+  failing,
+  patched,
+}: {
+  active: boolean;
+  passed: number;
+  total: number;
+  failing: boolean;
+  patched: boolean;
+}) {
+  return (
+    <div
+      className="mt-4 overflow-hidden rounded-lg border"
+      style={{ background: '#010409', borderColor: 'rgba(125,211,245,0.15)' }}
+    >
+      <div
+        className="flex items-center gap-2 border-b px-3 py-1.5 font-mono text-[11px]"
+        style={{ background: '#161B22', borderColor: 'rgba(255,255,255,0.06)', color: '#8B949E' }}
+      >
+        <Terminal className="h-3 w-3" />
+        <span>integration-tests · dbt test</span>
+        <span className="ml-auto text-[10px] opacity-60">{active ? 'running' : 'idle'}</span>
+      </div>
+      <div
+        className="px-4 py-3 font-mono text-[11px] leading-5"
+        style={{ color: '#E6EDF3' }}
+      >
+        {!active && <div className="opacity-50">$ _</div>}
+        {active && (
+          <>
+            <div style={{ color: '#7DD3F5' }}>
+              $ dbt test --select fct_daily_revenue
+            </div>
+            <div className="opacity-70">PASS unique_fct_daily_revenue_grain</div>
+            <div className="opacity-70">PASS not_null_revenue_usd</div>
+            <div className="opacity-70">PASS positive_orders_count</div>
+            <div>
+              <span style={{ color: failing ? '#F87171' : '#7DD3F5' }}>
+                {failing ? '⚠ FAIL' : '✓ PASS'}
+              </span>{' '}
+              <span className="opacity-80">
+                {failing
+                  ? 'fct_daily_revenue_top_100_rank_drift  — bankers_round needed'
+                  : patched
+                    ? 'fct_daily_revenue_top_100_rank_drift  — patched & re-ran (green)'
+                    : 'fct_daily_revenue suite progressing…'}
+              </span>
+            </div>
+            <div className="mt-1">
+              <span style={{ color: '#58A6FF' }}>Tests:</span>{' '}
+              <span style={{ color: '#7DD3F5' }}>{passed} passed</span>
+              <span className="opacity-60">
+                , {failing ? '1 failing (auto-recovering)' : '0 failing'}, {total - passed}{' '}
+                pending
+              </span>
+            </div>
+            <ProgressBar passed={passed} total={total} failing={failing} />
+            {passed === total && (
+              <div className="mt-1" style={{ color: '#7DD3F5' }}>
+                ✓ All 14 tests passed ·{' '}
+                <span className="opacity-70">
+                  warehouse XS · wall-clock 12.8s · Δ rows 0
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProgressBar({
+  passed,
+  total,
+  failing,
+}: {
+  passed: number;
+  total: number;
+  failing: boolean;
+}) {
+  return (
+    <div className="mt-2 flex gap-[2px]">
+      {Array.from({ length: total }).map((_, i) => (
+        <div
+          key={i}
+          className="h-1.5 flex-1 transition-all"
+          style={{
+            background:
+              i < passed
+                ? '#7DD3F5'
+                : i === passed && failing
+                  ? '#F87171'
+                  : 'rgba(139,148,158,0.2)',
+          }}
+        />
+      ))}
+    </div>
   );
 }

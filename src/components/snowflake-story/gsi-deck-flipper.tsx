@@ -83,18 +83,19 @@ export function GsiDeckFlipper({ className = '' }: { className?: string }) {
       ),
     },
     {
-      chip: 'Outcome — AE reads between the lines',
-      title: 'Snowflake credits start flowing in month 40',
+      chip: 'What it means for Acme',
+      title: 'No Snowflake workload in production until month 40',
       body: (
         <div className="space-y-3 text-[13px] text-white/80 leading-relaxed">
           <p>
-            With dual-run, no production assets land on Snowflake until UAT wraps in month 40. For
-            Samira Chen, that&apos;s 40 months of zero quota retirement on the Acme account.
+            With dual-run, no production assets land on Snowflake until UAT wraps in month 40.
+            That&apos;s three years and four months of paying for both stacks before any new
+            workload runs on the new platform.
           </p>
           <div className="mt-2 rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2">
             <p className="text-[12px] text-red-300 font-semibold flex items-center gap-2">
               <AlertOctagon className="w-3.5 h-3.5" />
-              Snowflake AE impact: no credits for 3.3 years
+              Modernization stalled · standstill with a line item
             </p>
           </div>
         </div>
@@ -181,7 +182,7 @@ export function GsiDeckFlipper({ className = '' }: { className?: string }) {
           </p>
         </div>
         <p className="text-[10.5px] text-red-300/80 font-mono mt-1.5 ml-5">
-          Dana Whitaker · CFO · Tuesday 4:18pm
+          CFO · Wednesday 11:02am
         </p>
       </div>
 

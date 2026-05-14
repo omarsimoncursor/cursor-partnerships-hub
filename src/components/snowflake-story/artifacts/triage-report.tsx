@@ -46,14 +46,14 @@ collaboratively-reviewed asset at sub-$10 in compute credits.
 
 ## Iteration log
 
-1. **Plan review (Maya)** — 3 comments: banker's rounding vs half-up, late-arriving FX retry
-   window, \`ON COMMIT\` CTE scope was unclear. Cursor applied all three in one patch batch and
-   re-ran the row-equivalence harness. **Δ still 0.**
-2. **PR review iteration (Jordan)** — dbt \`not_null\` test failed on \`currency_code\` for 4
-   rows. Root cause: XOF (CFA franc) FX rate deprecated in 2023; legacy BTEQ silently dropped
-   them. Cursor added a \`seeds/deprecated_currencies.csv\` + explicit exception audit table
-   (\`exceptions/deprecated_fx.sql\`) so finance can hand-review instead of data vanishing.
-   14 / 14 tests pass after fix.
+1. **Plan review (Principal Data Engineer)** — 3 comments: banker's rounding vs half-up,
+   late-arriving FX retry window, \`ON COMMIT\` CTE scope was unclear. Cursor applied all three
+   in one patch batch and re-ran the row-equivalence harness. **Δ still 0.**
+2. **PR review iteration (Senior Data Engineer)** — dbt \`not_null\` test failed on
+   \`currency_code\` for 4 rows. Root cause: XOF (CFA franc) FX rate deprecated in 2023; legacy
+   BTEQ silently dropped them. Cursor added a \`seeds/deprecated_currencies.csv\` + explicit
+   exception audit table (\`exceptions/deprecated_fx.sql\`) so finance can hand-review instead of
+   data vanishing. 14 / 14 tests pass after fix.
 
 ## Verification (this asset)
 
@@ -67,14 +67,14 @@ collaboratively-reviewed asset at sub-$10 in compute credits.
 
 | Phase | Time | Who |
 | --- | --- | --- |
-| Opus triage (reads BTEQ + T-SQL + Informatica) | 14m | agent |
+| Cursor triage (reads BTEQ + T-SQL + Informatica) | 14m | agent |
 | Plan drafted + posted | 6m | agent |
-| Maya reviews plan | 20m | human |
-| Composer edits · dbt models + Snowpark proc + macros | 37m | agent |
+| Principal reviews plan | 20m | human |
+| Cursor edits · dbt models + Snowpark proc + macros | 37m | agent |
 | dbt compile + first test run (iteration 1) | 12m | agent |
-| Jordan PR review · round 1 | 28m | human |
+| Senior Data Engineer PR review · round 1 | 28m | human |
 | Cursor patches rounding + FX retry + transient | 28m | agent |
-| Jordan PR review · round 2 (dbt XOF failure) | 35m | human |
+| Senior Data Engineer PR review · round 2 (dbt XOF failure) | 35m | human |
 | Cursor patches deprecated_currencies seed | 21m | agent |
 | Cortex re-verify + row-equivalence harness | 24m | agent |
 | Final reviewer approval · queued for change window | 24m | human |

@@ -1,46 +1,99 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { SceneImage } from './scene-image';
 import type { ActMeta } from './story-types';
 
 interface ChapterStageProps {
   act: ActMeta;
+  /** Optional widget pinned to the top-right (calendar / week bar). */
+  topRight?: ReactNode;
   children: ReactNode;
-  hideScene?: boolean;
+  contentClassName?: string;
 }
 
-export function ChapterStage({ act, children, hideScene = false }: ChapterStageProps) {
+/**
+ * Standard full-viewport shell used by every Snowflake act. Mirrors the AWS
+ * journey&rsquo;s ActShell almost line-for-line so the two stories share a
+ * vocabulary: per-act background tone, optional top-right time widget, and a
+ * generous content area with consistent paddings.
+ */
+export function ChapterStage({
+  act,
+  topRight,
+  children,
+  contentClassName,
+}: ChapterStageProps) {
+  const { theme } = act;
+  const isGradient = theme.bg.startsWith('linear-gradient');
+
   return (
-    <section className="relative w-full min-h-[100vh] flex flex-col">
-      {!hideScene && (
-        <SceneImage
-          src={act.sceneImage}
-          dominantColor={act.dominantColor}
-          moodColor={act.moodColor}
-          alt={`${act.title} — establishing shot`}
+    <section
+      className="relative min-h-screen w-full"
+      style={{
+        background: theme.bg,
+        color: theme.text,
+        paddingTop: 56,
+      }}
+      data-act={act.id}
+    >
+      {!isGradient && (
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse 80% 50% at 50% 0%, ${theme.primary}11, transparent 60%)`,
+          }}
         />
       )}
-      <div className="relative z-10 flex flex-col">
-        <div className="px-8 md:px-12 pt-24 md:pt-28">
-          <div className="flex items-center gap-3 mb-1.5">
-            <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-[#7DD3F5]">
-              Act {act.number.toString().padStart(2, '0')}
-            </span>
-            <span className="h-px w-8 bg-[#29B5E8]/40" />
-            <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-text-tertiary">
-              {act.duration}
-            </span>
-          </div>
-          <h1 className="text-3xl md:text-5xl font-semibold text-text-primary leading-tight tracking-tight">
-            {act.title}
-          </h1>
-          <p className="text-sm md:text-base text-text-secondary mt-2 max-w-xl">
-            {act.subtitle}
-          </p>
+      {topRight && (
+        <div className="pointer-events-auto absolute right-6 top-[68px] z-20 md:right-8">
+          {topRight}
         </div>
+      )}
+      <div
+        className={`relative mx-auto max-w-7xl px-6 pb-28 pt-8 md:px-10 ${contentClassName ?? ''}`}
+      >
+        {children}
       </div>
-      <div className="relative z-10 flex-1 flex flex-col">{children}</div>
     </section>
+  );
+}
+
+/**
+ * Standard act header. Big, opinionated, argues a case in one sentence.
+ * Mirrors the AWS journey ActHeader.
+ */
+export function ChapterHeader({
+  act,
+  eyebrow,
+}: {
+  act: ActMeta;
+  eyebrow?: string;
+}) {
+  const { theme } = act;
+  return (
+    <header className="mb-8 flex flex-wrap items-baseline justify-between gap-3">
+      <div>
+        <div
+          className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em]"
+          style={{ color: theme.primary }}
+        >
+          Act {act.number} · {theme.moodLabel ?? ''}
+        </div>
+        <h1
+          className="text-3xl font-bold md:text-4xl"
+          style={{ color: theme.text }}
+        >
+          {act.title}
+        </h1>
+        {eyebrow && (
+          <p
+            className="mt-1 max-w-3xl text-sm md:text-[15px] leading-snug"
+            style={{ color: theme.muted }}
+          >
+            {eyebrow}
+          </p>
+        )}
+      </div>
+    </header>
   );
 }

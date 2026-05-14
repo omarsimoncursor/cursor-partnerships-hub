@@ -1,117 +1,255 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChapterStage } from '../chapter-stage';
-import { ACTS, type ActComponentProps } from '../story-types';
+import { Activity, ShieldCheck, TrendingUp } from 'lucide-react';
+import { ChapterStage, ChapterHeader } from '../chapter-stage';
+import { CursorLogo } from '../cursor-logo';
+import { CalendarWidget } from '../time/calendar-widget';
+import { OverrideCard } from '../override-card';
+import { AccelerationTile } from '../acceleration-tile';
 import { CortexEquivalenceViz } from '../cortex-equivalence-viz';
-import { PrReviewThread } from '../pr-review-thread';
-import { CharacterAvatar } from '../character-avatar';
-import { Sparkles } from 'lucide-react';
+import { ACTS, type ActComponentProps } from '../story-types';
+import { ACT_TIMING } from '../data/script';
 
-export function Act05ProofAndReview({ onOpenArtifact }: ActComponentProps) {
+const SCENE_DURATION_MS = 11_000;
+const VERIFY_PROGRESS_MS = ACT_TIMING.act5VerifyDurationMs;
+const FINOPS_SHOWN_AT_MS = ACT_TIMING.act5FinopsApprovalMs;
+
+/**
+ * Act 5 · Verify.
+ *
+ * Cursor runs the new dbt model in parallel with Teradata over a 1% sample,
+ * then Snowflake Cortex looks for semantic drift the row-level diff
+ * can&rsquo;t catch. Equivalence proves out, the FinOps lead approves the credit
+ * budget (gate 3/4), and the viewer advances to cutover.
+ *
+ * Mirrors AWS journey Act 5 — same metric tiles + load-test viz pattern, but
+ * tuned to data-platform metrics (row delta, USD delta, semantic drift).
+ */
+export function Act05ProofAndReview(props: ActComponentProps) {
+  const { onAdvance } = props;
   const act = ACTS[4];
+  const [elapsed, setElapsed] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [finopsVisible, setFinopsVisible] = useState(false);
 
   useEffect(() => {
-    if (progress >= 1) return;
-    const t = setTimeout(() => setProgress((p) => Math.min(1, p + 0.08)), 420);
+    const start = performance.now();
+    let raf = 0;
+    const tick = () => {
+      const t = performance.now() - start;
+      setElapsed(t);
+      const pct = Math.min(1, t / VERIFY_PROGRESS_MS);
+      setProgress(pct);
+      if (t < SCENE_DURATION_MS) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setFinopsVisible(true), FINOPS_SHOWN_AT_MS);
     return () => clearTimeout(t);
-  }, [progress]);
+  }, []);
+
+  const rowsCompared = Math.round(progress * 14_017);
+  const usdDelta = progress > 0.6 ? '$0.00' : '—';
+  const cortexVerdict = progress > 0.88 ? 'no drift' : 'analyzing…';
 
   return (
-    <ChapterStage act={act}>
-      <div className="relative z-10 px-6 md:px-12 pb-32 pt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-8 items-start">
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <Sparkles className="w-4 h-4 text-[#29B5E8]" />
-              <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-[#7DD3F5]">
-                Friday 12:22pm · 1% row-equivalence + Cortex semantic diff
-              </span>
-            </div>
-            <h2 className="text-[24px] md:text-[30px] font-semibold text-text-primary leading-tight mb-2">
-              Two data streams flow in. One verdict comes out.
-            </h2>
-            <p className="text-[14px] text-text-secondary mb-5 max-w-2xl leading-relaxed">
-              Teradata&apos;s output and the new Snowflake dbt model run in parallel over a 1%
-              sample. Every row, every currency conversion, every top-10 rank is compared.
-              Cortex AI reads both model descriptions and looks for semantic drift that
-              row-level diffs can&apos;t catch.
-            </p>
+    <ChapterStage
+      act={act}
+      topRight={
+        <CalendarWidget
+          currentDay={5}
+          targetDay={11}
+          contextLabel="Verify"
+          accent="#A78BFA"
+          darkMode
+        />
+      }
+    >
+      <ChapterHeader
+        act={act}
+        eyebrow="Cursor runs both stacks in parallel on a 1% sample. Snowflake Cortex catches semantic drift the row-level diff can&rsquo;t. The FinOps lead signs off on the credit budget."
+      />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <MetricTile
+          label="rows compared"
+          value={rowsCompared.toLocaleString()}
+          color="#7DD3F5"
+          mono
+        />
+        <MetricTile
+          label="row Δ"
+          value={progress > 0.4 ? '0' : '—'}
+          color={progress > 0.4 ? '#7EE787' : '#A78BFA'}
+        />
+        <MetricTile
+          label="ΣUSD Δ"
+          value={usdDelta}
+          color={progress > 0.6 ? '#7EE787' : '#A78BFA'}
+        />
+        <MetricTile
+          label="Cortex verdict"
+          value={cortexVerdict}
+          color={progress > 0.88 ? '#7EE787' : '#A78BFA'}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_420px]">
+        <div
+          className="relative flex flex-col overflow-hidden rounded-xl border"
+          style={{
+            minHeight: 360,
+            background:
+              'radial-gradient(circle at center, rgba(167,139,250,0.06) 0%, transparent 70%)',
+            borderColor: 'rgba(167,139,250,0.18)',
+          }}
+        >
+          <div
+            className="flex items-center gap-2 border-b px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
+            style={{ borderColor: 'rgba(167,139,250,0.18)', color: '#A78BFA' }}
+          >
+            <CursorLogo size={14} tone="dark" />
+            Cursor Cloud Agent · equivalence harness
+          </div>
+
+          <div className="flex-1 p-4">
             <CortexEquivalenceViz progress={progress} />
+          </div>
 
-            <div className="mt-5 rounded-xl border border-white/10 bg-[#0A1221]/70 backdrop-blur p-4">
-              <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-[#7DD3F5] mb-2">
-                Proof artifacts
+          <div
+            className="border-t px-4 py-2 font-mono text-[11px]"
+            style={{ borderColor: 'rgba(167,139,250,0.18)', color: 'rgba(243,244,246,0.65)' }}
+          >
+            t+{Math.round(elapsed / 1000)}s · 1% sample · Snowflake Cortex semantic diff +
+            row-level harness
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <AccelerationTile taskId="cortex-verify" tone="dark" variant="strip" />
+          <AccelerationTile taskId="finops-brief" tone="dark" variant="strip" />
+
+          <OverrideCard speaker="davis" tone="approve" visible={finopsVisible} darkMode>
+            <div className="space-y-2">
+              <p>
+                <span className="font-semibold">
+                  $0.30 / day in credits against $5.9M / yr in TCO swing — approve.
+                </span>
               </p>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <ProofTile label="Row Δ" value="0" active={progress > 0.4} />
-                <ProofTile label="ΣUSD Δ" value="$0.00" active={progress > 0.6} />
-                <ProofTile label="Cortex" value="no drift" active={progress > 0.88} />
-              </div>
+              <p className="text-[12px] opacity-85">
+                Wiring the daily revenue mart into the FinOps dashboard with a kill-switch at
+                3× projected credits. Cursor — open the dashboard ticket.
+              </p>
             </div>
-          </div>
+          </OverrideCard>
 
-          <div className="flex flex-col gap-4 lg:sticky lg:top-24">
-            <div className="flex items-center gap-3">
-              <CharacterAvatar character="jordan" size="sm" />
-              <div>
-                <p className="text-[11.5px] text-text-secondary">
-                  <span className="text-[#A78BFA] font-semibold">Jordan Park</span> opens PR #318
-                  from Raleigh. He&apos;s shipped 40+ reviews this quarter.
-                </p>
-              </div>
-            </div>
+          <RunCostTile visible={finopsVisible} />
 
-            <PrReviewThread autoplay onOpenPr={() => onOpenArtifact('pr')} />
-
-            <div className="rounded-xl border border-[#0052CC]/30 bg-[#0052CC]/5 px-4 py-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded bg-[#0052CC] flex items-center justify-center text-white font-bold text-[12px]">
-                J
-              </div>
-              <div className="flex-1">
-                <p className="text-[11px] font-mono uppercase tracking-wider text-[#82B1FF] mb-0.5">
-                  Jira · CUR-5202
-                </p>
-                <p className="text-[13px] text-text-primary">
-                  Ticket timeline shows every review cycle, comment, and iteration.
-                </p>
-              </div>
-              <button
-                onClick={() => onOpenArtifact('jira')}
-                className="px-3 py-1.5 rounded-full bg-[#0052CC] text-white text-[11.5px] font-semibold hover:bg-[#0A6DDE] cursor-pointer"
-              >
-                Open Jira ticket
-              </button>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={onAdvance}
+            disabled={!finopsVisible}
+            className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ background: '#29B5E8', color: '#060A12' }}
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Approve FinOps trade-off (gate 3/4)
+            <span>→</span>
+          </button>
         </div>
       </div>
     </ChapterStage>
   );
 }
 
-function ProofTile({ label, value, active }: { label: string; value: string; active: boolean }) {
+function MetricTile({
+  label,
+  value,
+  color,
+  mono,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  mono?: boolean;
+}) {
   return (
     <div
-      className="rounded-lg border px-3 py-2.5"
+      className="rounded-xl border p-3"
       style={{
-        borderColor: active ? 'rgba(74,222,128,0.4)' : 'rgba(255,255,255,0.08)',
-        background: active ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.02)',
+        background: 'rgba(167, 139, 250, 0.04)',
+        borderColor: 'rgba(167, 139, 250, 0.2)',
       }}
     >
-      <p
-        className="text-[10px] font-mono uppercase tracking-wider"
-        style={{ color: active ? '#4ADE80' : 'rgba(237,236,236,0.35)' }}
+      <div
+        className="mb-1 text-[10px] font-semibold uppercase tracking-wider"
+        style={{ color: 'rgba(243,244,246,0.55)' }}
       >
         {label}
-      </p>
-      <p
-        className="text-[18px] font-mono font-semibold mt-0.5"
-        style={{ color: active ? '#4ADE80' : 'rgba(237,236,236,0.45)' }}
+      </div>
+      <div
+        className={`text-2xl font-bold tabular-nums ${mono ? 'font-mono' : ''}`}
+        style={{ color }}
       >
         {value}
-      </p>
+      </div>
+    </div>
+  );
+}
+
+function RunCostTile({ visible }: { visible: boolean }) {
+  return (
+    <div
+      className="rounded-lg border p-3 transition-all duration-500"
+      style={{
+        background: 'rgba(41, 181, 232, 0.06)',
+        borderColor: 'rgba(41, 181, 232, 0.3)',
+        color: '#F3F4F6',
+        opacity: visible ? 1 : 0.3,
+      }}
+    >
+      <div
+        className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider"
+        style={{ color: '#29B5E8' }}
+      >
+        <TrendingUp className="h-3 w-3" /> Projected credit / TCO delta
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <Stat5 num="$0.30" label="per day" />
+        <Stat5 num="$5.9M" label="/yr saved" good />
+        <Stat5 num="3×" label="kill-switch" warn />
+      </div>
+      <div className="mt-2 flex items-center gap-1 text-[10px] opacity-70">
+        <Activity className="h-3 w-3" /> vs Teradata maintenance + license $5.9M / yr
+      </div>
+    </div>
+  );
+}
+
+function Stat5({
+  num,
+  label,
+  good,
+  warn,
+}: {
+  num: string;
+  label: string;
+  good?: boolean;
+  warn?: boolean;
+}) {
+  return (
+    <div>
+      <div
+        className="text-lg font-bold tabular-nums"
+        style={{ color: good ? '#7EE787' : warn ? '#FBBF24' : '#E6EDF3' }}
+      >
+        {num}
+      </div>
+      <div className="text-[9px] uppercase tracking-wider opacity-60">{label}</div>
     </div>
   );
 }

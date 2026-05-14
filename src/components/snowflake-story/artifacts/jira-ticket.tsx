@@ -12,24 +12,24 @@ interface TimelineRow {
 }
 
 const TIMELINE: TimelineRow[] = [
-  { state: 'todo', status: 'To Do', by: 'maya', when: 'T+0m', note: 'Created from modernization epic CUR-5201' },
-  { state: 'in-progress', status: 'In Progress', by: 'cursor', when: 'T+14m', note: 'Opus triage · plan drafted' },
-  { state: 'in-review', status: 'Plan Review', by: 'maya', when: 'T+34m', note: '3 comments on rounding, FX window, CTE scope' },
-  { state: 'changes', status: 'Changes Requested', by: 'maya', when: 'T+38m', note: "Banker's rounding + FX retry + transient" },
+  { state: 'todo', status: 'To Do', by: 'principal', when: 'T+0m', note: 'Created from modernization epic CUR-5201' },
+  { state: 'in-progress', status: 'In Progress', by: 'cursor', when: 'T+14m', note: 'Triage · plan drafted' },
+  { state: 'in-review', status: 'Plan Review', by: 'principal', when: 'T+34m', note: '3 comments on rounding, FX window, CTE scope' },
+  { state: 'changes', status: 'Changes Requested', by: 'principal', when: 'T+38m', note: "Banker's rounding + FX retry + transient" },
   { state: 'in-progress', status: 'In Progress (patch)', by: 'cursor', when: 'T+2h 51m', note: '3 commits · re-ran row-equivalence harness' },
-  { state: 'in-review', status: 'PR Review', by: 'jordan', when: 'T+3h 12m', note: 'dbt not_null test failed · XOF FX deprecation' },
+  { state: 'in-review', status: 'PR Review', by: 'reviewer', when: 'T+3h 12m', note: 'dbt not_null test failed · XOF FX deprecation' },
   { state: 'in-progress', status: 'In Progress (iteration 2)', by: 'cursor', when: 'T+3h 24m', note: 'deprecated_currencies seed + exception audit' },
-  { state: 'approved', status: 'Approved', by: 'jordan', when: 'T+3h 47m', note: 'Queued for Friday change window' },
+  { state: 'approved', status: 'Approved', by: 'reviewer', when: 'T+3h 47m', note: 'Queued for Friday change window' },
 ];
 
 const COMMENTS: Array<{ by: CharacterId; at: string; body: React.ReactNode }> = [
   {
-    by: 'maya',
+    by: 'principal',
     at: 'Today · 2:04 PM',
     body: (
       <p>
-        Spun up this task from the modernization epic. Cursor is going to take first pass on the
-        daily revenue rollup. I&apos;ll review the plan before any code lands.
+        Spun up this task from the modernization epic. Cursor is taking first pass on the daily
+        revenue rollup. I&apos;ll review the plan before any code lands.
       </p>
     ),
   },
@@ -46,7 +46,7 @@ const COMMENTS: Array<{ by: CharacterId; at: string; body: React.ReactNode }> = 
     ),
   },
   {
-    by: 'maya',
+    by: 'principal',
     at: 'Today · 3:12 PM',
     body: (
       <p>
@@ -58,7 +58,7 @@ const COMMENTS: Array<{ by: CharacterId; at: string; body: React.ReactNode }> = 
     ),
   },
   {
-    by: 'jordan',
+    by: 'reviewer',
     at: 'Today · 4:46 PM',
     body: (
       <p>
@@ -81,7 +81,7 @@ const COMMENTS: Array<{ by: CharacterId; at: string; body: React.ReactNode }> = 
     ),
   },
   {
-    by: 'jordan',
+    by: 'reviewer',
     at: 'Today · 5:47 PM',
     body: (
       <p>
@@ -210,11 +210,11 @@ function MainBody() {
 
 function AuthorName({ id }: { id: CharacterId }) {
   const names: Record<CharacterId, string> = {
-    maya: 'Maya Alfaro',
-    jordan: 'Jordan Park',
-    samira: 'Samira Chen',
+    principal: 'Principal Data Engineer',
+    reviewer: 'Senior Data Engineer · Reviewer',
+    vp: 'VP Data & Analytics',
     cursor: 'Cursor',
-    cfo: 'Dana Whitaker',
+    cfo: 'CFO',
     gsi: 'Apex GSI',
   };
   return <span className="text-[#172B4D]">{names[id]}</span>;
@@ -253,13 +253,13 @@ function Sidebar() {
           </span>
         </div>
         <div className="flex items-center gap-2 mb-1">
-          <CharacterAvatar character="maya" size="xs" /> Maya Alfaro
+          <CharacterAvatar character="principal" size="xs" /> Principal Data Engineer
           <span className="ml-auto px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase text-[#6554C0] bg-[#EAE6FF]">
             plan reviewer
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <CharacterAvatar character="jordan" size="xs" /> Jordan Park
+          <CharacterAvatar character="reviewer" size="xs" /> Senior Data Engineer
           <span className="ml-auto px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase text-[#36B37E] bg-[#E3FCEF]">
             code reviewer
           </span>

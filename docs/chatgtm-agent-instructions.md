@@ -397,7 +397,7 @@ PATCHing `{"replied": true}` against an already-replied row is a no-op (server o
 
 ## Where to look when something doesn't work
 
-- **Admin UI**: `https://cursor.omarsimon.com/prospect-builder/admin` — three tabs:
+- **Admin UI**: `https://cursor.omarsimon.com/admin` — three tabs:
   - **Prospects** — every row created via this API + the build status of the personalized demo.
   - **Sequences** — every row's email-tracking state (`last_sequence_sent` / `last_email_send_date` / `thread_id` / `replied` / demo opened) plus inline edits.
   - **Analytics** — aggregate opens.

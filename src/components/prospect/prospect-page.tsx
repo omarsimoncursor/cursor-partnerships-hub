@@ -64,8 +64,10 @@ export function ProspectPage({
   }, [accent]);
 
   // Wire up the engagement tracker. The unlocked render of /p/[slug]
-  // passes the slug in; the legacy /prospect/[domain] URL-encoded route
-  // doesn't (no DB row, no events to record).
+  // passes the slug in. The guard below is defensive — the legacy
+  // /prospect/[domain] URL-encoded route used to omit it, and an
+  // operator could in principle render <ProspectPage> from somewhere
+  // new without a slug.
   useEffect(() => {
     if (!trackingSlug) return;
     configureTracker(trackingSlug);

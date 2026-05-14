@@ -95,7 +95,7 @@ curl -X POST $APP_ORIGIN/api/chatgtm/prospects \
 # Lazy fallback: any prospect view triggers the build if it hasn't completed.
 ```
 
-Internal admin UI: [/prospect-builder](src/app/prospect-builder/page.tsx) (the existing builder, plus a "Save personalized demo" panel) and [/prospect-builder/admin](src/app/prospect-builder/admin/page.tsx) (a list of every prospect ChatGTM has pushed, with build status badges).
+Internal admin UI: [/admin](src/app/admin/page.tsx) (a list of every prospect ChatGTM has pushed, with build status badges, plus an "Add prospect" modal for one-off manual creates). The legacy `/prospect-builder` and `/prospect-builder/admin` URLs still resolve via 308 redirects.
 
 ## Adding a new partner demo
 

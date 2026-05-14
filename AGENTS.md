@@ -12,7 +12,7 @@ This repo is a Next.js webapp that:
 
 1. Receives **batches of prospect records** from the rep's ChatGTM automation via `POST /api/chatgtm/prospects` and stores them in a Neon Postgres DB.
 2. Returns each prospect a **personalized, password-gated demo URL** at `/p/<slug>` with their company logo, accent color, vendor demo cards, and (for leadership prospects) an ROI calculator.
-3. Exposes an **admin panel** at `/prospect-builder/admin` (password-gated, separately from the prospect demos) for the rep to manage demos, edit / delete, see analytics, and create demos by hand.
+3. Exposes an **admin panel** at `/admin` (password-gated, separately from the prospect demos) for the rep to manage demos, edit / delete, see analytics, and create demos by hand. The legacy `/prospect-builder/admin` URL still resolves via a 308 redirect for any saved bookmarks.
 4. Exposes `GET /api/chatgtm/digest/opened?since=24h` so ChatGTM can post a daily Slack digest of prospects who opened their demo.
 
 The end-state after setup:
@@ -34,7 +34,7 @@ Open with this exact summary and questionnaire. Don't proceed until you have ans
 > 1. *What's your **Calendly URL** (or other booking link)? This goes on the "Book a 30-minute Demo" button at the bottom of every personalized demo.*
 > 2. *Which **subdomain / domain** will you host this at? (e.g. `prospects.your-team.com` or `john-demos.vercel.app`)*
 > 3. *Which **5–10 target accounts** do you sell to? For each I'll need: company name, public domain (e.g. `unisys.com`), brand accent color in hex, and the rough tech stack they're known to use (e.g. AWS, Datadog, GitHub).*
-> 4. *Pick an **admin password** for `/prospect-builder/admin`. I'll generate one for you if you don't have a preference.*
+> 4. *Pick an **admin password** for `/admin`. I'll generate one for you if you don't have a preference.*
 > 5. *Do you already have a **Vercel account + GitHub access** ready? You'll need both. If not I'll pause while you set them up.*
 > 6. *(Optional) Do you want **Sentry** error monitoring wired up? We'll leave it off if not."*
 
@@ -166,7 +166,7 @@ Response will include `url` (something like `https://<their-domain>/p/<slug>`) a
 
 Then sign into the admin:
 
-1. Open `https://<their-domain>/prospect-builder/admin`.
+1. Open `https://<their-domain>/admin`.
 2. Enter the admin password (`ADMIN_PASSWORD` from step 3).
 3. Enter the API token (`CHATGTM_API_TOKEN` from step 3).
 4. Confirm the smoke-test prospect appears.
@@ -219,7 +219,7 @@ When you're done, run through this with the user:
 - [ ] Creating a test prospect via `POST /api/chatgtm/prospects` returns a `url` + `password`.
 - [ ] Opening that URL renders the gate; the password unlocks the demo.
 - [ ] The unlocked demo shows the company's brand accent and vendor cards.
-- [ ] `/prospect-builder/admin` requires the admin password; once entered, the prospect list shows the test prospect.
+- [ ] `/admin` requires the admin password; once entered, the prospect list shows the test prospect.
 - [ ] Test prospect deleted; the admin shows the table empty (or only the user's real prospects).
 - [ ] ChatGTM's outbound HTTP step is updated with the new URL + token; one real test record flows through.
 
@@ -235,7 +235,7 @@ If all eight tick, the user is live. Congratulate them.
 | Target accounts | `src/lib/prospect-store/company-seeds.ts` |
 | Env vars | Vercel **Project Settings → Environment Variables** |
 | Schema init | `POST /api/db/init` with `DB_INIT_TOKEN` |
-| Admin sign-in | `https://<domain>/prospect-builder/admin` (password = `ADMIN_PASSWORD`) |
+| Admin sign-in | `https://<domain>/admin` (password = `ADMIN_PASSWORD`) |
 | ChatGTM contract | `docs/chatgtm-integration.md` |
 | Daily digest prompt | `docs/chatgtm-daily-digest-automation.md` |
 | API token rotation | Change env in Vercel + redeploy + update ChatGTM stored token |

@@ -11,9 +11,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Server component for /prospect-builder/admin. Reads the
- * `pb_admin_session` cookie and renders either the password gate
- * (no/invalid session) or the existing admin client UI.
+ * Server component for /admin. Reads the `pb_admin_session` cookie
+ * (legacy name, retained so existing sessions aren't invalidated by
+ * the route move out of /prospect-builder/admin) and renders either
+ * the password gate (no/invalid session) or the admin client UI.
  *
  * The admin password is never serialized into the page — the gate
  * component holds nothing more than its own input state, and the

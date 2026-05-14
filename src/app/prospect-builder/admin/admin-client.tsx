@@ -27,6 +27,7 @@ import { EditProspectModal, type EditableProspect } from './edit-modal';
 import { ActivityModal } from './activity-modal';
 import { AnalyticsTab } from './analytics-tab';
 import { CreateProspectModal } from './create-modal';
+import { SequencesTab } from './sequences-tab';
 
 const TOKEN_STORAGE_KEY = 'cursor.prospect-builder.api-token';
 
@@ -77,7 +78,7 @@ export function AdminClient() {
   const [query, setQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState<string>('');
   const [page, setPage] = useState(0);
-  const [activeTab, setActiveTab] = useState<'prospects' | 'analytics'>('prospects');
+  const [activeTab, setActiveTab] = useState<'prospects' | 'sequences' | 'analytics'>('prospects');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
@@ -269,12 +270,19 @@ export function AdminClient() {
                 label="Prospects"
               />
               <TabButton
+                active={activeTab === 'sequences'}
+                onClick={() => setActiveTab('sequences')}
+                label="Sequences"
+              />
+              <TabButton
                 active={activeTab === 'analytics'}
                 onClick={() => setActiveTab('analytics')}
                 label="Analytics"
               />
             </div>
           )}
+
+          {apiToken && activeTab === 'sequences' && <SequencesTab apiToken={apiToken.trim()} />}
 
           {apiToken && activeTab === 'analytics' && <AnalyticsTab apiToken={apiToken.trim()} />}
 

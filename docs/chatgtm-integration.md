@@ -398,7 +398,7 @@ updates per request.
 
 ### Sequences dashboard
 
-The `/prospect-builder/admin` page has a **Sequences** tab that
+The `/admin` page has a **Sequences** tab that
 reads this same `GET /api/chatgtm/prospects?include=opens` endpoint
 and surfaces the email-tracking state ChatGTM's Sequence
 Orchestrator reads/writes:
@@ -594,6 +594,6 @@ the Gmail / LinkedIn drafts, open the URL in a browser, paste the password
 into the gate, and you should see the personalized demo render (or the
 "preparing your demo" page first if the build hasn't finished).
 
-The `/prospect-builder/admin` page in the same browser (after entering the
+The `/admin` page in the same browser (after entering the
 token) shows the live list of every prospect created via this endpoint,
 along with their build status.

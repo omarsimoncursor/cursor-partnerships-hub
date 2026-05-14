@@ -76,10 +76,168 @@ export async function listProspects(limit = 100): Promise<ProspectRow[]> {
   return rows;
 }
 
+// ---------------------------------------------------------------------------
+// Filtered + paginated list (for the ChatGTM Prospecting Blitz dedup query
+// and the Sequence Orchestrator's "active sequence" pull).
+//
+// The Prospecting Blitz needs *every* row for a given company_domain to
+// build its dedup set, which means we can't keep the legacy 100-row cap
+// when filtering. This list path uses cursor-based pagination
+// (created_at + id) so the caller can page through arbitrarily large
+// per-company sets without offset-driven drift.
+
+export type ListProspectsFilter = {
+  companyDomain?: string | null;
+  replied?: boolean | null;
+  // The Sequence Orchestrator wants prospects whose sequence isn't done
+  // yet — i.e. last_sequence_sent IS NULL OR last_sequence_sent < N.
+  // Passing 6 selects every "not-yet-complete" prospect.
+  lastSequenceSentLt?: number | null;
+  // Cursor produced by a previous call's `next_cursor` (opaque base64
+  // of `${created_at}|${id}`). When provided, we resume strictly after
+  // that row.
+  cursor?: string | null;
+  // Page size. Capped server-side; clients should not depend on the
+  // cap value but it stays large enough for the Blitz dedup query
+  // (Unisys today sits at well under 200 rows).
+  limit?: number | null;
+};
+
+const MAX_LIST_LIMIT = 500;
+const DEFAULT_LIST_LIMIT = 200;
+
+export type ListProspectsPage = {
+  rows: ProspectRow[];
+  nextCursor: string | null;
+};
+
+function encodeCursor(row: { created_at: unknown; id: string }): string {
+  // pg returns timestamptz as a Date by default. The type annotation
+  // on ProspectRow says `string`, but the runtime value is a Date —
+  // toISOString() handles both (Date.prototype.toISOString or, when a
+  // string is passed, falls through to Date parsing) so the encoded
+  // cursor always carries a Postgres-parseable ISO timestamp.
+  const ts = row.created_at instanceof Date
+    ? row.created_at.toISOString()
+    : new Date(String(row.created_at)).toISOString();
+  return Buffer.from(`${ts}|${row.id}`, 'utf8').toString('base64url');
+}
+
+function decodeCursor(cursor: string): { createdAt: string; id: string } | null {
+  try {
+    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+    const sep = decoded.indexOf('|');
+    if (sep < 0) return null;
+    const createdAt = decoded.slice(0, sep);
+    const id = decoded.slice(sep + 1);
+    if (!createdAt || !id) return null;
+    if (Number.isNaN(Date.parse(createdAt))) return null;
+    if (!/^[0-9a-fA-F-]{36}$/.test(id)) return null;
+    return { createdAt, id };
+  } catch {
+    return null;
+  }
+}
+
+export async function listProspectsFiltered(
+  filter: ListProspectsFilter = {},
+): Promise<ListProspectsPage> {
+  const limit = Math.max(
+    1,
+    Math.min(MAX_LIST_LIMIT, Number(filter.limit ?? DEFAULT_LIST_LIMIT) || DEFAULT_LIST_LIMIT),
+  );
+
+  const where: string[] = [];
+  const values: unknown[] = [];
+  function add(sql: string, value: unknown): void {
+    values.push(value);
+    where.push(sql.replace('?', `$${values.length}`));
+  }
+
+  if (filter.companyDomain) {
+    add('company_domain = ?', String(filter.companyDomain).trim().toLowerCase());
+  }
+  if (typeof filter.replied === 'boolean') {
+    add('replied = ?', filter.replied);
+  }
+  if (typeof filter.lastSequenceSentLt === 'number' && Number.isFinite(filter.lastSequenceSentLt)) {
+    // "< N" semantics that include "never started" (NULL) too — that's
+    // the Sequence Orchestrator's mental model.
+    add('(last_sequence_sent IS NULL OR last_sequence_sent < ?)', filter.lastSequenceSentLt);
+  }
+
+  if (filter.cursor) {
+    const decoded = decodeCursor(filter.cursor);
+    if (decoded) {
+      // Strict cursor: resume strictly *after* the previous page's last
+      // row. Order is created_at DESC, id DESC for tiebreak stability.
+      values.push(decoded.createdAt);
+      const cAtIdx = values.length;
+      values.push(decoded.id);
+      const cIdIdx = values.length;
+      where.push(`(created_at < $${cAtIdx} OR (created_at = $${cAtIdx} AND id < $${cIdIdx}))`);
+    }
+  }
+
+  values.push(limit + 1);
+  const limitIdx = values.length;
+  const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+  const { rows } = await query<ProspectRow>(
+    `SELECT * FROM prospects ${whereSql}
+       ORDER BY created_at DESC, id DESC
+       LIMIT $${limitIdx}`,
+    values,
+  );
+
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore && page.length > 0
+    ? encodeCursor({ created_at: page[page.length - 1].created_at, id: page[page.length - 1].id })
+    : null;
+  return { rows: page, nextCursor };
+}
+
 export function toPublic(row: ProspectRow): ProspectPublic {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { password: _password, ...rest } = row;
   return rest;
+}
+
+// Shape returned to the ChatGTM automations from GET / PATCH / batch
+// endpoints. Adds the computed `demo_url` and exposes the existing
+// internal `password` column as `demo_password` so the Sequence
+// Orchestrator can paste it straight into email templates without
+// having to look the password up via a second call.
+export type ChatgtmProspectResponse = Omit<ProspectRow, 'password'> & {
+  demo_url: string | null;
+  demo_password: string | null;
+};
+
+export function toChatgtmResponse(
+  row: ProspectRow,
+  origin: string | null,
+): ChatgtmProspectResponse {
+  const trimmedOrigin = origin ? origin.replace(/\/$/, '') : '';
+  const { password, ...rest } = row;
+  // pg returns DATE columns as JS Date objects (and timestamptz too).
+  // Normalize last_email_send_date to a YYYY-MM-DD string so the
+  // wire-format matches the "ISO date" the spec promises and so the
+  // Sequence Orchestrator can compare dates without re-parsing.
+  let lastEmailSendDate: string | null = null;
+  const v = rest.last_email_send_date as unknown;
+  if (v instanceof Date) {
+    lastEmailSendDate = v.toISOString().slice(0, 10);
+  } else if (typeof v === 'string' && v.length > 0) {
+    // Could be "YYYY-MM-DD" already, or an ISO datetime string. Slice
+    // off any time portion to keep the format stable.
+    lastEmailSendDate = v.slice(0, 10);
+  }
+  return {
+    ...rest,
+    last_email_send_date: lastEmailSendDate,
+    demo_url: trimmedOrigin ? `${trimmedOrigin}/p/${row.slug}` : null,
+    demo_password: password ?? null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +305,8 @@ export async function createProspect(
             technologies_raw, vendor_ids, unmatched_technologies,
             mcp_relevant, sdk_workflow, show_roi_calculator,
             password, gmail_draft_link, linkedin_message_link, notion_page_id,
-            source, metadata
+            source, metadata,
+            linkedin_draft, mcp_detail, team, classified_level
           )
           VALUES (
             $1, $2, $3, $4, $5, $6,
@@ -155,7 +314,8 @@ export async function createProspect(
             $10, $11, $12,
             $13, $14, $15,
             $16, $17, $18, $19,
-            $20, $21
+            $20, $21,
+            $22, $23, $24, $25
           )
           RETURNING *`,
         [
@@ -180,6 +340,10 @@ export async function createProspect(
           (input.notion_page_id ?? '').toString().trim() || null,
           'chatgtm',
           mergedMetadata,
+          (input.linkedin_draft ?? '').toString().trim() || null,
+          (input.mcp_detail ?? '').toString().trim() || null,
+          (input.team ?? '').toString().trim() || null,
+          (input.classified_level ?? '').toString().trim() || null,
         ],
       );
       row = result.rows[0] ?? null;
@@ -349,6 +513,210 @@ export async function deleteProspect(id: string): Promise<boolean> {
     [id],
   );
   return rowCount > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Outreach PATCH (Sequence Orchestrator + Reply Detector)
+//
+// updateProspect() above is the admin-edit-modal path: it silently
+// drops anything outside its whitelist so a misuse of that endpoint
+// can't change the slug / password / build state. The ChatGTM
+// automations need a stricter contract: validate every accepted
+// field, fail loudly on bad shapes, and surface field-level errors so
+// the Sequence Orchestrator can log "row 3, field last_sequence_sent"
+// instead of "internal_error".
+
+export type OutreachPatch = Partial<{
+  last_sequence_sent: number | null;
+  last_email_send_date: string | null;
+  thread_id: string | null;
+  replied: boolean;
+  linkedin_sent: boolean;
+  linkedin_draft: string | null;
+  reached_out_at: string | null;
+  mcp_detail: string | null;
+  team: string | null;
+  classified_level: string | null;
+  email: string | null;
+  linkedin_url: string | null;
+}>;
+
+export class OutreachValidationError extends Error {
+  field: string;
+  constructor(field: string, message: string) {
+    super(message);
+    this.name = 'OutreachValidationError';
+    this.field = field;
+  }
+}
+
+// Fields the Sequence Orchestrator + Reply Detector are allowed to
+// update via PATCH. Anything outside this list is rejected (not
+// silently dropped — the automations need to know if they typo a
+// field name).
+const OUTREACH_FIELDS = new Set([
+  'last_sequence_sent',
+  'last_email_send_date',
+  'thread_id',
+  'replied',
+  'linkedin_sent',
+  'linkedin_draft',
+  'reached_out_at',
+  'mcp_detail',
+  'team',
+  'classified_level',
+  'email',
+  'linkedin_url',
+]);
+
+function nullableTrimmedString(value: unknown, field: string): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new OutreachValidationError(field, `Must be a string or null.`);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function requiredBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new OutreachValidationError(field, `Must be a boolean.`);
+  }
+  return value;
+}
+
+function buildOutreachUpdate(patch: OutreachPatch): { sets: string[]; values: unknown[] } {
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  function set(column: string, value: unknown): void {
+    values.push(value);
+    sets.push(`${column} = $${values.length}`);
+  }
+
+  for (const [field, value] of Object.entries(patch)) {
+    if (!OUTREACH_FIELDS.has(field)) {
+      throw new OutreachValidationError(field, `Unknown field.`);
+    }
+    if (value === undefined) continue;
+
+    switch (field) {
+      case 'last_sequence_sent': {
+        if (value === null) {
+          set('last_sequence_sent', null);
+          break;
+        }
+        if (typeof value !== 'number' || !Number.isInteger(value)) {
+          throw new OutreachValidationError(field, `Must be an integer between 1 and 6.`);
+        }
+        if (value < 1 || value > 6) {
+          throw new OutreachValidationError(field, `Must be 1-6.`);
+        }
+        set('last_sequence_sent', value);
+        break;
+      }
+      case 'last_email_send_date': {
+        if (value === null) {
+          set('last_email_send_date', null);
+          break;
+        }
+        if (typeof value !== 'string') {
+          throw new OutreachValidationError(field, `Must be an ISO date string (YYYY-MM-DD) or null.`);
+        }
+        const trimmed = value.trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+          throw new OutreachValidationError(field, `Must be an ISO date string in YYYY-MM-DD format.`);
+        }
+        if (Number.isNaN(Date.parse(trimmed))) {
+          throw new OutreachValidationError(field, `Not a valid calendar date.`);
+        }
+        set('last_email_send_date', trimmed);
+        break;
+      }
+      case 'reached_out_at': {
+        if (value === null) {
+          set('reached_out_at', null);
+          break;
+        }
+        if (typeof value !== 'string') {
+          throw new OutreachValidationError(field, `Must be an ISO datetime string or null.`);
+        }
+        const trimmed = value.trim();
+        if (!trimmed) {
+          set('reached_out_at', null);
+          break;
+        }
+        if (Number.isNaN(Date.parse(trimmed))) {
+          throw new OutreachValidationError(field, `Not a valid ISO datetime.`);
+        }
+        set('reached_out_at', trimmed);
+        break;
+      }
+      case 'replied':
+      case 'linkedin_sent':
+        set(field, requiredBoolean(value, field));
+        break;
+      case 'thread_id':
+      case 'linkedin_draft':
+      case 'mcp_detail':
+      case 'team':
+      case 'classified_level':
+      case 'email':
+      case 'linkedin_url':
+        set(field, nullableTrimmedString(value, field));
+        break;
+    }
+  }
+
+  return { sets, values };
+}
+
+export async function updateProspectOutreach(
+  id: string,
+  patch: OutreachPatch,
+): Promise<ProspectRow | null> {
+  const { sets, values } = buildOutreachUpdate(patch);
+  if (sets.length === 0) {
+    return getProspectById(id);
+  }
+  values.push(id);
+  const { rows } = await query<ProspectRow>(
+    `UPDATE prospects SET ${sets.join(', ')}, updated_at = now()
+       WHERE id = $${values.length} RETURNING *`,
+    values,
+  );
+  return rows[0] ?? null;
+}
+
+// Pre-validate a batch of patches so we can return per-row "ok: true"
+// / "ok: false, error, field, message" without aborting on the first
+// bad row. Each item carries its own resolved id (uuid) plus the
+// validated SET fragments + values.
+export type PreparedOutreachUpdate = {
+  inputIndex: number;
+  inputId: string;
+  resolvedId: string | null;
+  patch: OutreachPatch;
+  error: { error: string; field?: string; message: string } | null;
+};
+
+export function validateOutreachPatch(
+  body: unknown,
+): { ok: true; patch: OutreachPatch } | { ok: false; error: { error: string; field?: string; message: string } } {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return { ok: false, error: { error: 'invalid_body', message: 'Body must be a JSON object.' } };
+  }
+  try {
+    // Round-trip through buildOutreachUpdate to surface field-level
+    // errors. We don't actually need the SQL fragments here — just the
+    // validation side-effect.
+    buildOutreachUpdate(body as OutreachPatch);
+    return { ok: true, patch: body as OutreachPatch };
+  } catch (err) {
+    if (err instanceof OutreachValidationError) {
+      return { ok: false, error: { error: 'invalid_field', field: err.field, message: err.message } };
+    }
+    throw err;
+  }
 }
 
 /**

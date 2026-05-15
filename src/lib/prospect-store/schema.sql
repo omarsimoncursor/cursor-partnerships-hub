@@ -99,31 +99,9 @@ ALTER TABLE prospects ADD COLUMN IF NOT EXISTS replied              BOOLEAN     
 ALTER TABLE prospects ADD COLUMN IF NOT EXISTS thread_id            TEXT;
 ALTER TABLE prospects ADD COLUMN IF NOT EXISTS preferred_first_name TEXT;
 
--- One row per non-null email (case-insensitive). Skipped while duplicate
--- emails remain; POST /api/chatgtm/admin/dedup-prospects removes dupes
--- then calls ensureProspectEmailUniqueIndex().
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-      FROM pg_class c
-      JOIN pg_namespace n ON n.oid = c.relnamespace
-     WHERE c.relkind = 'i'
-       AND c.relname = 'prospects_email_lower_unique_idx'
-  ) THEN
-    IF NOT EXISTS (
-      SELECT 1
-        FROM prospects
-       WHERE email IS NOT NULL AND TRIM(email) <> ''
-       GROUP BY LOWER(TRIM(email))
-      HAVING COUNT(*) > 1
-    ) THEN
-      CREATE UNIQUE INDEX prospects_email_lower_unique_idx
-        ON prospects (LOWER(email))
-        WHERE email IS NOT NULL AND TRIM(email) <> '';
-    END IF;
-  END IF;
-END $$;
+-- Email uniqueness is enforced in application code (upsert + read-side
+-- dedup). Do not auto-create a unique index here — it fails while legacy
+-- duplicate rows exist and breaks unrelated API routes via ensureSchema().
 
 -- The spec defines a CHECK (last_sequence_sent BETWEEN 1 AND 6).
 -- Add it idempotently so re-running the migration is safe; we don't

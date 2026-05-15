@@ -1417,62 +1417,16 @@ export async function backfillProspectPersonalization(opts: {
   return { scanned: rows.length, updated };
 }
 
-export type EnsureEmailUniqueIndexResult = {
-  created: boolean;
-  already_exists: boolean;
-  blocked_by_duplicates: boolean;
-};
-
-/** Create the partial unique email index once duplicates are gone. */
-export async function ensureProspectEmailUniqueIndex(): Promise<EnsureEmailUniqueIndexResult> {
-  const { rows: existsRows } = await query<{ exists: boolean }>(
-    `SELECT EXISTS (
-       SELECT 1
-         FROM pg_class c
-         JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE c.relkind = 'i'
-          AND c.relname = 'prospects_email_lower_unique_idx'
-     ) AS exists`,
-  );
-  if (existsRows[0]?.exists) {
-    return { created: false, already_exists: true, blocked_by_duplicates: false };
-  }
-
-  const { rows: dupeRows } = await query<{ has_dupes: boolean }>(
-    `SELECT EXISTS (
-       SELECT 1
-         FROM prospects
-        WHERE email IS NOT NULL AND TRIM(email) <> ''
-        GROUP BY LOWER(TRIM(email))
-       HAVING COUNT(*) > 1
-     ) AS has_dupes`,
-  );
-  if (dupeRows[0]?.has_dupes) {
-    return { created: false, already_exists: false, blocked_by_duplicates: true };
-  }
-
-  await query(
-    `CREATE UNIQUE INDEX prospects_email_lower_unique_idx
-       ON prospects (LOWER(email))
-       WHERE email IS NOT NULL AND TRIM(email) <> ''`,
-  );
-  return { created: true, already_exists: false, blocked_by_duplicates: false };
-}
-
 export async function runProspectDedupAndPersonalizationBackfill(opts: {
   companyDomain?: string | null;
   dryRun?: boolean;
 }): Promise<{
   dedup: Awaited<ReturnType<typeof deduplicateProspectsByEmail>>;
   personalization: Awaited<ReturnType<typeof backfillProspectPersonalization>>;
-  email_unique_index: EnsureEmailUniqueIndexResult | { skipped: true; reason: 'dry_run' };
 }> {
   const dedup = await deduplicateProspectsByEmail(opts);
   const personalization = await backfillProspectPersonalization(opts);
-  const email_unique_index = opts.dryRun
-    ? { skipped: true as const, reason: 'dry_run' as const }
-    : await ensureProspectEmailUniqueIndex();
-  return { dedup, personalization, email_unique_index };
+  return { dedup, personalization };
 }
 
 // ---------------------------------------------------------------------------

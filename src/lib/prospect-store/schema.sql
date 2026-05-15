@@ -160,3 +160,251 @@ CREATE TABLE IF NOT EXISTS prospect_events (
 CREATE INDEX IF NOT EXISTS prospect_events_prospect_idx ON prospect_events(prospect_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS prospect_events_slug_idx     ON prospect_events(slug, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS prospect_events_type_idx     ON prospect_events(event_type);
+
+-- ===========================================================================
+-- Outreach territory dashboard (intent-signal driven LinkedIn outreach)
+-- ===========================================================================
+--
+-- Distinct from the cold-outbound `prospects` table above. The intent-signal
+-- agent ('Intent Signal LinkedIn Outreach') runs every weekday morning, scans
+-- 5 primary accounts + 18 Cognizant subsidiaries for signals from the last
+-- 24h, and POSTs the day's contacts here. The dashboard at /outreach/runs/<id>
+-- and /outreach/dashboard reads from these tables.
+--
+-- Cross-table link: `outreach_contacts.promoted_to_prospect_id` FKs into
+-- `prospects(id)` when Omar clicks "Enroll in sequence" on a contact card,
+-- so the cold sequence orchestrator picks them up. The reverse direction
+-- (cold prospect tripped an intent signal) is computed via natural-key match
+-- on `linkedin_url || work_email = prospects.linkedin_url || email`.
+
+-- Enums. Created idempotently — Postgres lacks a built-in IF NOT EXISTS for
+-- CREATE TYPE so we wrap each in a DO block that catches the duplicate-object
+-- error.
+DO $$ BEGIN
+  CREATE TYPE outreach_seniority_tier AS ENUM ('Manager', 'Leader', 'Executive');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE outreach_email_draft_status AS ENUM ('drafted', 'no_work_email', 'skipped_no_demo_url');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE outreach_connection_status AS ENUM ('pending', 'sent', 'accepted', 'replied', 'closed_no_reply', 'disqualified');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE outreach_priority_tier AS ENUM ('hot', 'warm', 'nurture');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE outreach_account_type AS ENUM ('Customer', 'Prospect', 'Disqualified', 'Other');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE outreach_plan_type AS ENUM ('Free', 'Pro', 'Pro+', 'Ultra', 'Team', 'Enterprise', 'None');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS outreach_runs (
+  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- The agent's own run id; idempotency anchor. Re-POSTing a run with the
+  -- same automation_run_id last-write-wins-updates the summary counters.
+  automation_run_id        TEXT NOT NULL UNIQUE,
+  automation_revision_id   TEXT NOT NULL,
+  user_email               TEXT NOT NULL,
+  run_date                 DATE NOT NULL,
+  ran_at                   TIMESTAMPTZ NOT NULL,
+  window_start             TIMESTAMPTZ NOT NULL,
+  window_end               TIMESTAMPTZ NOT NULL,
+  total_contacts           INT NOT NULL DEFAULT 0,
+  total_emails_drafted     INT NOT NULL DEFAULT 0,
+  unique_accounts_signaled INT NOT NULL DEFAULT 0,
+  unique_executives        INT NOT NULL DEFAULT 0,
+  unique_leaders           INT NOT NULL DEFAULT 0,
+  unique_managers          INT NOT NULL DEFAULT 0,
+  count_with_work_email    INT NOT NULL DEFAULT 0,
+  count_with_linkedin_url  INT NOT NULL DEFAULT 0,
+  accounts_with_activity   TEXT[] NOT NULL DEFAULT '{}',
+  accounts_with_no_signals TEXT[] NOT NULL DEFAULT '{}',
+  created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS outreach_runs_user_date_idx ON outreach_runs(user_email, run_date DESC);
+
+CREATE TABLE IF NOT EXISTS outreach_contacts (
+  id                              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id                          UUID NOT NULL REFERENCES outreach_runs(id) ON DELETE CASCADE,
+  external_key                    TEXT NOT NULL,
+
+  -- Account context (rolls up to account_display_name; account_name is the
+  -- specific entity, e.g. "Cognizant Softvision" under display_name "Cognizant").
+  account_name                    TEXT NOT NULL,
+  account_display_name            TEXT NOT NULL,
+  account_domain                  TEXT,
+  account_sfdc_id                 TEXT,
+  account_sfdc_url                TEXT,
+  parent_account_sfdc_id          TEXT,
+  is_subsidiary                   BOOLEAN NOT NULL DEFAULT FALSE,
+  account_segment                 TEXT,
+  account_type_value              outreach_account_type,
+  account_owner_email             TEXT,
+  requires_coordination           BOOLEAN NOT NULL DEFAULT FALSE,
+  account_health_score            INT,
+  account_current_arr             NUMERIC,
+  account_mau                     INT,
+  account_mau_wow_change_pct      NUMERIC,
+  open_opp_count                  INT NOT NULL DEFAULT 0,
+  open_opp_arr                    NUMERIC,
+  primary_opp_stage               TEXT,
+  claude_code_user_count          INT NOT NULL DEFAULT 0,
+  copilot_user_count              INT NOT NULL DEFAULT 0,
+  competitor_user_share_pct       NUMERIC,
+  account_signal_count_l7d        INT NOT NULL DEFAULT 0,
+
+  -- Contact identity.
+  first_name                      TEXT,
+  last_name                       TEXT,
+  full_name                       TEXT NOT NULL,
+  title                           TEXT NOT NULL,
+  function_value                  TEXT,
+  seniority_tier_value            outreach_seniority_tier NOT NULL,
+  linkedin_url                    TEXT,
+  linkedin_headline               TEXT,
+  linkedin_about                  TEXT,
+  work_email                      TEXT,
+  location_city                   TEXT,
+  location_state                  TEXT,
+  location_country                TEXT,
+  tenure_months_at_company        INT,
+  previously_at_cursor_customers  TEXT[] NOT NULL DEFAULT '{}',
+  prior_employer_match_count      INT NOT NULL DEFAULT 0,
+
+  -- SFDC presence.
+  sfdc_contact_id                 TEXT,
+  sfdc_contact_url                TEXT,
+  exists_in_sfdc                  BOOLEAN NOT NULL DEFAULT FALSE,
+  last_sfdc_activity_at           TIMESTAMPTZ,
+  last_sfdc_activity_owner_email  TEXT,
+
+  -- Engagement history (Gong + existing email orchestrator).
+  gong_call_count_l90d            INT NOT NULL DEFAULT 0,
+  last_gong_call_at               TIMESTAMPTZ,
+  last_gong_call_url              TEXT,
+  outreach_sequence_active        BOOLEAN NOT NULL DEFAULT FALSE,
+  last_outreach_step_at           TIMESTAMPTZ,
+
+  -- Cursor product usage (entire block null when contact isn't a Cursor user).
+  cursor_user_id                  TEXT,
+  is_power_user                   BOOLEAN NOT NULL DEFAULT FALSE,
+  is_team_admin                   BOOLEAN NOT NULL DEFAULT FALSE,
+  is_blocked_by_rate_limit        BOOLEAN NOT NULL DEFAULT FALSE,
+  user_created_at                 TIMESTAMPTZ,
+  last_active_at                  TIMESTAMPTZ,
+  total_days_active               INT,
+  weeks_active                    INT,
+  agent_requests_l30d             INT,
+  cc_requests_l30d                INT,
+  tab_accepts_l30d                INT,
+  plan_type_value                 outreach_plan_type,
+  paid_personally                 BOOLEAN NOT NULL DEFAULT FALSE,
+  cursor_team_id                  TEXT,
+  cursor_team_name                TEXT,
+
+  -- Signal rollup (detail in outreach_contact_signals).
+  signal_first_seen_at            TIMESTAMPTZ NOT NULL,
+  signal_latest_at                TIMESTAMPTZ NOT NULL,
+  signal_types                    TEXT[] NOT NULL,
+
+  -- Priority (agent-computed).
+  priority_tier_value             outreach_priority_tier NOT NULL DEFAULT 'warm',
+  priority_rationale              TEXT,
+
+  -- Demo personalization. Server-generated as a side effect of upsert when
+  -- demo_ok is true and we don't already have one (joined by linkedin_url
+  -- or work_email against the existing prospects table).
+  demo_url                        TEXT,
+  demo_password                   TEXT,
+  show_roi_calculator             BOOLEAN NOT NULL DEFAULT FALSE,
+  demo_ok                         BOOLEAN NOT NULL DEFAULT FALSE,
+  demo_session_id                 TEXT,
+  -- The prospects.id whose slug backs demo_url. Lets us pivot to the demo's
+  -- engagement events without re-resolving via slug.
+  demo_prospect_id                UUID REFERENCES prospects(id) ON DELETE SET NULL,
+
+  -- LinkedIn message. Stored verbatim from the agent (brief thank-you +
+  -- training offer). The dashboard's Send LI dialog copies this as-is.
+  linkedin_message                TEXT,
+  linkedin_char_count             INT,
+  linkedin_sent                   BOOLEAN NOT NULL DEFAULT FALSE,
+
+  -- Email draft (agent-authored when work_email is present). Omar edits
+  -- in the Intent Data tab and flags rows for the one-time send worker.
+  email_subject                   TEXT,
+  email_body                      TEXT,
+  email_status                    outreach_email_draft_status NOT NULL,
+  gmail_action_id                 TEXT,
+  email_flagged_to_send           BOOLEAN NOT NULL DEFAULT FALSE,
+  email_sent_at                   TIMESTAMPTZ,
+
+  -- Legacy lifecycle columns (kept for backwards compat; Intent Data tab
+  -- uses linkedin_sent + email_flagged_to_send instead).
+  connection_status_value         outreach_connection_status NOT NULL DEFAULT 'pending',
+  connection_sent_at              TIMESTAMPTZ,
+  connection_accepted_at          TIMESTAMPTZ,
+  reply_received_at               TIMESTAMPTZ,
+  omar_notes                      TEXT,
+
+  -- Cross-table link: when Omar clicks "Enroll in sequence" on a contact
+  -- card, we create a prospects row from the mapped fields and stamp the
+  -- new prospect's id here so the link is durable across edits.
+  promoted_to_prospect_id         UUID REFERENCES prospects(id) ON DELETE SET NULL,
+  promoted_at                     TIMESTAMPTZ,
+
+  created_at                      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at                      TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  UNIQUE (run_id, external_key)
+);
+
+-- Date filtering & dashboard top-cards.
+CREATE INDEX IF NOT EXISTS outreach_contacts_signal_latest_idx       ON outreach_contacts(signal_latest_at DESC);
+CREATE INDEX IF NOT EXISTS outreach_contacts_signal_first_idx        ON outreach_contacts(signal_first_seen_at DESC);
+CREATE INDEX IF NOT EXISTS outreach_contacts_user_signal_latest_idx  ON outreach_contacts(account_owner_email, signal_latest_at DESC);
+
+-- Common filters.
+CREATE INDEX IF NOT EXISTS outreach_contacts_run_id_idx              ON outreach_contacts(run_id);
+CREATE INDEX IF NOT EXISTS outreach_contacts_account_display_idx     ON outreach_contacts(account_display_name);
+CREATE INDEX IF NOT EXISTS outreach_contacts_account_sfdc_idx        ON outreach_contacts(account_sfdc_id);
+CREATE INDEX IF NOT EXISTS outreach_contacts_seniority_idx           ON outreach_contacts(seniority_tier_value);
+CREATE INDEX IF NOT EXISTS outreach_contacts_priority_idx            ON outreach_contacts(priority_tier_value);
+CREATE INDEX IF NOT EXISTS outreach_contacts_connection_status_idx   ON outreach_contacts(connection_status_value);
+CREATE INDEX IF NOT EXISTS outreach_contacts_linkedin_url_idx        ON outreach_contacts(linkedin_url) WHERE linkedin_url IS NOT NULL;
+CREATE INDEX IF NOT EXISTS outreach_contacts_work_email_idx          ON outreach_contacts(work_email)   WHERE work_email   IS NOT NULL;
+CREATE INDEX IF NOT EXISTS outreach_contacts_promoted_idx            ON outreach_contacts(promoted_to_prospect_id) WHERE promoted_to_prospect_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS outreach_contacts_signal_types_gin        ON outreach_contacts USING GIN (signal_types);
+CREATE INDEX IF NOT EXISTS outreach_contacts_prior_employers_gin     ON outreach_contacts USING GIN (previously_at_cursor_customers);
+
+CREATE TABLE IF NOT EXISTS outreach_contact_signals (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_id    UUID NOT NULL REFERENCES outreach_contacts(id) ON DELETE CASCADE,
+  signal_type   TEXT NOT NULL,
+  detected_at   TIMESTAMPTZ NOT NULL,
+  raw           JSONB,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Idempotency: re-emission of the same signal on a partial-batch retry
+  -- is server-deduped via this unique key (matches the contract documented
+  -- in the agent prompt).
+  UNIQUE (contact_id, signal_type, detected_at)
+);
+
+CREATE INDEX IF NOT EXISTS outreach_signals_detected_idx      ON outreach_contact_signals(detected_at DESC);
+CREATE INDEX IF NOT EXISTS outreach_signals_type_detected_idx ON outreach_contact_signals(signal_type, detected_at DESC);
+CREATE INDEX IF NOT EXISTS outreach_signals_contact_idx       ON outreach_contact_signals(contact_id);
+
+-- Idempotent column adds for deployments that ran an earlier schema pass.
+ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS linkedin_sent BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_flagged_to_send BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS outreach_contacts_email_flagged_idx
+  ON outreach_contacts(email_flagged_to_send, email_sent_at)
+  WHERE email_flagged_to_send = TRUE AND email_sent_at IS NULL;

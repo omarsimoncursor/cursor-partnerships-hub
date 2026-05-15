@@ -27,15 +27,16 @@ import {
 // URL + password to follow.
 export type LinkedinSendTarget = {
   id: string;
-  slug: string;
+  slug?: string;
   name: string;
   company_name: string;
   linkedin_url: string | null;
-  linkedin_draft: string | null;
+  linkedin_draft?: string | null;
+  linkedin_message?: string | null;
   linkedin_sent: boolean;
-  replied: boolean;
-  demo_url: string | null;
-  demo_password: string | null;
+  replied?: boolean;
+  demo_url?: string | null;
+  demo_password?: string | null;
 };
 
 type Props = {
@@ -44,7 +45,9 @@ type Props = {
   onClose: () => void;
   // Called every time the row is mutated (draft saved, sent flipped)
   // so the parent can merge the updated row into local state.
-  onUpdated: (patch: { linkedin_draft?: string | null; linkedin_sent?: boolean }) => void;
+  onUpdated: (patch: { linkedin_draft?: string | null; linkedin_message?: string | null; linkedin_sent?: boolean }) => void;
+  /** `prospect` = cold sequence (append demo URL). `intent` = Intent Data tab (copy as-is). */
+  mode?: 'prospect' | 'intent';
 };
 
 // The dialog is a small state machine driven by the rep's clicks:
@@ -57,8 +60,12 @@ type Props = {
 // the rep just wants to read or edit the draft.
 type Phase = 'composing' | 'awaiting_confirm' | 'saving';
 
-export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: Props) {
-  const [draft, setDraft] = useState(prospect.linkedin_draft ?? '');
+export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated, mode = 'prospect' }: Props) {
+  const isIntent = mode === 'intent';
+  const initialDraft = isIntent
+    ? (prospect.linkedin_message ?? prospect.linkedin_draft ?? '')
+    : (prospect.linkedin_draft ?? '');
+  const [draft, setDraft] = useState(initialDraft);
   const [phase, setPhase] = useState<Phase>('composing');
   const [error, setError] = useState<string | null>(null);
   // Lightweight inline status — used for the "Copied!" / "Saved!"
@@ -84,20 +91,18 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
     return () => clearTimeout(t);
   }, [status]);
 
-  const draftChanged = (draft.trim() || null) !== (prospect.linkedin_draft ?? null);
+  const draftChanged = (draft.trim() || null) !== (initialDraft.trim() || null);
   const draftCharCount = draft.length;
+  const draftField = isIntent ? 'linkedin_message' : 'linkedin_draft';
+  const patchBase = isIntent
+    ? `/api/outreach/contacts/${prospect.id}`
+    : `/api/chatgtm/prospects/${prospect.id}`;
 
   // Compose the full message that actually gets pasted into LinkedIn.
-  // The rep's workflow is a DM (not a 300-char connect note): paste
-  // the prose, then a blank line, then the demo URL + password so
-  // the prospect can click through and unlock.
-  //
-  // Dedupe: the upstream Prospecting Blitz can sometimes embed the
-  // URL or password directly in the draft prose, and the rep can
-  // also paste them in manually mid-edit. If either is already
-  // present in the draft we skip the corresponding append so the
-  // pasted message doesn't duplicate.
+  // Intent contacts: agent copy only (training thank-you). Cold prospects:
+  // append demo URL + password when not already in the draft.
   const composedMessage = (() => {
+    if (isIntent) return draft.trim();
     const lines: string[] = [draft];
     const trimmed = draft.trim();
     const lower = trimmed.toLowerCase();
@@ -137,7 +142,7 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
     setPhase('saving');
     setError(null);
     try {
-      const res = await fetch(`/api/chatgtm/prospects/${prospect.id}`, {
+      const res = await fetch(patchBase, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -162,9 +167,9 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
 
   const onSaveDraft = async () => {
     const next = draft.trim() || null;
-    const ok = await patch({ linkedin_draft: next });
+    const ok = await patch({ [draftField]: next });
     if (ok) {
-      onUpdated({ linkedin_draft: next });
+      onUpdated(isIntent ? { linkedin_message: next } : { linkedin_draft: next });
       setStatus('saved');
       setPhase('composing');
     }
@@ -186,8 +191,14 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
     //    don't block the open if the save fails; the rep cares about
     //    sending, not about the round-trip).
     if (draftChanged) {
-      const ok = await patch({ linkedin_draft: draft.trim() || null });
-      if (ok) onUpdated({ linkedin_draft: draft.trim() || null });
+      const ok = await patch({ [draftField]: draft.trim() || null });
+      if (ok) {
+        onUpdated(
+          isIntent
+            ? { linkedin_message: draft.trim() || null }
+            : { linkedin_draft: draft.trim() || null },
+        );
+      }
       // If save failed the error banner is already populated; we still
       // open the LinkedIn tab so the rep isn't stuck.
     }
@@ -246,7 +257,7 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
   };
 
   const noUrl = !prospect.linkedin_url;
-  const sendDisabled = noUrl || prospect.replied;
+  const sendDisabled = noUrl || (!isIntent && prospect.replied);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 py-8 overflow-y-auto">
@@ -318,7 +329,7 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
               the URL or password individually if they want, plus a
               clear note that they're auto-appended to the copied
               message. Hides cleanly when both are missing. */}
-          {(prospect.demo_url || prospect.demo_password) && (
+          {(prospect.demo_url || prospect.demo_password) && !isIntent && (
             <div className="rounded-lg border border-dark-border bg-dark-surface/50 p-3 space-y-2">
               <p className="text-[11px] uppercase tracking-wider font-mono text-text-tertiary">
                 Demo link (auto-appended to the copied message)
@@ -398,7 +409,7 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated }: P
                 Already sent. Use the buttons below to re-open LinkedIn or undo the sent flag.
               </p>
             </div>
-          ) : prospect.replied ? (
+          ) : !isIntent && prospect.replied ? (
             <div className="rounded-lg border border-accent-amber/40 bg-accent-amber/5 p-3">
               <p className="text-[12px] text-text-secondary">
                 This prospect already replied — sending another LinkedIn note is probably noise.

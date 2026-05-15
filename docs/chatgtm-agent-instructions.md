@@ -395,13 +395,113 @@ PATCHing `{"replied": true}` against an already-replied row is a no-op (server o
 
 ---
 
+## Automation 4: Intent Signal LinkedIn Outreach
+
+**Goal**: Every weekday morning, scan the territory's intent signals (Cursor signups, job changes, title changes, team-admin signups, …) for the last 24h, enrich each contact, generate a personalized LinkedIn message, and POST the day's run to the outreach endpoints. The dashboard at `/outreach/runs/<id>` and `/outreach/dashboard` is where Omar works the queue manually — sends the LinkedIn message, marks state, optionally enrolls a contact in the cold email sequence.
+
+This automation is **distinct from the cold-outbound flow** (Automations 1-3 above): warm-signal driven, LinkedIn-only by default, runs across all 23 accounts in a single pass (no per-account split).
+
+### Step A — dedup against recent contacts
+
+```
+GET https://cursor.omarsimon.com/api/outreach/contacts/recent?since_days=14&user_email=omar.simon@anysphere.co
+```
+
+Build a set of `linkedin_url || work_email || external_key` from the response. Skip any candidate already in that set.
+
+### Step B — log the run
+
+```
+POST https://cursor.omarsimon.com/api/outreach/runs
+```
+
+Body (full reference in `docs/outreach-integration.md`):
+
+```json
+{
+  "automation_run_id": "<uuid the agent generated for this run>",
+  "automation_revision_id": "<uuid identifying the prompt revision>",
+  "user_email": "omar.simon@anysphere.co",
+  "run_date": "2026-05-15",
+  "ran_at": "2026-05-15T15:02:17Z",
+  "window_start": "2026-05-14T15:00:00Z",
+  "window_end": "2026-05-15T15:00:00Z",
+  "summary": { "total_contacts": 18, "...": "..." }
+}
+```
+
+Capture `run_id` from the response — required for steps C + D.
+
+Idempotent on `automation_run_id`: a partial-batch retry with the same id last-write-wins-updates the summary counters.
+
+### Step C — POST the contacts batch
+
+```
+POST https://cursor.omarsimon.com/api/outreach/contacts/batch
+```
+
+Body shape: `{ run_id, contacts: [...] }`. Up to 100 contacts per request. Idempotent on `(run_id, external_key)`. Full schema documented in `docs/outreach-integration.md`.
+
+**Critical agent behaviors:**
+
+1. **`linkedin.message` is PROSE ONLY.** The server appends `\n\n<demo_url>\nPassword: <demo_password>` server-side at upsert time. Your prose should end at "…walkthrough:" or similar — do **not** inline a placeholder URL or password in the message string.
+2. **`demo.demo_url` and `demo.demo_password` are ignored on the success path.** The server generates them by either reusing an existing prospect's demo (matched on `linkedin_url || work_email`) or creating a new prospect row. Set `demo.demo_ok: true` to opt into demo generation; set `demo.demo_ok: false` to skip (e.g. for IC contacts you don't want a demo for, or when your upstream demo session failed).
+3. **UI-managed columns are the dashboard's, not yours.** Do not set `connection_status_value`, `connection_*_at`, `omar_notes`, `promoted_to_prospect_id`, or `promoted_at`. These are written only via `/api/outreach/contacts/<id>` PATCH (the dashboard's "Mark sent" / "Mark replied" / "Edit notes" buttons). The upsert preserves them across your re-POSTs.
+4. **`account_display_name` is the rollup key.** Cognizant + 18 subsidiaries should all set `account_display_name = "Cognizant"` even though `account_name` is the specific entity ("Cognizant Softvision"). The dashboard groups + filters by `account_display_name`.
+
+### Step D — POST the per-signal child rows
+
+```
+POST https://cursor.omarsimon.com/api/outreach/contact-signals/batch
+```
+
+Body: `{ run_id, signals: [{ contact_external_key, signal_type, detected_at, raw }] }`. Up to 1000 per request. Idempotent on `(contact_id, signal_type, detected_at)`.
+
+**POST contacts (Step C) BEFORE signals (Step D)** — the signals endpoint resolves `contact_external_key` against the contacts already in the run. Signals referencing an unknown external_key are returned as `{ error: "not_found", field: "contact_external_key" }`.
+
+### Step E — Slack DM Omar
+
+Post to Omar (Slack ID: `U0ASG70KCKX`):
+
+```
+🎯 Intent Outreach run complete · {run_date}
+{total_contacts} contacts ({unique_executives} exec, {unique_leaders} leader, {unique_managers} mgr)
+Hot: {count of priority_tier=hot}
+Open the run: https://cursor.omarsimon.com/outreach/runs/{run_id}
+```
+
+The deep link is the canonical way Omar enters the dashboard for the day. The rolling territory view at `/outreach/dashboard` is for cross-day work; the per-run view is for "what's new today."
+
+### Errors to handle
+
+| Status | When | What to do |
+| --- | --- | --- |
+| 400 `invalid_field` | Body shape wrong (missing required field, bad enum value, bad ISO datetime, etc.) | Surface `field` + `message`, halt. Do not retry without fixing. |
+| 404 `not_found` (Step D only) | `contact_external_key` references a contact you didn't include in Step C | Re-run Step C with the missing contact then retry Step D. |
+| 401 `unauthorized` | Token rotated | Halt run, Slack-page Omar, do not retry. |
+| 413 `batch_too_large` | >100 contacts or >1000 signals | Split into chunks. |
+| 5xx | Server hiccup | Retry idempotently — every endpoint is safe to retry on natural keys. |
+
+### Dashboard contract
+
+Once the run lands, Omar works the queue at `https://cursor.omarsimon.com/outreach/runs/<run_id>`:
+
+- "Mark sent" / "Mark accepted" / "Mark replied" buttons drive `connection_status_value` through the lifecycle. The agent never writes those columns.
+- "Enroll in sequence" creates a corresponding row in the cold-prospects table so the email Sequence Orchestrator (Automation 2) picks them up.
+- "Add notes" persists free-form text in `omar_notes`.
+
+The full reference is `docs/outreach-integration.md` in the repo.
+
+---
+
 ## Where to look when something doesn't work
 
-- **Admin UI**: `https://cursor.omarsimon.com/admin` — three tabs:
+- **Admin UI**: `https://cursor.omarsimon.com/admin` — four tabs:
   - **Prospects** — every row created via this API + the build status of the personalized demo.
   - **Sequences** — every row's email-tracking state (`last_sequence_sent` / `last_email_send_date` / `thread_id` / `replied` / demo opened) plus inline edits.
   - **Analytics** — aggregate opens.
-  
+  - **Outreach** — link to `/outreach/dashboard` (Automation 4's surface).
+
   Sign in with the admin password; the rep paste-loads the same `CHATGTM_API_TOKEN` to view the data.
 
 - **Daily Slack digest** of who opened their demo: `GET https://cursor.omarsimon.com/api/chatgtm/digest/opened?since=24h` (separate automation, see `docs/chatgtm-daily-digest-automation.md`). Same bearer token.

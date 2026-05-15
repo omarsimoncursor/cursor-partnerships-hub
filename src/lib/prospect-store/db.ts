@@ -1,4 +1,17 @@
-import { Pool, type PoolConfig } from 'pg';
+import { Pool, types, type PoolConfig } from 'pg';
+
+// Keep date / timestamp columns as raw ISO strings rather than letting
+// node-pg parse them into JS Date objects. The frontend renders many
+// of these directly as text, and Date-vs-string mismatches between
+// the row shape and the `OutreachContactRow` / `ProspectRow` type
+// declarations were a source of "[object Date]" runtime errors. Doing
+// this once at module-load time means `pg` returns strings everywhere.
+//   1082 = DATE
+//   1114 = TIMESTAMP (without timezone)
+//   1184 = TIMESTAMPTZ
+types.setTypeParser(1082, (val: string | null) => val);
+types.setTypeParser(1114, (val: string | null) => val);
+types.setTypeParser(1184, (val: string | null) => val);
 
 // Single, lazily-initialized Postgres pool shared across all API
 // routes. The connection string is `process.env.DATABASE_URL` and is

@@ -92,6 +92,7 @@ export type OutreachContactRow = {
   linkedin_headline: string | null;
   linkedin_about: string | null;
   work_email: string | null;
+  signup_email: string | null;
   location_city: string | null;
   location_state: string | null;
   location_country: string | null;
@@ -265,6 +266,7 @@ export type OutreachContactInput = {
   };
   cursor_usage?: {
     cursor_user_id?: string | null;
+    signup_email?: string | null;
     is_power_user?: boolean;
     is_team_admin?: boolean;
     is_blocked_by_rate_limit?: boolean;

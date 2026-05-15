@@ -212,7 +212,8 @@ export async function upsertContact(
 
         linkedin_message, linkedin_char_count,
 
-        email_subject, email_body, email_status, gmail_action_id
+        email_subject, email_body, email_status, gmail_action_id,
+        signup_email
       )
       VALUES (
         $1, $2,
@@ -250,7 +251,8 @@ export async function upsertContact(
 
         $77, $78,
 
-        $79, $80, $81, $82
+        $79, $80, $81, $82,
+        $83
       )
       ON CONFLICT (run_id, external_key) DO UPDATE SET
         account_name = EXCLUDED.account_name,
@@ -345,6 +347,7 @@ export async function upsertContact(
         email_body      = COALESCE(outreach_contacts.email_body, EXCLUDED.email_body),
         email_status    = EXCLUDED.email_status,
         gmail_action_id = EXCLUDED.gmail_action_id,
+        signup_email    = EXCLUDED.signup_email,
 
         -- UI-managed columns INTENTIONALLY OMITTED:
         --   linkedin_sent, email_flagged_to_send, email_sent_at,
@@ -448,6 +451,7 @@ export async function upsertContact(
       e?.body ?? null,
       e?.status ?? 'drafted',
       e?.gmail_action_id ?? null,
+      u?.signup_email ?? null,
     ],
   );
   if (!rows[0]) throw new Error('upsertContact returned no row');

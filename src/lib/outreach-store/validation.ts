@@ -416,6 +416,7 @@ export function validateContactInput(body: unknown, idx: number): OutreachContac
             const u = requireObject(cursorUsageRaw, `contacts[${idx}].cursor_usage`);
             return {
               cursor_user_id: optionalString(u.cursor_user_id, `contacts[${idx}].cursor_usage.cursor_user_id`),
+              signup_email: optionalString(u.signup_email, `contacts[${idx}].cursor_usage.signup_email`),
               is_power_user: optionalBoolean(u.is_power_user, `contacts[${idx}].cursor_usage.is_power_user`),
               is_team_admin: optionalBoolean(u.is_team_admin, `contacts[${idx}].cursor_usage.is_team_admin`),
               is_blocked_by_rate_limit: optionalBoolean(

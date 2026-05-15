@@ -28,7 +28,8 @@ Upserts contacts. Up to **100 per request**. Idempotent on `(run_id, external_ke
 **Agent provides:**
 
 - `linkedin.message` — full LinkedIn DM (thank-you + training offer). Stored verbatim.
-- `email` — when `work_email` exists: `{ subject, body, status: "drafted" }`. When missing: `{ status: "no_work_email" }`.
+- `email` — when `work_email` or `cursor_usage.signup_email` exists: `{ subject, body, status: "drafted" }`. When missing: `{ status: "no_work_email" }`.
+- `cursor_usage.signup_email` — the email the user signed up to Cursor with (store always for enrolled users).
 - `demo.demo_ok: false` — no demo generation for intent outreach.
 
 **Server preserves on re-POST (UI-managed):**
@@ -80,7 +81,7 @@ Compact table (same density as Sequences):
 
 | Column | Content |
 |---|---|
-| Contact | Name, title, email, account |
+| Contact | Name, title, work/signup email, account — **click row for full detail modal** |
 | Signals | Signal type chips |
 | Priority | hot / warm / nurture |
 | Intent | POWER, ALUMNI badges |
@@ -105,7 +106,7 @@ Add to Sequence Orchestrator (or a sibling automation) **before** the cold loop:
 GET /api/outreach/contacts?email_flagged_to_send=true
 ```
 
-For each contact: `gmail_send` to `work_email` with `email_subject` / `email_body`, then:
+For each contact: `gmail_send` to `work_email ?? signup_email` with `email_subject` / `email_body`, then:
 
 ```
 PATCH /api/outreach/contacts/<id>

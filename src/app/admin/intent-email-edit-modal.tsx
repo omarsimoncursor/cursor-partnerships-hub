@@ -8,11 +8,16 @@ export type IntentEmailTarget = {
   full_name: string;
   account_display_name: string;
   work_email: string | null;
+  signup_email?: string | null;
   email_subject: string | null;
   email_body: string | null;
   email_flagged_to_send: boolean;
   email_sent_at: string | null;
 };
+
+function sendEmailFor(contact: IntentEmailTarget): string | null {
+  return contact.work_email?.trim() || contact.signup_email?.trim() || null;
+}
 
 type Props = {
   contact: IntentEmailTarget;
@@ -73,6 +78,7 @@ export function IntentEmailEditModal({ contact, apiToken, onClose, onSaved }: Pr
   };
 
   const sent = contact.email_sent_at != null;
+  const toAddress = sendEmailFor(contact);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 py-8 overflow-y-auto">
@@ -88,7 +94,12 @@ export function IntentEmailEditModal({ contact, apiToken, onClose, onSaved }: Pr
               <span className="text-text-tertiary">— {contact.account_display_name}</span>
             </h2>
             <p className="text-[11px] text-text-tertiary mt-0.5">
-              {contact.work_email || <span className="italic text-accent-red">no work email</span>}
+              {toAddress || <span className="italic text-accent-red">no email on file</span>}
+              {toAddress && contact.work_email && contact.signup_email && contact.work_email !== contact.signup_email && (
+                <span className="block text-[10px] opacity-80">
+                  signup: {contact.signup_email}
+                </span>
+              )}
             </p>
           </div>
           <button type="button" onClick={onClose} className="p-1 text-text-tertiary hover:text-text-primary" aria-label="Close">
@@ -135,7 +146,7 @@ export function IntentEmailEditModal({ contact, apiToken, onClose, onSaved }: Pr
               type="checkbox"
               checked={flagged}
               onChange={(e) => setFlagged(e.target.checked)}
-              disabled={sent || !contact.work_email}
+              disabled={sent || !toAddress}
               className="rounded border-dark-border"
             />
             Flag to send (orchestrator picks this up on the next run)

@@ -445,11 +445,12 @@ Body shape: `{ run_id, contacts: [...] }`. Up to 100 contacts per request. Idemp
 **Critical agent behaviors:**
 
 1. **`linkedin.message` is the full LinkedIn DM** — a brief thank-you for using Cursor plus an offer of training / office hours. 2-4 sentences, first-name personalized. Stored verbatim; the dashboard copies it as-is (no server-side demo URL append).
-2. **When `work_email` is present, always include an `email` block** with `status: "drafted"`, a subject, and a body. Omar edits these in the Intent Data tab and flags rows to send; a separate orchestrator step sends flagged emails once.
-3. **When no work email**, set `email.status: "no_work_email"` and omit subject/body.
-4. **UI-managed columns are the dashboard's, not yours.** Do not set `linkedin_sent`, `email_flagged_to_send`, `email_sent_at`, `connection_status_value`, `connection_*_at`, or `omar_notes`. The upsert preserves them across your re-POSTs.
-5. **`account_display_name` is the rollup key.** Cognizant + 18 subsidiaries should all set `account_display_name = "Cognizant"` even though `account_name` is the specific entity ("Cognizant Softvision"). The dashboard groups + filters by `account_display_name`.
-6. **`demo.demo_ok` should be `false`** for this automation — intent outreach is training-focused, not demo-focused. Omit demo URL generation.
+2. **When `work_email` or `cursor_usage.signup_email` is present, always include an `email` block** with `status: "drafted"`, a subject, and a body. Omar edits these in the Intent Data tab and flags rows to send; a separate orchestrator step sends flagged emails once. Send target is `work_email` if set, otherwise `signup_email`.
+3. **When no email at all**, set `email.status: "no_work_email"` and omit subject/body.
+4. **Always set `cursor_usage.signup_email`** for enrolled Cursor users — the email they signed up with (often personal Gmail). Store separately from `contact.work_email` (employer-matched).
+5. **UI-managed columns are the dashboard's, not yours.** Do not set `linkedin_sent`, `email_flagged_to_send`, `email_sent_at`, `connection_status_value`, `connection_*_at`, or `omar_notes`. The upsert preserves them across your re-POSTs.
+6. **`account_display_name` is the rollup key.** Cognizant + 18 subsidiaries should all set `account_display_name = "Cognizant"` even though `account_name` is the specific entity ("Cognizant Softvision"). The dashboard groups + filters by `account_display_name`.
+7. **`demo.demo_ok` should be `false`** for this automation — intent outreach is training-focused, not demo-focused. Omit demo URL generation.
 
 **Example `linkedin.message`:**
 
@@ -496,9 +497,9 @@ Omar flags rows in the Intent Data tab (`email_flagged_to_send = true`). Your Se
 GET https://cursor.omarsimon.com/api/outreach/contacts?email_flagged_to_send=true
 ```
 
-For each returned contact with `work_email`, `email_subject`, and `email_body`:
+For each returned contact with a send address (`work_email` or `signup_email`) and `email_subject` / `email_body`:
 
-1. Send via `gmail_send` to `work_email`.
+1. Send via `gmail_send` to `work_email` if set, else `signup_email`.
 2. Stamp the row:
 
 ```

@@ -277,6 +277,7 @@ CREATE TABLE IF NOT EXISTS outreach_contacts (
   linkedin_headline               TEXT,
   linkedin_about                  TEXT,
   work_email                      TEXT,
+  signup_email                    TEXT,
   location_city                   TEXT,
   location_state                  TEXT,
   location_country                TEXT,
@@ -410,6 +411,9 @@ CREATE INDEX IF NOT EXISTS outreach_signals_contact_idx       ON outreach_contac
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS linkedin_sent BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_flagged_to_send BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ;
+ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS signup_email TEXT;
+CREATE INDEX IF NOT EXISTS outreach_contacts_signup_email_idx
+  ON outreach_contacts(signup_email) WHERE signup_email IS NOT NULL;
 CREATE INDEX IF NOT EXISTS outreach_contacts_email_flagged_idx
   ON outreach_contacts(email_flagged_to_send, email_sent_at)
   WHERE email_flagged_to_send = TRUE AND email_sent_at IS NULL;

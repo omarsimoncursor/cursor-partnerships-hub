@@ -34,6 +34,16 @@ export function toRunResponse(row: OutreachRunRow): OutreachRunResponse {
   return row;
 }
 
+export function outreachSendEmail(contact: {
+  work_email?: string | null;
+  signup_email?: string | null;
+}): string | null {
+  const work = contact.work_email?.trim();
+  if (work) return work;
+  const signup = contact.signup_email?.trim();
+  return signup || null;
+}
+
 export function toContactResponse(
   row: OutreachContactRow,
   opts: {

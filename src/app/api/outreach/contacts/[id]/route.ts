@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ensureSchema, isDatabaseConfigured } from '@/lib/prospect-store';
 import {
   getContactById,
+  getSignalsForContact,
   OutreachValidationError,
   patchContact,
   toContactResponse,
@@ -40,9 +41,11 @@ export async function GET(
   if (authError) return authError;
 
   const { id } = await context.params;
+  const includeSignals = req.nextUrl.searchParams.get('include') === 'signals';
   const row = await getContactById(id);
   if (!row) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-  return NextResponse.json({ ok: true, contact: toContactResponse(row) });
+  const signals = includeSignals ? await getSignalsForContact(id) : undefined;
+  return NextResponse.json({ ok: true, contact: toContactResponse(row, { signals }) });
 }
 
 export async function PATCH(

@@ -99,11 +99,9 @@ ALTER TABLE prospects ADD COLUMN IF NOT EXISTS replied              BOOLEAN     
 ALTER TABLE prospects ADD COLUMN IF NOT EXISTS thread_id            TEXT;
 ALTER TABLE prospects ADD COLUMN IF NOT EXISTS preferred_first_name TEXT;
 
--- One row per non-null email (case-insensitive). Enables upsert-on-ingest
--- and prevents duplicate demos for the same human.
-CREATE UNIQUE INDEX IF NOT EXISTS prospects_email_lower_unique_idx
-  ON prospects (LOWER(email))
-  WHERE email IS NOT NULL AND TRIM(email) <> '';
+-- Email uniqueness is enforced in application code (upsert + read-side
+-- dedup). Do not auto-create a unique index here — it fails while legacy
+-- duplicate rows exist and breaks unrelated API routes via ensureSchema().
 
 -- The spec defines a CHECK (last_sequence_sent BETWEEN 1 AND 6).
 -- Add it idempotently so re-running the migration is safe; we don't
@@ -279,6 +277,7 @@ CREATE TABLE IF NOT EXISTS outreach_contacts (
   linkedin_headline               TEXT,
   linkedin_about                  TEXT,
   work_email                      TEXT,
+  signup_email                    TEXT,
   location_city                   TEXT,
   location_state                  TEXT,
   location_country                TEXT,
@@ -412,6 +411,9 @@ CREATE INDEX IF NOT EXISTS outreach_signals_contact_idx       ON outreach_contac
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS linkedin_sent BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_flagged_to_send BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ;
+ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS signup_email TEXT;
+CREATE INDEX IF NOT EXISTS outreach_contacts_signup_email_idx
+  ON outreach_contacts(signup_email) WHERE signup_email IS NOT NULL;
 CREATE INDEX IF NOT EXISTS outreach_contacts_email_flagged_idx
   ON outreach_contacts(email_flagged_to_send, email_sent_at)
   WHERE email_flagged_to_send = TRUE AND email_sent_at IS NULL;

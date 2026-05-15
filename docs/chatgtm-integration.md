@@ -241,7 +241,6 @@ Rows without an email are never collapsed.
 **Ingest dedup (write path):** `POST /api/chatgtm/prospects` upserts on
 `LOWER(email)` when an email is present — an existing row keeps its
 `slug`, `demo_url`, `demo_password`, `thread_id`, and sequence progress.
-A unique index on `LOWER(email)` enforces this at the database layer.
 
 **`classified_level` + `mcp_detail`:** there is **no cron job**. ChatGTM's
 Prospecting Blitz should send both on create. When either is missing, the

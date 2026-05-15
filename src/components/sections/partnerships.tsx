@@ -142,6 +142,14 @@ export function Partnerships() {
                 letter: 'S',
               },
               {
+                href: '/partnerships/snyk',
+                partner: 'Snyk',
+                title: 'From Snyk Critical to Verified PR',
+                description: 'Snyk finds the vulnerability. Cursor parameterizes the call site, bumps the dependency, replays the exploit, and opens a tested PR.',
+                color: '#4C44CB',
+                letter: 'S',
+              },
+              {
                 href: '/partnerships/github',
                 partner: 'GitHub',
                 title: 'From PR Review to Agentic Refactor',

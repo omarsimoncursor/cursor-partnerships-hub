@@ -14,6 +14,7 @@ export const PARTNER_CATEGORIES = {
     partners: [
       { name: 'Datadog', webinar: 'From Incident to Fix: AI-Assisted Debugging', rationale: 'Datadog detects the issue, Cursor analyzes the code and generates the fix. Seamless incident resolution.', logo: '/logos/datadog.svg' },
       { name: 'Sentry', webinar: 'AI-Assisted Debugging From Error to Patch', rationale: 'Sentry captures the error. Cursor traces it to root cause and produces the patch.', logo: '/logos/sentry.svg' },
+      { name: 'Snyk', webinar: 'From Snyk Critical to Verified PR', rationale: 'Snyk finds the vulnerability. Cursor patches the call site, bumps the dependency, replays the exploit, and opens the PR.', logo: '/logos/snyk.svg' },
       { name: 'GitLab', webinar: 'AI-Native DevOps: Coding, CI/CD, and Deployment', rationale: 'GitLab pipeline data combined with Cursor reasoning creates an end-to-end intelligent DevOps workflow.', logo: '/logos/gitlab.svg' },
       { name: 'Docker', webinar: 'AI-Driven Containerized Development', rationale: "Docker's developer environment integrations benefit from Cursor's codebase intelligence.", logo: '/logos/docker.svg' },
       { name: 'Cloudflare', webinar: 'AI-Assisted Edge Application Development', rationale: "Workers and edge compute benefit from Cursor's ability to reason about distributed application logic.", logo: '/logos/cloudflare.svg' },

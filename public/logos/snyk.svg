@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="200" height="80" role="img" aria-label="Snyk">
+  <g fill="#FFFFFF">
+    <path d="M52 22a18 18 0 0 0-26 0L14 34a4 4 0 0 0 0 6l12 12a18 18 0 0 0 26 0l12-12a4 4 0 0 0 0-6L52 22zm-13 26a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm0-14a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>
+    <text x="78" y="50" font-family="'Inter', system-ui, sans-serif" font-size="28" font-weight="700" letter-spacing="-0.5">snyk</text>
+  </g>
+</svg>

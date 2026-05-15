@@ -444,10 +444,10 @@ Body shape: `{ run_id, contacts: [...] }`. Up to 100 contacts per request. Idemp
 
 **Critical agent behaviors:**
 
-1. **`linkedin.message` is the full LinkedIn DM** — a brief thank-you for using Cursor plus an offer of training / office hours. 2-4 sentences, first-name personalized. Stored verbatim; the dashboard copies it as-is (no server-side demo URL append).
+1. **`linkedin.message` is the full LinkedIn DM** — a brief thank-you for using Cursor plus an offer of training / office hours. 2-4 sentences, first-name personalized. Stored verbatim; the dashboard appends demo URL + password on copy (same as Sequences).
 2. **When `work_email` or `cursor_usage.signup_email` is present, always include an `email` block** with `status: "drafted"`, a subject, and a body. Omar edits these in the Intent Data tab and flags rows to send; a separate orchestrator step sends flagged emails once. Send target is `work_email` if set, otherwise `signup_email`.
 3. **When no email at all**, set `email.status: "no_work_email"` and omit subject/body.
-4. **Always set `cursor_usage.signup_email`** for enrolled Cursor users — the email they signed up with (often personal Gmail). Store separately from `contact.work_email` (employer-matched).
+4. **Always set `cursor_usage.signup_email`** for enrolled Cursor users — the email they signed up with (often personal Gmail). Store separately from `contact.work_email` when both exist. `work_email` accepts any email domain (personal Gmail/Outlook/Yahoo included) — it is the email of record for the contact.
 5. **UI-managed columns are the dashboard's, not yours.** Do not set `linkedin_sent`, `email_flagged_to_send`, `email_sent_at`, `connection_status_value`, `connection_*_at`, or `omar_notes`. The upsert preserves them across your re-POSTs.
 6. **`account_display_name` is the rollup key.** Cognizant + 18 subsidiaries should all set `account_display_name = "Cognizant"` even though `account_name` is the specific entity ("Cognizant Softvision"). The dashboard groups + filters by `account_display_name`.
 7. **`demo.demo_ok`** — omit or set `true` (default). Server generates a personalized demo URL + password on ingest. The dashboard appends them to the LinkedIn copy (same as Sequences). Set `false` only to skip demo generation.
@@ -484,7 +484,7 @@ Post to Omar (Slack ID: `U0ASG70KCKX`):
 
 ```
 🎯 Intent Outreach run complete · {run_date}
-{total_contacts} contacts ({unique_executives} exec, {unique_leaders} leader, {unique_managers} mgr)
+{total_contacts} contacts ({unique_executives} exec, {unique_leaders} leader, {unique_managers} mgr, {unique_ics} IC)
 Hot: {count of priority_tier=hot}
 Open Intent Data: https://cursor.omarsimon.com/admin
 ```

@@ -13,7 +13,7 @@ export async function upsertRun(input: OutreachRunInput): Promise<OutreachRunRow
         automation_run_id, automation_revision_id, user_email,
         run_date, ran_at, window_start, window_end,
         total_contacts, total_emails_drafted, unique_accounts_signaled,
-        unique_executives, unique_leaders, unique_managers,
+        unique_executives, unique_leaders, unique_managers, unique_ics,
         count_with_work_email, count_with_linkedin_url,
         accounts_with_activity, accounts_with_no_signals
       )
@@ -21,9 +21,9 @@ export async function upsertRun(input: OutreachRunInput): Promise<OutreachRunRow
         $1, $2, $3,
         $4, $5, $6, $7,
         $8, $9, $10,
-        $11, $12, $13,
-        $14, $15,
-        $16, $17
+        $11, $12, $13, $14,
+        $15, $16,
+        $17, $18
       )
       ON CONFLICT (automation_run_id) DO UPDATE SET
         automation_revision_id   = EXCLUDED.automation_revision_id,
@@ -38,6 +38,7 @@ export async function upsertRun(input: OutreachRunInput): Promise<OutreachRunRow
         unique_executives        = EXCLUDED.unique_executives,
         unique_leaders           = EXCLUDED.unique_leaders,
         unique_managers          = EXCLUDED.unique_managers,
+        unique_ics               = EXCLUDED.unique_ics,
         count_with_work_email    = EXCLUDED.count_with_work_email,
         count_with_linkedin_url  = EXCLUDED.count_with_linkedin_url,
         accounts_with_activity   = EXCLUDED.accounts_with_activity,
@@ -58,6 +59,7 @@ export async function upsertRun(input: OutreachRunInput): Promise<OutreachRunRow
       s.unique_executives,
       s.unique_leaders,
       s.unique_managers,
+      s.unique_ics,
       s.count_with_work_email,
       s.count_with_linkedin_url,
       s.accounts_with_activity,

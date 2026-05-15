@@ -279,7 +279,7 @@ export function IntentContactDetailModal({
                 </Section>
 
                 <Section title="Emails">
-                  <Field label="Work email" value={contact.work_email} />
+                  <Field label="Email" value={contact.work_email} />
                   <Field label="Signup email" value={contact.signup_email} />
                   <Field label="Draft status" value={formatEmailStatus(contact.email_status)} />
                 </Section>

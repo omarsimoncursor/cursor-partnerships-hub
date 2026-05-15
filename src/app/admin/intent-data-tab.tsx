@@ -20,8 +20,22 @@ import { IntentContactDetailModal } from './intent-contact-detail-modal';
 import { IntentEmailEditModal, type IntentEmailTarget } from './intent-email-edit-modal';
 import { Pager, paginate } from './pager';
 import { formatSignalType } from '@/lib/outreach-store/signal-labels';
+import type { OutreachRunRow, OutreachSeniorityTier } from '@/lib/outreach-store/types';
 
 const PAGE_SIZE = 50;
+
+const SENIORITY_OPTIONS: OutreachSeniorityTier[] = ['Executive', 'Leader', 'Manager', 'IC'];
+
+const SENIORITY_CLASS: Record<OutreachSeniorityTier, string> = {
+  IC: 'bg-text-tertiary/10 text-text-secondary border-text-tertiary/25',
+  Manager: 'bg-text-tertiary/10 text-text-secondary border-text-tertiary/30',
+  Leader: 'bg-accent-blue/10 text-accent-blue border-accent-blue/30',
+  Executive: 'bg-accent-blue/15 text-accent-blue border-accent-blue/40',
+};
+
+function formatRunSummary(run: OutreachRunRow): string {
+  return `${run.total_contacts} contacts (${run.unique_executives} exec, ${run.unique_leaders} leader, ${run.unique_managers} mgr, ${run.unique_ics} IC)`;
+}
 
 function outreachSendEmail(row: { work_email?: string | null; signup_email?: string | null }): string | null {
   const work = row.work_email?.trim();
@@ -43,6 +57,7 @@ export type IntentRow = {
   signal_types: string[];
   signal_latest_at: string;
   priority_tier_value: 'hot' | 'warm' | 'nurture';
+  seniority_tier_value: OutreachSeniorityTier;
   priority_rationale: string | null;
   is_power_user: boolean;
   prior_employer_match_count: number;
@@ -72,11 +87,13 @@ type Props = { apiToken: string };
 
 export function IntentDataTab({ apiToken }: Props) {
   const [rows, setRows] = useState<IntentRow[]>([]);
+  const [latestRun, setLatestRun] = useState<OutreachRunRow | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [seniorityFilter, setSeniorityFilter] = useState<OutreachSeniorityTier | ''>('');
   const [liPendingOnly, setLiPendingOnly] = useState(false);
   const [emailFlaggedOnly, setEmailFlaggedOnly] = useState(false);
   const [page, setPage] = useState(0);
@@ -90,15 +107,24 @@ export function IntentDataTab({ apiToken }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/outreach/contacts?since_days=30&limit=1000', {
-        headers: { Authorization: `Bearer ${apiToken}` },
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(body?.message || body?.detail || `Load failed (${res.status})`);
+      const headers = { Authorization: `Bearer ${apiToken}` };
+      const [contactsRes, runsRes] = await Promise.all([
+        fetch('/api/outreach/contacts?since_days=30&limit=1000', { headers }),
+        fetch('/api/outreach/runs?limit=1', { headers }),
+      ]);
+      const body = await contactsRes.json().catch(() => ({}));
+      if (!contactsRes.ok) {
+        setError(body?.message || body?.detail || `Load failed (${contactsRes.status})`);
         return;
       }
       setRows((body.contacts ?? []) as IntentRow[]);
+
+      const runsBody = await runsRes.json().catch(() => ({}));
+      if (runsRes.ok && Array.isArray(runsBody.runs) && runsBody.runs[0]) {
+        setLatestRun(runsBody.runs[0] as OutreachRunRow);
+      } else {
+        setLatestRun(null);
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -121,6 +147,7 @@ export function IntentDataTab({ apiToken }: Props) {
     return rows.filter((r) => {
       if (companyFilter && r.account_display_name !== companyFilter) return false;
       if (priorityFilter && r.priority_tier_value !== priorityFilter) return false;
+      if (seniorityFilter && r.seniority_tier_value !== seniorityFilter) return false;
       if (liPendingOnly && (r.linkedin_sent || !r.linkedin_url || !r.linkedin_message)) return false;
       if (emailFlaggedOnly && (!r.email_flagged_to_send || r.email_sent_at)) return false;
       if (!q) return true;
@@ -139,7 +166,7 @@ export function IntentDataTab({ apiToken }: Props) {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [rows, search, companyFilter, priorityFilter, liPendingOnly, emailFlaggedOnly]);
+  }, [rows, search, companyFilter, priorityFilter, seniorityFilter, liPendingOnly, emailFlaggedOnly]);
 
   const { currentPage, totalPages, pageStart, visible } = paginate(filtered, page, PAGE_SIZE);
 
@@ -190,6 +217,17 @@ export function IntentDataTab({ apiToken }: Props) {
 
   return (
     <div>
+      {latestRun && (
+        <p className="text-sm text-text-secondary mb-4">
+          Latest run{' '}
+          <span className="text-text-tertiary">
+            ({new Date(latestRun.run_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })})
+          </span>
+          :{' '}
+          <span className="font-mono text-[13px] text-text-primary">{formatRunSummary(latestRun)}</span>
+        </p>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <StatTile label="Contacts (30d)" value={stats.total} />
         <StatTile label="Hot" value={stats.hot} tone="red" />
@@ -248,6 +286,36 @@ export function IntentDataTab({ apiToken }: Props) {
           <option value="warm">Warm</option>
           <option value="nurture">Nurture</option>
         </select>
+
+        <select
+          value={seniorityFilter}
+          onChange={(e) => setSeniorityFilter(e.target.value as OutreachSeniorityTier | '')}
+          className="px-3 py-2 rounded-md bg-dark-surface border border-dark-border text-sm text-text-primary outline-none min-w-[130px]"
+        >
+          <option value="">All seniority</option>
+          {SENIORITY_OPTIONS.map((tier) => (
+            <option key={tier} value={tier}>
+              {tier}
+            </option>
+          ))}
+        </select>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {SENIORITY_OPTIONS.map((tier) => (
+            <button
+              key={tier}
+              type="button"
+              onClick={() => setSeniorityFilter((prev) => (prev === tier ? '' : tier))}
+              className={`px-2 py-1 rounded text-[10px] font-mono uppercase border transition-colors ${
+                seniorityFilter === tier
+                  ? SENIORITY_CLASS[tier]
+                  : 'border-dark-border text-text-tertiary hover:text-text-secondary hover:bg-dark-surface'
+              }`}
+            >
+              {tier}
+            </button>
+          ))}
+        </div>
 
         <button
           onClick={() => void load()}
@@ -330,6 +398,7 @@ export function IntentDataTab({ apiToken }: Props) {
                 <th className="text-left px-3 py-2.5">Contact</th>
                 <th className="text-left px-3 py-2.5">Signals</th>
                 <th className="text-left px-3 py-2.5">Priority</th>
+                <th className="text-left px-3 py-2.5">Seniority</th>
                 <th className="text-left px-3 py-2.5 min-w-[200px]">Context</th>
                 <th className="text-left px-3 py-2.5">LinkedIn</th>
                 <th className="text-left px-3 py-2.5">Email</th>
@@ -466,6 +535,13 @@ function IntentRowView({
         >
           {r.priority_tier_value === 'hot' && <Flame className="w-3 h-3" />}
           {r.priority_tier_value}
+        </span>
+      </td>
+      <td className="px-3 py-2 align-top">
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono uppercase border ${SENIORITY_CLASS[r.seniority_tier_value]}`}
+        >
+          {r.seniority_tier_value}
         </span>
       </td>
       <td className="px-3 py-2 align-top max-w-[280px]">

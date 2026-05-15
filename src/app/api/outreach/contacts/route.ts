@@ -19,6 +19,7 @@ export const dynamic = 'force-dynamic';
  *   run_id=<uuid>
  *   account=<display_name>
  *   priority=hot|warm|nurture
+ *   seniority=IC|Manager|Leader|Executive
  *   since_days=<1..90> (default 30 for the admin tab)
  *   limit, offset
  */
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
       runId: sp.get('run_id') ?? undefined,
       accountDisplayName: sp.get('account') ?? undefined,
       priorityTier: sp.get('priority') ?? undefined,
+      seniorityTier: sp.get('seniority') ?? undefined,
       sinceDays: Number.isFinite(sinceDays) && sinceDays > 0 ? sinceDays : 30,
       limit: limitRaw ? Number(limitRaw) : 500,
       offset: offsetRaw ? Number(offsetRaw) : 0,

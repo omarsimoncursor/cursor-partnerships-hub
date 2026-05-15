@@ -19,7 +19,11 @@ All endpoints expect `Authorization: Bearer ${CHATGTM_API_TOKEN}`.
 
 ### `POST /api/outreach/runs`
 
-Logs run metadata. Idempotent on `automation_run_id`.
+Logs run metadata. Idempotent on `automation_run_id`. Summary accepts `unique_ics` alongside `unique_executives`, `unique_leaders`, `unique_managers`.
+
+### `GET /api/outreach/runs?limit=1`
+
+Recent run summaries for the Intent Data dashboard header.
 
 ### `POST /api/outreach/contacts/batch`
 
@@ -30,7 +34,8 @@ Upserts contacts. Up to **100 per request**. Idempotent on `(run_id, external_ke
 - `linkedin.message` — full LinkedIn DM (thank-you + training offer). Stored verbatim.
 - `email` — when `work_email` or `cursor_usage.signup_email` exists: `{ subject, body, status: "drafted" }`. When missing: `{ status: "no_work_email" }`.
 - `cursor_usage.signup_email` — the email the user signed up to Cursor with (store always for enrolled users).
-- `demo.demo_ok` — defaults to `true`; server generates demo URL + password on ingest.
+- `contact.seniority_tier` — `IC` | `Manager` | `Leader` | `Executive`
+- `contact.work_email` — email of record (work or personal; no domain restriction)
 
 **Server preserves on re-POST (UI-managed):**
 
@@ -58,6 +63,7 @@ Query params:
 | `run_id` | Single run |
 | `account` | `account_display_name` |
 | `priority` | `hot\|warm\|nurture` |
+| `seniority` | `IC\|Manager\|Leader\|Executive` |
 | `since_days` | Default 30 |
 | `limit`, `offset` | Pagination |
 
@@ -84,7 +90,8 @@ Compact table (same density as Sequences):
 | Contact | Name, title, work/signup email, account — **click row for full detail modal** |
 | Signals | Signal type chips |
 | Priority | hot / warm / nurture |
-| Intent | POWER, ALUMNI badges |
+| Seniority | IC / Manager / Leader / Executive — filterable |
+| Context | Priority rationale + usage badges |
 | LinkedIn | Sent toggle |
 | Email | Subject snippet, Send flag, sent status |
 | Signal | Latest signal date |

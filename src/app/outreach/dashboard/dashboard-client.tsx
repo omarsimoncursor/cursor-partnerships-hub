@@ -300,6 +300,7 @@ export function DashboardClient({
             ['Executive', 'Executive'],
             ['Leader', 'Leader'],
             ['Manager', 'Manager'],
+            ['IC', 'IC'],
           ]}
         />
 

@@ -571,6 +571,7 @@ export type ListContactsFilters = {
   runId?: string;
   accountDisplayName?: string;
   priorityTier?: string;
+  seniorityTier?: string;
   sinceDays?: number;
   limit?: number;
   offset?: number;
@@ -607,6 +608,10 @@ export async function listContacts(
   if (filters.priorityTier) {
     params.push(filters.priorityTier);
     clauses.push(`priority_tier_value = $${params.length}`);
+  }
+  if (filters.seniorityTier) {
+    params.push(filters.seniorityTier);
+    clauses.push(`seniority_tier_value = $${params.length}`);
   }
   if (filters.sinceDays != null && filters.sinceDays > 0) {
     params.push(filters.sinceDays);

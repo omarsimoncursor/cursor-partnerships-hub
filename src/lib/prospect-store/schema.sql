@@ -186,8 +186,20 @@ CREATE INDEX IF NOT EXISTS prospect_events_type_idx     ON prospect_events(event
 -- CREATE TYPE so we wrap each in a DO block that catches the duplicate-object
 -- error.
 DO $$ BEGIN
-  CREATE TYPE outreach_seniority_tier AS ENUM ('Manager', 'Leader', 'Executive');
+  CREATE TYPE outreach_seniority_tier AS ENUM ('IC', 'Manager', 'Leader', 'Executive');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Add IC tier to deployments that created the enum before this value existed.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum e
+      JOIN pg_type t ON e.enumtypid = t.oid
+     WHERE t.typname = 'outreach_seniority_tier' AND e.enumlabel = 'IC'
+  ) THEN
+    ALTER TYPE outreach_seniority_tier ADD VALUE 'IC';
+  END IF;
+END $$;
 
 DO $$ BEGIN
   CREATE TYPE outreach_email_draft_status AS ENUM ('drafted', 'no_work_email', 'skipped_no_demo_url');
@@ -226,6 +238,7 @@ CREATE TABLE IF NOT EXISTS outreach_runs (
   unique_executives        INT NOT NULL DEFAULT 0,
   unique_leaders           INT NOT NULL DEFAULT 0,
   unique_managers          INT NOT NULL DEFAULT 0,
+  unique_ics               INT NOT NULL DEFAULT 0,
   count_with_work_email    INT NOT NULL DEFAULT 0,
   count_with_linkedin_url  INT NOT NULL DEFAULT 0,
   accounts_with_activity   TEXT[] NOT NULL DEFAULT '{}',
@@ -408,6 +421,7 @@ CREATE INDEX IF NOT EXISTS outreach_signals_type_detected_idx ON outreach_contac
 CREATE INDEX IF NOT EXISTS outreach_signals_contact_idx       ON outreach_contact_signals(contact_id);
 
 -- Idempotent column adds for deployments that ran an earlier schema pass.
+ALTER TABLE outreach_runs ADD COLUMN IF NOT EXISTS unique_ics INT NOT NULL DEFAULT 0;
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS linkedin_sent BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_flagged_to_send BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ;

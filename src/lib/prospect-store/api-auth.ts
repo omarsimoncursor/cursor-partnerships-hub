@@ -35,36 +35,43 @@ export function checkBearerToken(req: NextRequest, envName: string): NextRespons
 }
 
 // Return the canonical origin every API response should embed in any
-// URL it generates (e.g. ChatGTM's `url`, `demo_url`). Three layers,
-// in priority order:
+// URL it generates (e.g. ChatGTM's `url`, `demo_url`). The priority
+// order is split by environment because the operator's expectations
+// are different in production vs. staging/preview:
 //
-//   1. process.env.PUBLIC_APP_ORIGIN
-//      Runtime override; wins everywhere when set. The operator pins
-//      this in Vercel env vars to lock the canonical host, even on
-//      traffic that lands via a legacy or preview domain.
+//   PRODUCTION (VERCEL_ENV === 'production'):
+//     1. SETUP_CONFIG.canonicalOrigin (always wins — build-baked,
+//        in-code, AGENT-EDITED, authoritative for this fork).
+//     2. process.env.PUBLIC_APP_ORIGIN (legacy fallback, only used
+//        when canonicalOrigin is somehow blank).
+//     3. Request Host header (last-ditch fallback).
 //
-//   2. SETUP_CONFIG.canonicalOrigin (production only)
-//      Build-baked default. Picks up the canonical the fork was
-//      deployed under without requiring an env var to be set, so a
-//      fresh production deploy that forgets PUBLIC_APP_ORIGIN doesn't
-//      regress to writing whatever Host header came in (which may be
-//      a stale legacy domain — exactly the bug we just hit).
+//   NON-PRODUCTION (preview / dev / staging):
+//     1. process.env.PUBLIC_APP_ORIGIN (runtime override, used for
+//        staging deploys and ad-hoc preview testing).
+//     2. SETUP_CONFIG.canonicalOrigin.
+//     3. Request Host header (so a preview at
+//        <branch>-<project>.vercel.app self-links instead of pointing
+//        at production).
 //
-//      Gated on `VERCEL_ENV === 'production'` so preview deploys keep
-//      using the request host: previews on
-//      `<branch>-<project>.vercel.app` should self-link, otherwise
-//      the URLs they generate would all point at production.
-//
-//   3. Request Host header
-//      Fallback for previews + local dev. Same logic as before.
+// Why canonicalOrigin trumps the env var in production: the env var
+// is easy to set and forget — and when it gets stale (e.g. it still
+// points at the legacy `cursorpartners.omarsimon.com`), every URL
+// the API hands ChatGTM is wrong. The build-baked `canonicalOrigin`
+// requires editing source + redeploying, which is the right gate for
+// "rename the user-facing canonical host". The env var stays useful
+// for staging deploys where you do want a runtime override.
 export function originFromRequest(req: NextRequest): string {
-  const envOrigin = process.env.PUBLIC_APP_ORIGIN;
-  if (envOrigin) return envOrigin.replace(/\/$/, '');
-
   const isProduction = process.env.VERCEL_ENV === 'production';
   const canonical = SETUP_CONFIG.canonicalOrigin?.trim();
-  if (isProduction && canonical) {
-    return canonical.replace(/\/$/, '');
+  const envOrigin = process.env.PUBLIC_APP_ORIGIN?.trim();
+
+  if (isProduction) {
+    if (canonical) return canonical.replace(/\/$/, '');
+    if (envOrigin) return envOrigin.replace(/\/$/, '');
+  } else {
+    if (envOrigin) return envOrigin.replace(/\/$/, '');
+    if (canonical) return canonical.replace(/\/$/, '');
   }
 
   const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol.replace(':', '') || 'https';

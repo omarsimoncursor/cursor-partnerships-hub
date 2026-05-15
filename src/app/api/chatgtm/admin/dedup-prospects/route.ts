@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic';
  *
  * One-time (idempotent) email dedup + personalization backfill. Survivor
  * rule: earliest created_at, tiebreak slug ASC. Losers are hard-deleted
- * after merging thread/sequence fields onto the survivor.
+ * after merging thread/sequence fields onto the survivor. After dedup,
+ * creates the unique email index if duplicates are gone.
  *
  * `classified_level` / `mcp_detail` are inferred server-side when null —
  * there is no cron; see `personalization.ts` module header.

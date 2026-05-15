@@ -248,7 +248,9 @@ Prospecting Blitz should send both on create. When either is missing, the
 server infers them at ingest time via `src/lib/prospect-store/personalization.ts`.
 Repair historical rows with
 `POST /api/chatgtm/admin/dedup-prospects?company_domain=<domain>` (runs
-email dedup + personalization backfill in one pass).
+email dedup + personalization backfill in one pass, then creates the unique
+email index). The index is skipped during normal schema init while
+duplicates still exist.
 
 **Response shape** (per prospect):
 

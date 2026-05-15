@@ -6,7 +6,7 @@ import {
 import {
   OutreachValidationError,
   listRecentRuns,
-  upsertRun,
+  upsertRunWithMeta,
   validateRunInput,
 } from '@/lib/outreach-store';
 import { checkBearerToken } from '@/lib/prospect-store/api-auth';
@@ -86,8 +86,14 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureSchema();
-    const run = await upsertRun(input);
-    return NextResponse.json({ ok: true, run_id: run.id, run });
+    const { run, created } = await upsertRunWithMeta(input);
+    return NextResponse.json({
+      ok: true,
+      run_id: run.id,
+      automation_run_id: run.automation_run_id,
+      created,
+      run,
+    });
   } catch (err) {
     console.error('[outreach/runs POST] failed:', err);
     return NextResponse.json(

@@ -6,9 +6,14 @@
 import { query } from './db';
 import type { OutreachRunInput, OutreachRunRow } from './types';
 
-export async function upsertRun(input: OutreachRunInput): Promise<OutreachRunRow> {
+export type UpsertRunResult = {
+  run: OutreachRunRow;
+  created: boolean;
+};
+
+export async function upsertRunWithMeta(input: OutreachRunInput): Promise<UpsertRunResult> {
   const s = input.summary;
-  const { rows } = await query<OutreachRunRow>(
+  const { rows } = await query<OutreachRunRow & { __was_inserted: boolean }>(
     `INSERT INTO outreach_runs (
         automation_run_id, automation_revision_id, user_email,
         run_date, ran_at, window_start, window_end,
@@ -44,7 +49,7 @@ export async function upsertRun(input: OutreachRunInput): Promise<OutreachRunRow
         accounts_with_activity   = EXCLUDED.accounts_with_activity,
         accounts_with_no_signals = EXCLUDED.accounts_with_no_signals,
         updated_at               = now()
-      RETURNING *`,
+      RETURNING *, (xmax = 0) AS __was_inserted`,
     [
       input.automation_run_id,
       input.automation_revision_id,
@@ -67,7 +72,23 @@ export async function upsertRun(input: OutreachRunInput): Promise<OutreachRunRow
     ],
   );
   if (!rows[0]) throw new Error('upsertRun returned no row');
-  return rows[0];
+  const { __was_inserted, ...run } = rows[0];
+  return { run, created: __was_inserted };
+}
+
+export async function upsertRun(input: OutreachRunInput): Promise<OutreachRunRow> {
+  const { run } = await upsertRunWithMeta(input);
+  return run;
+}
+
+export async function getRunByAutomationRunId(
+  automationRunId: string,
+): Promise<OutreachRunRow | null> {
+  const { rows } = await query<OutreachRunRow>(
+    `SELECT * FROM outreach_runs WHERE automation_run_id = $1 LIMIT 1`,
+    [automationRunId],
+  );
+  return rows[0] ?? null;
 }
 
 export async function getRunById(id: string): Promise<OutreachRunRow | null> {

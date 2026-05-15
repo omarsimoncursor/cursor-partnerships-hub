@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureSchema, isDatabaseConfigured } from '@/lib/prospect-store';
 import {
+  getRunByAutomationRunId,
   getRunById,
   OutreachValidationError,
   upsertContact,
@@ -16,7 +17,10 @@ const MAX_BATCH = 100;
 /**
  * POST /api/outreach/contacts/batch
  *
- * Body: { run_id: <uuid>, contacts: [<OutreachContactInput>...] }
+ * Body: { run_id?: <uuid>, automation_run_id?: <agent uuid>, contacts: [...] }
+ *
+ * Provide `run_id` (from POST /runs) or `automation_run_id` — the latter
+ * resolves to the same run row on retry without the agent tracking UUIDs.
  *
  * Idempotent on (run_id, external_key). Re-POSTing the same row
  * preserves the UI-managed lifecycle columns
@@ -48,9 +52,15 @@ export async function POST(req: NextRequest) {
   }
   const obj = body as Record<string, unknown>;
   const runId = typeof obj.run_id === 'string' ? obj.run_id.trim() : '';
-  if (!runId) {
+  const automationRunId =
+    typeof obj.automation_run_id === 'string' ? obj.automation_run_id.trim() : '';
+  if (!runId && !automationRunId) {
     return NextResponse.json(
-      { error: 'invalid_field', field: 'run_id', message: '`run_id` is required.' },
+      {
+        error: 'invalid_field',
+        field: 'run_id',
+        message: 'Provide `run_id` or `automation_run_id`.',
+      },
       { status: 400 },
     );
   }
@@ -76,17 +86,22 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureSchema();
-    const run = await getRunById(runId);
+    const run =
+      (runId ? await getRunById(runId) : null) ??
+      (automationRunId ? await getRunByAutomationRunId(automationRunId) : null);
     if (!run) {
       return NextResponse.json(
         {
           error: 'not_found',
-          field: 'run_id',
-          message: `No run with id "${runId}". POST /api/outreach/runs first.`,
+          field: runId ? 'run_id' : 'automation_run_id',
+          message: runId
+            ? `No run with id "${runId}". POST /api/outreach/runs first.`
+            : `No run with automation_run_id "${automationRunId}". POST /api/outreach/runs first.`,
         },
         { status: 404 },
       );
     }
+    const resolvedRunId = run.id;
 
     const origin = originFromRequest(req);
 
@@ -130,7 +145,7 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const r = await upsertContact(runId, validated, origin);
+        const r = await upsertContact(resolvedRunId, validated, origin);
         if (r.status === 'inserted') inserted += 1;
         else updated += 1;
         results.push({

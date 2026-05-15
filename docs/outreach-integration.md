@@ -19,7 +19,7 @@ All endpoints expect `Authorization: Bearer ${CHATGTM_API_TOKEN}`.
 
 ### `POST /api/outreach/runs`
 
-Logs run metadata. Idempotent on `automation_run_id`. Summary accepts `unique_ics` alongside `unique_executives`, `unique_leaders`, `unique_managers`.
+Logs run metadata. Idempotent on `automation_run_id`. Summary accepts `unique_ics` alongside `unique_executives`, `unique_leaders`, `unique_managers`. Response includes `created: true|false` and echoes `automation_run_id`.
 
 ### `GET /api/outreach/runs?limit=1`
 
@@ -27,7 +27,7 @@ Recent run summaries for the Intent Data dashboard header.
 
 ### `POST /api/outreach/contacts/batch`
 
-Upserts contacts. Up to **100 per request**. Idempotent on `(run_id, external_key)`.
+Upserts contacts. Up to **100 per request**. Accepts `run_id` or `automation_run_id` (resolves to the same run row on retry). Idempotent on `(run_id, external_key)`.
 
 **Agent provides:**
 
@@ -47,7 +47,7 @@ Child signal rows. POST contacts before signals.
 
 ### `GET /api/outreach/contacts/recent`
 
-Dedup feed for the agent (`since_days`, optional `user_email`).
+Dedup feed for the agent. Default `since_days=30` (use 30 for L30D backfills). Optional `user_email` filters on the parent run's rep email (`outreach_runs.user_email`), not `account_owner_email`. Returns one row per canonical identity (linkedin → work email → signup email → external_key), including `signup_email`.
 
 ### `GET /api/outreach/contacts`
 

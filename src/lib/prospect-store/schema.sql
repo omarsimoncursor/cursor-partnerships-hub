@@ -422,6 +422,8 @@ CREATE INDEX IF NOT EXISTS outreach_signals_contact_idx       ON outreach_contac
 
 -- Idempotent column adds for deployments that ran an earlier schema pass.
 ALTER TABLE outreach_runs ADD COLUMN IF NOT EXISTS unique_ics INT NOT NULL DEFAULT 0;
+CREATE UNIQUE INDEX IF NOT EXISTS outreach_runs_automation_run_id_idx
+  ON outreach_runs (automation_run_id);
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS linkedin_sent BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_flagged_to_send BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ;

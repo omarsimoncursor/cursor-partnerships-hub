@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureSchema, isDatabaseConfigured } from '@/lib/prospect-store';
 import {
+  getRunByAutomationRunId,
   getRunById,
   insertSignals,
   mapExternalKeysToIds,
@@ -45,9 +46,15 @@ export async function POST(req: NextRequest) {
   }
   const obj = body as Record<string, unknown>;
   const runId = typeof obj.run_id === 'string' ? obj.run_id.trim() : '';
-  if (!runId) {
+  const automationRunId =
+    typeof obj.automation_run_id === 'string' ? obj.automation_run_id.trim() : '';
+  if (!runId && !automationRunId) {
     return NextResponse.json(
-      { error: 'invalid_field', field: 'run_id', message: '`run_id` is required.' },
+      {
+        error: 'invalid_field',
+        field: 'run_id',
+        message: 'Provide `run_id` or `automation_run_id`.',
+      },
       { status: 400 },
     );
   }
@@ -73,17 +80,22 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureSchema();
-    const run = await getRunById(runId);
+    const run =
+      (runId ? await getRunById(runId) : null) ??
+      (automationRunId ? await getRunByAutomationRunId(automationRunId) : null);
     if (!run) {
       return NextResponse.json(
         {
           error: 'not_found',
-          field: 'run_id',
-          message: `No run with id "${runId}".`,
+          field: runId ? 'run_id' : 'automation_run_id',
+          message: runId
+            ? `No run with id "${runId}".`
+            : `No run with automation_run_id "${automationRunId}".`,
         },
         { status: 404 },
       );
     }
+    const resolvedRunId = run.id;
 
     // Validate every signal first; collect external_keys for the
     // single map-lookup.
@@ -121,7 +133,7 @@ export async function POST(req: NextRequest) {
     const externalKeys = Array.from(
       new Set(validated.map((v) => v.input.contact_external_key)),
     );
-    const idMap = await mapExternalKeysToIds(runId, externalKeys);
+    const idMap = await mapExternalKeysToIds(resolvedRunId, externalKeys);
     const toInsert: Array<
       ReturnType<typeof validateSignalInput> & { contact_id: string }
     > = [];

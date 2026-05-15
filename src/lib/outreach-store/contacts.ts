@@ -526,10 +526,11 @@ export async function getContactByRunAndExternalKey(
   return rows[0] ?? null;
 }
 
-// Recent-contacts dedup feed for the agent. Returns the canonical
-// dedup tuples for every contact whose latest-signal date falls
-// inside the window — `since_days` defaults to 14 and matches the
-// agent's prompt convention.
+// Recent-contacts dedup feed for the agent. Returns one row per
+// canonical contact identity (linkedin → work email → signup email →
+// external_key) for every contact whose latest signal falls inside the
+// window. `user_email` filters on the parent run's rep email, not
+// account_owner_email (which is often unset on ingest).
 export async function listRecentContacts(args: {
   sinceDays: number;
   userEmail?: string | null;
@@ -537,28 +538,52 @@ export async function listRecentContacts(args: {
   Array<{
     linkedin_url: string | null;
     work_email: string | null;
+    signup_email: string | null;
     external_key: string;
     last_run_date: string;
   }>
 > {
   const params: unknown[] = [args.sinceDays];
-  let where = `signal_latest_at >= now() - ($1 || ' days')::interval`;
+  let userClause = '';
   if (args.userEmail) {
     params.push(args.userEmail);
-    where += ` AND account_owner_email = $2`;
+    userClause = ` AND r.user_email = $${params.length}`;
   }
+
   const { rows } = await query<{
     linkedin_url: string | null;
     work_email: string | null;
+    signup_email: string | null;
     external_key: string;
     last_run_date: string;
   }>(
-    `SELECT DISTINCT ON (linkedin_url, work_email, external_key)
-            linkedin_url, work_email, external_key,
+    `WITH scoped AS (
+       SELECT
+         c.linkedin_url,
+         c.work_email,
+         c.signup_email,
+         c.external_key,
+         c.signal_latest_at,
+         COALESCE(
+           NULLIF(lower(trim(c.linkedin_url)), ''),
+           NULLIF(lower(trim(c.work_email)), ''),
+           NULLIF(lower(trim(c.signup_email)), ''),
+           lower(c.external_key)
+         ) AS dedup_key
+       FROM outreach_contacts c
+       INNER JOIN outreach_runs r ON r.id = c.run_id
+       WHERE c.signal_latest_at >= now() - ($1::int || ' days')::interval
+         ${userClause}
+     )
+     SELECT DISTINCT ON (dedup_key)
+            linkedin_url,
+            work_email,
+            signup_email,
+            external_key,
             to_char(signal_latest_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS last_run_date
-       FROM outreach_contacts
-       WHERE ${where}
-       ORDER BY linkedin_url, work_email, external_key, signal_latest_at DESC`,
+       FROM scoped
+      WHERE dedup_key IS NOT NULL
+      ORDER BY dedup_key, signal_latest_at DESC`,
     params,
   );
   return rows;

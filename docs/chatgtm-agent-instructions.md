@@ -404,10 +404,12 @@ This automation is **distinct from the cold-outbound flow** (Automations 1-3): w
 ### Step A — dedup against recent contacts
 
 ```
-GET https://cursor.omarsimon.com/api/outreach/contacts/recent?since_days=14&user_email=omar.simon@anysphere.co
+GET https://cursor.omarsimon.com/api/outreach/contacts/recent?since_days=30&user_email=omar.simon@anysphere.co
 ```
 
-Build a set of `linkedin_url || work_email || external_key` from the response. Skip any candidate already in that set.
+Build a set of `linkedin_url || work_email || signup_email || external_key` from the response. Skip any candidate already in that set.
+
+Use `since_days=30` for L30D backfills (default on the server). Daily 24h runs can pass `since_days=14`.
 
 ### Step B — log the run
 
@@ -430,7 +432,7 @@ Body (full reference in `docs/outreach-integration.md`):
 }
 ```
 
-Capture `run_id` from the response — required for steps C + D.
+Capture `run_id` from the response — required for steps C + D. On retry with the same `automation_run_id`, the response returns the **same** `run_id` with `"created": false`. You may pass `automation_run_id` instead of `run_id` on steps C + D.
 
 Idempotent on `automation_run_id`: a partial-batch retry with the same id last-write-wins-updates the summary counters.
 
@@ -440,7 +442,7 @@ Idempotent on `automation_run_id`: a partial-batch retry with the same id last-w
 POST https://cursor.omarsimon.com/api/outreach/contacts/batch
 ```
 
-Body shape: `{ run_id, contacts: [...] }`. Up to 100 contacts per request. Idempotent on `(run_id, external_key)`. Full schema documented in `docs/outreach-integration.md`.
+Body shape: `{ run_id | automation_run_id, contacts: [...] }`. Up to 100 contacts per request. Idempotent on `(run_id, external_key)`. Full schema documented in `docs/outreach-integration.md`.
 
 **Critical agent behaviors:**
 
@@ -474,7 +476,7 @@ Hi Jane — saw you've been using Cursor at Cognizant Softvision. Thanks for bei
 POST https://cursor.omarsimon.com/api/outreach/contact-signals/batch
 ```
 
-Body: `{ run_id, signals: [{ contact_external_key, signal_type, detected_at, raw }] }`. Up to 1000 per request. Idempotent on `(contact_id, signal_type, detected_at)`.
+Body: `{ run_id | automation_run_id, signals: [{ contact_external_key, signal_type, detected_at, raw }] }`. Up to 1000 per request. Idempotent on `(contact_id, signal_type, detected_at)`.
 
 **POST contacts (Step C) BEFORE signals (Step D)** — the signals endpoint resolves `contact_external_key` against the contacts already in the run. Signals referencing an unknown external_key are returned as `{ error: "not_found", field: "contact_external_key" }`.
 

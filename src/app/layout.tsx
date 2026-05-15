@@ -3,13 +3,21 @@ import { ScrollToTop } from '@/components/scroll-to-top';
 import { SETUP_CONFIG } from '@/lib/setup-config';
 import './globals.css';
 
-// Build-time origin used for the OG meta tag. Priority:
-//   1. PUBLIC_APP_ORIGIN env var — runtime override, wins anywhere.
-//   2. SETUP_CONFIG.canonicalOrigin — build-baked default per fork.
-// originFromRequest() in api-auth.ts uses the same priority for the
-// URLs the API embeds in responses, so og:url and demo_url stay in
+// Build-time origin used for the OG meta tag. In production the
+// build-baked `canonicalOrigin` always wins (in-code, AGENT-EDITED,
+// authoritative for this fork). The env var is a non-production
+// override only, useful for staging deploys. Same priority as
+// originFromRequest() in api-auth.ts so og:url and demo_url stay in
 // sync regardless of which host serves the request.
-const OG_URL = (process.env.PUBLIC_APP_ORIGIN || SETUP_CONFIG.canonicalOrigin).replace(/\/$/, '');
+const OG_URL = (() => {
+  const isProduction = process.env.VERCEL_ENV === 'production';
+  const canonical = SETUP_CONFIG.canonicalOrigin?.trim();
+  const envOrigin = process.env.PUBLIC_APP_ORIGIN?.trim();
+  const chosen = isProduction
+    ? canonical || envOrigin || ''
+    : envOrigin || canonical || '';
+  return chosen.replace(/\/$/, '');
+})();
 
 export const metadata: Metadata = {
   title: 'Cursor — Agentic automation for the stacks you already run',

@@ -116,7 +116,7 @@ In Vercel **Project → Settings → Environment Variables**, add the five secre
 | `DB_INIT_TOKEN` | (from step 3) | Production + Preview |
 | `DEMO_GATE_SECRET` | (from step 3) | Production + Preview |
 | `ADMIN_PASSWORD` | (from step 3) | Production + Preview |
-| `PUBLIC_APP_ORIGIN` *(optional)* | `https://<their-domain>` | Production. **Optional** — when unset, the build-baked `SETUP_CONFIG.canonicalOrigin` (from step 2a) is used in production. Set this var only when staging or pinning the canonical at runtime without a code change. |
+| `PUBLIC_APP_ORIGIN` *(optional, non-production only)* | `https://staging.<their-domain>` | Preview only. **Production ignores this** — the build-baked `SETUP_CONFIG.canonicalOrigin` (from step 2a) is the source of truth in production. Set this var only when you need a runtime override for a staging deploy. |
 | `ADMIN_SESSION_SECRET` *(optional)* | `openssl rand -hex 32` — only if they want to rotate the admin session independently from `DEMO_GATE_SECRET` | Production |
 
 Then **Deployments → ⋯ on the latest deployment → Redeploy** **without** the build cache so the new env vars are baked into the build.
@@ -250,6 +250,6 @@ If all eight tick, the user is live. Congratulate them.
 | `/api/db/init` returns `db_not_configured` | Neon integration didn't inject env vars into Production scope | In Vercel env vars list, find a `*_DATABASE_URL` value, copy it to a plain `DATABASE_URL` (Production), redeploy |
 | `POST /api/chatgtm/prospects` returns 401 | Bearer token mismatch | Make sure ChatGTM and Vercel both have the same `CHATGTM_API_TOKEN` value |
 | Prospect demo loads but logo is missing | Logo.dev couldn't find the domain | Add the logo file to `public/logos/` and reference it from the vendor catalog |
-| Demo URLs use `localhost` or wrong host | `SETUP_CONFIG.canonicalOrigin` not pointing at the deployment domain (or `PUBLIC_APP_ORIGIN` set to a stale value) | Update `canonicalOrigin` in `src/lib/setup-config.ts` to `https://<your-domain>` and redeploy. Or pin via the env var: `PUBLIC_APP_ORIGIN=https://<your-domain>` in Vercel + redeploy. |
+| Demo URLs use `localhost` or wrong host | `SETUP_CONFIG.canonicalOrigin` not pointing at the deployment domain | Update `canonicalOrigin` in `src/lib/setup-config.ts` to `https://<your-domain>` and redeploy. (Production ignores `PUBLIC_APP_ORIGIN`; `canonicalOrigin` is the source of truth.) |
 
 Every other failure should produce a JSON error body with a `detail` field. Read it before guessing.

@@ -5,8 +5,6 @@ import Link from 'next/link';
 import {
   Activity,
   ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
   Check,
   Copy,
   ExternalLink,
@@ -28,6 +26,7 @@ import { ActivityModal } from './activity-modal';
 import { AnalyticsTab } from './analytics-tab';
 import { CreateProspectModal } from './create-modal';
 import { SequencesTab } from './sequences-tab';
+import { Pager, paginate } from './pager';
 
 // Legacy localStorage key — left unchanged when the route moved
 // from /prospect-builder/admin to /admin so existing reps don't
@@ -134,10 +133,7 @@ export function AdminClient() {
     });
   }, [prospects, query, companyFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages - 1);
-  const pageStart = currentPage * PAGE_SIZE;
-  const visible = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const { totalPages, currentPage, pageStart, visible } = paginate(filtered, page, PAGE_SIZE);
 
   const signOut = () => {
     if (typeof window === 'undefined') return;
@@ -554,33 +550,15 @@ export function AdminClient() {
             </div>
           )}
 
-          {activeTab === 'prospects' && totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between text-xs text-text-tertiary">
-              <span>
-                Showing {pageStart + 1}{'\u2013'}{Math.min(pageStart + PAGE_SIZE, filtered.length)} of {filtered.length}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={currentPage === 0}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-dark-border hover:border-dark-border-hover hover:bg-dark-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  Prev
-                </button>
-                <span className="px-2 font-mono text-text-secondary">
-                  {currentPage + 1} / {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={currentPage >= totalPages - 1}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-dark-border hover:border-dark-border-hover hover:bg-dark-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Next
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
+          {activeTab === 'prospects' && (
+            <Pager
+              page={currentPage}
+              totalPages={totalPages}
+              pageStart={pageStart}
+              pageSize={PAGE_SIZE}
+              totalItems={filtered.length}
+              onPage={setPage}
+            />
           )}
         </div>
       </main>

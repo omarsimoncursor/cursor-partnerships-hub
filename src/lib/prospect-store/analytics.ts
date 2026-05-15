@@ -36,6 +36,21 @@ export type OpenedProspect = {
   first_unlocked_at: string;
   last_unlocked_at: string;
   unlocked_view_count: number;
+  // Per-prospect detail fields the admin Analytics tab now surfaces
+  // alongside the open-tracking columns. Mirrors what the Prospects
+  // tab shows so the rep doesn't need to switch tabs to see vendor
+  // coverage, ROI status, build state, or the demo password.
+  vendor_ids: string[];
+  unmatched_technologies: string[];
+  show_roi_calculator: boolean;
+  mcp_relevant: boolean;
+  build_status: string;
+  build_error: string | null;
+  // The existing internal `password` column. Exposed on the wire as
+  // `demo_password` (consistent with the ChatGTM API surface) once
+  // the route serializes the row.
+  password: string;
+  created_at: string;
 };
 
 /**
@@ -124,7 +139,15 @@ export async function listOpenedProspects(opts: { sinceMs?: number; limit?: numb
        p.reached_out_at::text,
        v.first_unlocked_at::text,
        v.last_unlocked_at::text,
-       v.unlocked_view_count
+       v.unlocked_view_count,
+       p.vendor_ids,
+       p.unmatched_technologies,
+       p.show_roi_calculator,
+       p.mcp_relevant,
+       p.build_status,
+       p.build_error,
+       p.password,
+       p.created_at::text
      FROM prospects p
      JOIN (
        SELECT

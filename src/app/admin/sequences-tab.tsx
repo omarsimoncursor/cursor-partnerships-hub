@@ -22,7 +22,10 @@ import {
 } from 'lucide-react';
 import { SequenceEditModal, type EditableSequenceProspect } from './sequence-edit-modal';
 import { LinkedinSendDialog, type LinkedinSendTarget } from './linkedin-send-dialog';
+import { Pager, paginate } from './pager';
 import { buildDefaultLinkedinDraft } from '@/lib/prospect-store/linkedin-draft-template';
+
+const PAGE_SIZE = 25;
 
 // Row shape returned by GET /api/chatgtm/prospects?include=opens.
 // Only the columns the dashboard actually renders or sends back via
@@ -102,6 +105,7 @@ export function SequencesTab({ apiToken }: Props) {
   // every render (in case the row is mutated by the inline toggle
   // while the dialog is open).
   const [liTargetId, setLiTargetId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
   // Per-row "operation in flight" lock. Drives the spinner on the
   // inline toggles + advance button so the rep can't double-click and
   // create a race on the same row.
@@ -287,6 +291,18 @@ export function SequencesTab({ apiToken }: Props) {
   // array on every render, so any inline pill toggle / batch update
   // that mutates the row is reflected inside the open dialog.
   const liTarget = liTargetId ? rows.find((r) => r.id === liTargetId) ?? null : null;
+
+  // Reset to page 1 whenever the active filter set changes — paging
+  // through stale rows after a filter change is just confusing.
+  useEffect(() => {
+    setPage(0);
+  }, [search, companyFilter, statusFilter, openedOnly, liPendingOnly]);
+
+  const { totalPages, currentPage, pageStart, visible } = paginate(
+    filtered,
+    page,
+    PAGE_SIZE,
+  );
 
   return (
     <div>
@@ -487,7 +503,7 @@ export function SequencesTab({ apiToken }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => (
+              {visible.map((p) => (
                 <SequenceRowView
                   key={p.id}
                   p={p}
@@ -500,6 +516,16 @@ export function SequencesTab({ apiToken }: Props) {
               ))}
             </tbody>
           </table>
+          <div className="px-4 pb-3">
+            <Pager
+              page={currentPage}
+              totalPages={totalPages}
+              pageStart={pageStart}
+              pageSize={PAGE_SIZE}
+              totalItems={filtered.length}
+              onPage={setPage}
+            />
+          </div>
         </div>
       )}
 

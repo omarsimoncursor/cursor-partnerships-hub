@@ -19,6 +19,7 @@ import { LinkedinSendDialog, type LinkedinSendTarget } from './linkedin-send-dia
 import { IntentContactDetailModal } from './intent-contact-detail-modal';
 import { IntentEmailEditModal, type IntentEmailTarget } from './intent-email-edit-modal';
 import { Pager, paginate } from './pager';
+import { formatSignalType } from '@/lib/outreach-store/signal-labels';
 
 const PAGE_SIZE = 50;
 
@@ -305,6 +306,7 @@ export function IntentDataTab({ apiToken }: Props) {
           contactId={detailContactId}
           apiToken={apiToken}
           onClose={() => setDetailContactId(null)}
+          onContactUpdated={(patch) => mergeRow(detailContactId, patch as Partial<IntentRow>)}
         />
       )}
 
@@ -444,9 +446,9 @@ function IntentRowView({
           {r.signal_types.slice(0, 3).map((s) => (
             <span
               key={s}
-              className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase bg-dark-bg border border-dark-border text-text-tertiary"
+              className="px-1.5 py-0.5 rounded text-[9px] bg-dark-bg border border-dark-border text-text-secondary"
             >
-              {s.replace(/_/g, ' ')}
+              {formatSignalType(s)}
             </span>
           ))}
           {r.signal_types.length > 3 && (

@@ -1,4 +1,4 @@
-// Map the agent's seniority_tier (Manager / Leader / Executive) to
+// Map the agent's seniority_tier (IC / Manager / Leader / Executive) to
 // the cold-prospects classified_level enum (Manager / Leader (Dir/VP+) /
 // Executive / IC). Used at promote-to-sequence time so the prospect
 // row lands with the right framing bucket.
@@ -11,6 +11,8 @@ export function mapSeniorityToClassifiedLevel(
   s: OutreachSeniorityTier,
 ): ClassifiedLevel {
   switch (s) {
+    case 'IC':
+      return 'IC';
     case 'Executive':
       return 'Executive';
     case 'Leader':

@@ -19,18 +19,24 @@ All endpoints expect `Authorization: Bearer ${CHATGTM_API_TOKEN}`.
 
 ### `POST /api/outreach/runs`
 
-Logs run metadata. Idempotent on `automation_run_id`.
+Logs run metadata. Idempotent on `automation_run_id`. Summary accepts `unique_ics` alongside `unique_executives`, `unique_leaders`, `unique_managers`. Response includes `created: true|false` and echoes `automation_run_id`.
+
+### `GET /api/outreach/runs?limit=1`
+
+Recent run summaries for the Intent Data dashboard header.
 
 ### `POST /api/outreach/contacts/batch`
 
-Upserts contacts. Up to **100 per request**. Idempotent on `(run_id, external_key)`.
+Upserts contacts. Up to **100 per request**. Accepts `run_id` or `automation_run_id` (resolves to the same run row on retry). Idempotent on `(run_id, external_key)`.
 
 **Agent provides:**
 
 - `linkedin.message` — full LinkedIn DM (thank-you + training offer). Stored verbatim.
 - `email` — when `work_email` or `cursor_usage.signup_email` exists: `{ subject, body, status: "drafted" }`. When missing: `{ status: "no_work_email" }`.
 - `cursor_usage.signup_email` — the email the user signed up to Cursor with (store always for enrolled users).
-- `demo.demo_ok: false` — no demo generation for intent outreach.
+- `contact.seniority_tier` — `IC` | `Manager` | `Leader` | `Executive`
+- `contact.work_email` — email of record (work or personal; no domain restriction)
+- `demo.demo_ok` — defaults to `true`; server generates demo URL + password on ingest.
 
 **Server preserves on re-POST (UI-managed):**
 
@@ -42,7 +48,7 @@ Child signal rows. POST contacts before signals.
 
 ### `GET /api/outreach/contacts/recent`
 
-Dedup feed for the agent (`since_days`, optional `user_email`).
+Dedup feed for the agent. Default `since_days=30` (use 30 for L30D backfills). Optional `user_email` filters on the parent run's rep email (`outreach_runs.user_email`), not `account_owner_email`. Returns one row per canonical identity (linkedin → work email → signup email → external_key), including `signup_email`.
 
 ### `GET /api/outreach/contacts`
 
@@ -58,6 +64,7 @@ Query params:
 | `run_id` | Single run |
 | `account` | `account_display_name` |
 | `priority` | `hot\|warm\|nurture` |
+| `seniority` | `IC\|Manager\|Leader\|Executive` |
 | `since_days` | Default 30 |
 | `limit`, `offset` | Pagination |
 
@@ -84,13 +91,14 @@ Compact table (same density as Sequences):
 | Contact | Name, title, work/signup email, account — **click row for full detail modal** |
 | Signals | Signal type chips |
 | Priority | hot / warm / nurture |
-| Intent | POWER, ALUMNI badges |
+| Seniority | IC / Manager / Leader / Executive — filterable |
+| Context | Priority rationale + usage badges |
 | LinkedIn | Sent toggle |
 | Email | Subject snippet, Send flag, sent status |
 | Signal | Latest signal date |
 | Actions | Send LI (copy + open), Edit email |
 
-**Send LI** reuses the Sequences copy-and-open LinkedIn dialog (intent mode — no demo append).
+**Send LI** reuses the Sequences copy-and-open LinkedIn dialog — draft plus auto-appended demo URL/password when present.
 
 **Email** — edit draft in modal, toggle "Flag to send". The orchestrator add-on sends flagged rows and stamps `email_sent_at`.
 

@@ -7,11 +7,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/outreach/contacts/recent?since_days=14&user_email=<rep>
+ * GET /api/outreach/contacts/recent?since_days=30&user_email=<rep>
  *
  * Returns dedup tuples for every contact whose latest-signal date
- * falls inside the window. Used by the agent at the top of every
- * run to skip contacts already surfaced in the last N days.
+ * falls inside the window (default 30 days for L30D backfills).
+ * Filters by the rep email on the parent run, not account_owner_email.
  *
  * Auth: same `CHATGTM_API_TOKEN`.
  */
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   if (authError) return authError;
 
   const sinceDaysParam = req.nextUrl.searchParams.get('since_days');
-  let sinceDays = 14;
+  let sinceDays = 30;
   if (sinceDaysParam !== null) {
     const parsed = Number(sinceDaysParam);
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 90) {

@@ -5,11 +5,7 @@
 import { createProspect, getProspectBySlug } from '../prospect-store/prospects';
 import { buildDefaultLinkedinDraft } from '../prospect-store/linkedin-draft-template';
 import { query, withClient } from './db';
-import type {
-  OutreachContactInput,
-  OutreachContactPatch,
-  OutreachContactRow,
-} from './types';
+import type { OutreachContactInput, OutreachContactPatch, OutreachContactRow } from './types';
 import { mapSeniorityToClassifiedLevel } from './seniority';
 
 export type UpsertContactResult = {
@@ -40,6 +36,7 @@ async function resolveDemoForContact(
   // lookups.
   const linkedinUrl = input.contact.linkedin_url ?? null;
   const workEmail = input.contact.work_email ?? null;
+  const signupEmail = input.cursor_usage?.signup_email ?? null;
   if (linkedinUrl) {
     const { rows } = await query<{ id: string; slug: string; password: string }>(
       `SELECT id, slug, password FROM prospects
@@ -70,6 +67,21 @@ async function resolveDemoForContact(
       };
     }
   }
+  if (signupEmail) {
+    const { rows } = await query<{ id: string; slug: string; password: string }>(
+      `SELECT id, slug, password FROM prospects
+         WHERE lower(email) = lower($1)
+         ORDER BY created_at DESC LIMIT 1`,
+      [signupEmail],
+    );
+    if (rows[0]) {
+      return {
+        demo_url: `${origin.replace(/\/$/, '')}/p/${rows[0].slug}`,
+        demo_password: rows[0].password,
+        demo_prospect_id: rows[0].id,
+      };
+    }
+  }
 
   // Create path: spin up a new prospect row sourced as 'outreach' so
   // the cold-outbound /admin/sequences tab can filter it out by
@@ -89,7 +101,7 @@ async function resolveDemoForContact(
         name: input.contact.full_name,
         company: input.account.display_name,
         company_domain: input.account.domain ?? undefined,
-        email: workEmail ?? undefined,
+        email: workEmail ?? signupEmail ?? undefined,
         linkedin_url: linkedinUrl ?? undefined,
         level: input.contact.title,
         classified_level: mapSeniorityToClassifiedLevel(input.contact.seniority_tier),
@@ -150,7 +162,9 @@ export async function upsertContact(
   let demoUrl: string | null = null;
   let demoPassword: string | null = null;
   let demoProspectId: string | null = null;
-  const demoOk = input.demo?.demo_ok !== false;
+  // Every intent contact gets a personalized demo unless the agent
+  // explicitly opts out with demo.demo_ok: false.
+  const demoOk = input.demo?.demo_ok ?? true;
   if (demoOk) {
     const resolved = await resolveDemoForContact(input, origin);
     demoUrl = resolved.demo_url;
@@ -512,10 +526,11 @@ export async function getContactByRunAndExternalKey(
   return rows[0] ?? null;
 }
 
-// Recent-contacts dedup feed for the agent. Returns the canonical
-// dedup tuples for every contact whose latest-signal date falls
-// inside the window — `since_days` defaults to 14 and matches the
-// agent's prompt convention.
+// Recent-contacts dedup feed for the agent. Returns one row per
+// canonical contact identity (linkedin → work email → signup email →
+// external_key) for every contact whose latest signal falls inside the
+// window. `user_email` filters on the parent run's rep email, not
+// account_owner_email (which is often unset on ingest).
 export async function listRecentContacts(args: {
   sinceDays: number;
   userEmail?: string | null;
@@ -523,28 +538,52 @@ export async function listRecentContacts(args: {
   Array<{
     linkedin_url: string | null;
     work_email: string | null;
+    signup_email: string | null;
     external_key: string;
     last_run_date: string;
   }>
 > {
   const params: unknown[] = [args.sinceDays];
-  let where = `signal_latest_at >= now() - ($1 || ' days')::interval`;
+  let userClause = '';
   if (args.userEmail) {
     params.push(args.userEmail);
-    where += ` AND account_owner_email = $2`;
+    userClause = ` AND r.user_email = $${params.length}`;
   }
+
   const { rows } = await query<{
     linkedin_url: string | null;
     work_email: string | null;
+    signup_email: string | null;
     external_key: string;
     last_run_date: string;
   }>(
-    `SELECT DISTINCT ON (linkedin_url, work_email, external_key)
-            linkedin_url, work_email, external_key,
+    `WITH scoped AS (
+       SELECT
+         c.linkedin_url,
+         c.work_email,
+         c.signup_email,
+         c.external_key,
+         c.signal_latest_at,
+         COALESCE(
+           NULLIF(lower(trim(c.linkedin_url)), ''),
+           NULLIF(lower(trim(c.work_email)), ''),
+           NULLIF(lower(trim(c.signup_email)), ''),
+           lower(c.external_key)
+         ) AS dedup_key
+       FROM outreach_contacts c
+       INNER JOIN outreach_runs r ON r.id = c.run_id
+       WHERE c.signal_latest_at >= now() - ($1::int || ' days')::interval
+         ${userClause}
+     )
+     SELECT DISTINCT ON (dedup_key)
+            linkedin_url,
+            work_email,
+            signup_email,
+            external_key,
             to_char(signal_latest_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS last_run_date
-       FROM outreach_contacts
-       WHERE ${where}
-       ORDER BY linkedin_url, work_email, external_key, signal_latest_at DESC`,
+       FROM scoped
+      WHERE dedup_key IS NOT NULL
+      ORDER BY dedup_key, signal_latest_at DESC`,
     params,
   );
   return rows;
@@ -557,6 +596,7 @@ export type ListContactsFilters = {
   runId?: string;
   accountDisplayName?: string;
   priorityTier?: string;
+  seniorityTier?: string;
   sinceDays?: number;
   limit?: number;
   offset?: number;
@@ -593,6 +633,10 @@ export async function listContacts(
   if (filters.priorityTier) {
     params.push(filters.priorityTier);
     clauses.push(`priority_tier_value = $${params.length}`);
+  }
+  if (filters.seniorityTier) {
+    params.push(filters.seniorityTier);
+    clauses.push(`seniority_tier_value = $${params.length}`);
   }
   if (filters.sinceDays != null && filters.sinceDays > 0) {
     params.push(filters.sinceDays);
@@ -653,6 +697,89 @@ export async function stampPromotedProspect(
     [outreachContactId, prospectId],
   );
   return rows[0] ?? null;
+}
+
+function rowToDemoInput(row: OutreachContactRow): OutreachContactInput {
+  return {
+    external_key: row.external_key,
+    account: {
+      name: row.account_name,
+      display_name: row.account_display_name,
+      domain: row.account_domain,
+    },
+    contact: {
+      full_name: row.full_name,
+      title: row.title,
+      seniority_tier: row.seniority_tier_value,
+      linkedin_url: row.linkedin_url,
+      work_email: row.work_email,
+    },
+    cursor_usage: {
+      cursor_user_id: row.cursor_user_id,
+      signup_email: row.signup_email,
+    },
+    signals: {
+      first_seen_at: row.signal_first_seen_at,
+      latest_at: row.signal_latest_at,
+      types: row.signal_types,
+    },
+    priority: {
+      tier: row.priority_tier_value,
+      rationale: row.priority_rationale,
+    },
+    linkedin: { message: row.linkedin_message },
+    demo: { demo_ok: true },
+  };
+}
+
+/** Create a demo for an existing intent contact that lacks one. */
+export async function backfillDemoForContact(
+  contactId: string,
+  origin: string,
+): Promise<OutreachContactRow | null> {
+  const row = await getContactById(contactId);
+  if (!row || row.demo_url) return row;
+
+  const resolved = await resolveDemoForContact(rowToDemoInput(row), origin);
+  if (!resolved.demo_url) return row;
+
+  const { rows } = await query<OutreachContactRow>(
+    `UPDATE outreach_contacts
+        SET demo_url = $2,
+            demo_password = $3,
+            demo_prospect_id = $4,
+            demo_ok = TRUE,
+            updated_at = now()
+      WHERE id = $1
+      RETURNING *`,
+    [contactId, resolved.demo_url, resolved.demo_password, resolved.demo_prospect_id],
+  );
+  return rows[0] ?? null;
+}
+
+export async function backfillDemosForContacts(opts: {
+  sinceDays?: number;
+  dryRun?: boolean;
+  origin: string;
+}): Promise<{ scanned: number; updated: number }> {
+  const sinceDays = opts.sinceDays ?? 30;
+  const { rows } = await query<OutreachContactRow>(
+    `SELECT * FROM outreach_contacts
+       WHERE demo_url IS NULL
+         AND signal_latest_at >= now() - ($1::int || ' days')::interval
+       ORDER BY signal_latest_at DESC`,
+    [sinceDays],
+  );
+
+  let updated = 0;
+  if (!opts.dryRun) {
+    for (const row of rows) {
+      const next = await backfillDemoForContact(row.id, opts.origin);
+      if (next?.demo_url) updated += 1;
+    }
+  }
+
+  return { scanned: rows.length, updated: opts.dryRun ? 0 : updated };
 }
 
 // Suppress unused-import lint for withClient + getProspectBySlug —

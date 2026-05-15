@@ -26,6 +26,7 @@ export class OutreachValidationError extends Error {
 }
 
 const SENIORITY_VALUES: ReadonlySet<OutreachSeniorityTier> = new Set([
+  'IC',
   'Manager',
   'Leader',
   'Executive',
@@ -209,6 +210,7 @@ export function validateRunInput(body: unknown): OutreachRunInput {
         optionalInt(summary.unique_executives, 'summary.unique_executives') ?? 0,
       unique_leaders: optionalInt(summary.unique_leaders, 'summary.unique_leaders') ?? 0,
       unique_managers: optionalInt(summary.unique_managers, 'summary.unique_managers') ?? 0,
+      unique_ics: optionalInt(summary.unique_ics, 'summary.unique_ics') ?? 0,
       count_with_work_email:
         optionalInt(summary.count_with_work_email, 'summary.count_with_work_email') ?? 0,
       count_with_linkedin_url:

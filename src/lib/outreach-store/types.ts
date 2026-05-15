@@ -3,7 +3,7 @@
 // kept in lock-step with the schema so a future column addition is
 // a single edit on each side.
 
-export type OutreachSeniorityTier = 'Manager' | 'Leader' | 'Executive';
+export type OutreachSeniorityTier = 'IC' | 'Manager' | 'Leader' | 'Executive';
 export type OutreachConnectionStatus =
   | 'pending'
   | 'sent'
@@ -41,6 +41,7 @@ export type OutreachRunRow = {
   unique_executives: number;
   unique_leaders: number;
   unique_managers: number;
+  unique_ics: number;
   count_with_work_email: number;
   count_with_linkedin_url: number;
   accounts_with_activity: string[];
@@ -203,6 +204,7 @@ export type OutreachRunInput = {
     unique_executives: number;
     unique_leaders: number;
     unique_managers: number;
+    unique_ics: number;
     count_with_work_email: number;
     count_with_linkedin_url: number;
     accounts_with_activity: string[];

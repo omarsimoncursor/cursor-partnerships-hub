@@ -55,6 +55,7 @@ const PRIORITY_BADGE: Record<OutreachPriorityTier, { class: string; label: strin
 };
 
 const SENIORITY_BADGE: Record<OutreachSeniorityTier, string> = {
+  IC: 'bg-text-tertiary/10 text-text-secondary border-text-tertiary/25',
   Executive: 'bg-accent-blue/10 text-accent-blue border-accent-blue/30',
   Leader: 'bg-accent-blue/5 text-accent-blue/90 border-accent-blue/20',
   Manager: 'bg-text-tertiary/10 text-text-secondary border-text-tertiary/30',

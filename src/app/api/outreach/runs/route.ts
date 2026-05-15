@@ -5,13 +5,44 @@ import {
 } from '@/lib/prospect-store';
 import {
   OutreachValidationError,
-  upsertRun,
+  listRecentRuns,
+  upsertRunWithMeta,
   validateRunInput,
 } from '@/lib/outreach-store';
 import { checkBearerToken } from '@/lib/prospect-store/api-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+/**
+ * GET /api/outreach/runs?limit=5
+ *
+ * Returns recent run summaries for the Intent Data dashboard header.
+ */
+export async function GET(req: NextRequest) {
+  if (!isDatabaseConfigured()) {
+    return NextResponse.json({ error: 'db_not_configured' }, { status: 503 });
+  }
+  const authError = checkBearerToken(req, 'CHATGTM_API_TOKEN');
+  if (authError) return authError;
+
+  const limitRaw = req.nextUrl.searchParams.get('limit');
+  const limit = limitRaw ? Number(limitRaw) : 1;
+
+  try {
+    await ensureSchema();
+    const runs = await listRecentRuns(
+      Number.isFinite(limit) && limit > 0 ? Math.min(limit, 50) : 1,
+    );
+    return NextResponse.json({ ok: true, runs });
+  } catch (err) {
+    console.error('[outreach/runs GET] failed:', err);
+    return NextResponse.json(
+      { error: 'internal_error', detail: (err as Error).message },
+      { status: 500 },
+    );
+  }
+}
 
 /**
  * POST /api/outreach/runs
@@ -55,8 +86,14 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureSchema();
-    const run = await upsertRun(input);
-    return NextResponse.json({ ok: true, run_id: run.id, run });
+    const { run, created } = await upsertRunWithMeta(input);
+    return NextResponse.json({
+      ok: true,
+      run_id: run.id,
+      automation_run_id: run.automation_run_id,
+      created,
+      run,
+    });
   } catch (err) {
     console.error('[outreach/runs POST] failed:', err);
     return NextResponse.json(

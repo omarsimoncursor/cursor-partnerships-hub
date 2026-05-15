@@ -46,7 +46,7 @@ type Props = {
   // Called every time the row is mutated (draft saved, sent flipped)
   // so the parent can merge the updated row into local state.
   onUpdated: (patch: { linkedin_draft?: string | null; linkedin_message?: string | null; linkedin_sent?: boolean }) => void;
-  /** `prospect` = cold sequence (append demo URL). `intent` = Intent Data tab (copy as-is). */
+  /** `prospect` patches cold prospects; `intent` patches outreach contacts. Both append demo URL on copy. */
   mode?: 'prospect' | 'intent';
 };
 
@@ -99,10 +99,9 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated, mod
     : `/api/chatgtm/prospects/${prospect.id}`;
 
   // Compose the full message that actually gets pasted into LinkedIn.
-  // Intent contacts: agent copy only (training thank-you). Cold prospects:
-  // append demo URL + password when not already in the draft.
+  // Prose draft + demo URL + password when available (same for Sequences
+  // and Intent Data).
   const composedMessage = (() => {
-    if (isIntent) return draft.trim();
     const lines: string[] = [draft];
     const trimmed = draft.trim();
     const lower = trimmed.toLowerCase();
@@ -329,7 +328,7 @@ export function LinkedinSendDialog({ prospect, apiToken, onClose, onUpdated, mod
               the URL or password individually if they want, plus a
               clear note that they're auto-appended to the copied
               message. Hides cleanly when both are missing. */}
-          {(prospect.demo_url || prospect.demo_password) && !isIntent && (
+          {(prospect.demo_url || prospect.demo_password) && (
             <div className="rounded-lg border border-dark-border bg-dark-surface/50 p-3 space-y-2">
               <p className="text-[11px] uppercase tracking-wider font-mono text-text-tertiary">
                 Demo link (auto-appended to the copied message)

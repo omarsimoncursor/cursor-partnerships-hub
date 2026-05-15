@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChatGTM → cursor.omarsimon.com — Solution Architecture</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #121820;
+      --border: #243044;
+      --text: #e8edf4;
+      --muted: #8b9cb3;
+      --chatgtm: #7c5cff;
+      --app: #3b82f6;
+      --neon: #16a34a;
+      --gmail: #ea4335;
+      --admin: #f59e0b;
+      --read: #38bdf8;
+      --write: #4ade80;
+      --patch: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1.5rem 3rem;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+      max-width: 52rem;
+      line-height: 1.5;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+    }
+    .diagram-wrap {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+    svg { display: block; margin: 0 auto; }
+    .box-title { font-size: 13px; font-weight: 600; fill: var(--text); }
+    .box-sub { font-size: 10px; fill: var(--muted); }
+    .endpoint { font-size: 9px; fill: #a8b8d0; font-family: ui-monospace, monospace; }
+    .arrow-label {
+      font-size: 9px;
+      font-family: ui-monospace, monospace;
+      font-weight: 600;
+    }
+    .notes {
+      margin-top: 1.75rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    .note {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+    }
+    .note h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+    .note p, .note li {
+      font-size: 0.85rem;
+      line-height: 1.45;
+      color: #c5d0e0;
+    }
+    .note ul { padding-left: 1.1rem; margin-top: 0.35rem; }
+    .note li { margin-bottom: 0.25rem; }
+    code {
+      font-family: ui-monospace, monospace;
+      font-size: 0.78rem;
+      color: #93c5fd;
+    }
+  </style>
+</head>
+<body>
+  <h1>ChatGTM automations → cursor.omarsimon.com</h1>
+  <p class="subtitle">
+    Four scheduled ChatGTM agents call the Next.js API on Vercel. All persistent state lives in
+    <strong>Neon Postgres</strong>. Omar works cold sequences and intent outreach in the
+    <code>/admin</code> dashboard (same database, no separate ChatGTM write path for UI edits).
+  </p>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--read)"></i> GET (read)</span>
+    <span><i class="dot" style="background:var(--write)"></i> POST (create / upsert)</span>
+    <span><i class="dot" style="background:var(--patch)"></i> PATCH (update state)</span>
+    <span><i class="dot" style="background:var(--gmail)"></i> Gmail (external)</span>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg width="980" height="620" viewBox="0 0 980 620" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow-read" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L7,3 L0,6 Z" fill="#38bdf8" />
+        </marker>
+        <marker id="arrow-write" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L7,3 L0,6 Z" fill="#4ade80" />
+        </marker>
+        <marker id="arrow-patch" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L7,3 L0,6 Z" fill="#fbbf24" />
+        </marker>
+        <marker id="arrow-gmail" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L7,3 L0,6 Z" fill="#ea4335" />
+        </marker>
+        <marker id="arrow-admin" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b" />
+        </marker>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.35" />
+        </filter>
+      </defs>
+
+      <!-- ChatGTM column -->
+      <rect x="24" y="24" width="200" height="572" rx="14" fill="#15101f" stroke="#7c5cff55" stroke-width="1.5" filter="url(#shadow)" />
+      <text x="124" y="52" text-anchor="middle" class="box-title" fill="#c4b5fd">ChatGTM</text>
+      <text x="124" y="68" text-anchor="middle" class="box-sub">4 scheduled automations</text>
+
+      <!-- Automation boxes -->
+      <g>
+        <rect x="44" y="88" width="160" height="72" rx="8" fill="#1a1528" stroke="#7c5cff44" />
+        <text x="124" y="112" text-anchor="middle" class="box-title">① Prospecting Blitz</text>
+        <text x="124" y="128" text-anchor="middle" class="box-sub">Cold discovery + demo create</text>
+        <text x="124" y="144" text-anchor="middle" class="box-sub">Per-account (pausable)</text>
+
+        <rect x="44" y="178" width="160" height="72" rx="8" fill="#1a1528" stroke="#7c5cff44" />
+        <text x="124" y="202" text-anchor="middle" class="box-title">② Outreach Orchestrator</text>
+        <text x="124" y="218" text-anchor="middle" class="box-sub">6-step cold sequence</text>
+        <text x="124" y="234" text-anchor="middle" class="box-sub">+ flagged intent emails</text>
+
+        <rect x="44" y="268" width="160" height="72" rx="8" fill="#1a1528" stroke="#7c5cff44" />
+        <text x="124" y="292" text-anchor="middle" class="box-title">③ Reply Checker</text>
+        <text x="124" y="308" text-anchor="middle" class="box-sub">Scan Gmail for replies</text>
+        <text x="124" y="324" text-anchor="middle" class="box-sub">Territory-wide</text>
+
+        <rect x="44" y="358" width="160" height="88" rx="8" fill="#1a1528" stroke="#7c5cff44" />
+        <text x="124" y="382" text-anchor="middle" class="box-title">④ Intent Signal</text>
+        <text x="124" y="398" text-anchor="middle" class="box-sub">L30D / daily warm signals</text>
+        <text x="124" y="414" text-anchor="middle" class="box-sub">LinkedIn + one-time email</text>
+        <text x="124" y="430" text-anchor="middle" class="box-sub">All accounts, single run</text>
+      </g>
+
+      <!-- Gmail -->
+      <rect x="44" y="478" width="160" height="56" rx="8" fill="#2a1210" stroke="#ea433566" />
+      <text x="124" y="502" text-anchor="middle" class="box-title" fill="#fca5a5">Gmail</text>
+      <text x="124" y="518" text-anchor="middle" class="box-sub">Send + read (external)</text>
+
+      <!-- Vercel app -->
+      <rect x="300" y="80" width="380" height="460" rx="14" fill="#0f1a2e" stroke="#3b82f666" stroke-width="1.5" filter="url(#shadow)" />
+      <text x="490" y="108" text-anchor="middle" class="box-title" fill="#93c5fd">cursor.omarsimon.com</text>
+      <text x="490" y="124" text-anchor="middle" class="box-sub">Next.js on Vercel · Bearer CHATGTM_API_TOKEN</text>
+
+      <!-- API groups -->
+      <rect x="320" y="142" width="340" height="118" rx="8" fill="#111c30" stroke="#243044" />
+      <text x="336" y="162" class="box-sub" fill="#60a5fa">Cold prospects API</text>
+      <text x="336" y="180" class="endpoint">GET  /api/chatgtm/prospects</text>
+      <text x="336" y="194" class="endpoint">POST /api/chatgtm/prospects</text>
+      <text x="336" y="208" class="endpoint">PATCH /api/chatgtm/prospects/:id</text>
+      <text x="336" y="228" class="box-sub">Table: prospects · demos at /p/&lt;slug&gt;</text>
+      <text x="336" y="244" class="box-sub">Sequences tab · orchestrator · blitz dedup</text>
+
+      <rect x="320" y="274" width="340" height="134" rx="8" fill="#111c30" stroke="#243044" />
+      <text x="336" y="294" class="box-sub" fill="#60a5fa">Intent / outreach API</text>
+      <text x="336" y="312" class="endpoint">GET  /api/outreach/contacts/recent</text>
+      <text x="336" y="326" class="endpoint">POST /api/outreach/runs</text>
+      <text x="336" y="340" class="endpoint">POST /api/outreach/contacts/batch</text>
+      <text x="336" y="354" class="endpoint">POST /api/outreach/contact-signals/batch</text>
+      <text x="336" y="368" class="endpoint">GET  /api/outreach/contacts?email_flagged_to_send=true</text>
+      <text x="336" y="388" class="box-sub">Tables: outreach_runs · outreach_contacts · signals</text>
+      <text x="336" y="404" class="box-sub">Intent Data tab · one-time sends (not 6-step seq.)</text>
+
+      <rect x="320" y="422" width="340" height="56" rx="8" fill="#111c30" stroke="#243044" />
+      <text x="336" y="442" class="box-sub" fill="#f59e0b">Admin UI (/admin)</text>
+      <text x="336" y="458" class="box-sub">Omar: Sequences · Intent Data · edit drafts · flag email send</text>
+      <text x="336" y="472" class="box-sub">Browser → same API + session cookie</text>
+
+      <!-- Neon -->
+      <rect x="760" y="180" width="196" height="200" rx="14" fill="#0a1a12" stroke="#16a34a66" stroke-width="1.5" filter="url(#shadow)" />
+      <text x="858" y="212" text-anchor="middle" class="box-title" fill="#86efac">Neon Postgres</text>
+      <text x="858" y="230" text-anchor="middle" class="box-sub">Vercel Storage integration</text>
+      <text x="858" y="258" text-anchor="middle" class="endpoint">prospects</text>
+      <text x="858" y="274" text-anchor="middle" class="endpoint">prospect_views</text>
+      <text x="858" y="290" text-anchor="middle" class="endpoint">outreach_runs</text>
+      <text x="858" y="306" text-anchor="middle" class="endpoint">outreach_contacts</text>
+      <text x="858" y="322" text-anchor="middle" class="endpoint">outreach_contact_signals</text>
+      <text x="858" y="348" text-anchor="middle" class="box-sub">Single source of truth</text>
+      <text x="858" y="364" text-anchor="middle" class="box-sub">API reads/writes via pool</text>
+
+      <!-- App <-> Neon -->
+      <line x1="660" y1="280" x2="760" y2="280" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-write)" />
+      <text x="688" y="272" class="arrow-label" fill="#86efac">SQL read/write</text>
+      <line x1="760" y1="300" x2="660" y2="300" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-read)" />
+
+      <!-- ① Blitz -->
+      <path d="M 204 110 L 318 175" fill="none" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrow-read)" />
+      <text x="228" y="132" class="arrow-label" fill="#38bdf8">GET dedup</text>
+      <path d="M 204 125 L 318 200" fill="none" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrow-write)" />
+      <text x="228" y="158" class="arrow-label" fill="#4ade80">POST create</text>
+
+      <!-- ② Orchestrator -->
+      <path d="M 204 200 L 318 210" fill="none" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrow-read)" />
+      <text x="228" y="198" class="arrow-label" fill="#38bdf8">GET queue</text>
+      <path d="M 204 215 L 280 500 L 124 500" fill="none" stroke="#ea4335" stroke-width="1.5" marker-end="url(#arrow-gmail)" />
+      <text x="200" y="488" class="arrow-label" fill="#ea4335">gmail_send</text>
+      <path d="M 204 230 L 318 225" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow-patch)" />
+      <text x="228" y="248" class="arrow-label" fill="#fbbf24">PATCH step</text>
+      <!-- Intent one-time emails (orchestrator add-on) -->
+      <path d="M 204 240 L 318 340" fill="none" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arrow-read)" />
+      <text x="218" y="300" class="arrow-label" fill="#38bdf8">GET flagged</text>
+
+      <!-- ③ Reply -->
+      <path d="M 204 290 L 318 215" fill="none" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrow-read)" />
+      <text x="228" y="278" class="arrow-label" fill="#38bdf8">GET list</text>
+      <path d="M 124 290 L 124 478" fill="none" stroke="#ea4335" stroke-width="1.5" marker-end="url(#arrow-gmail)" />
+      <text x="88" y="390" class="arrow-label" fill="#ea4335">scan inbox</text>
+      <path d="M 204 305 L 318 230" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow-patch)" />
+      <text x="228" y="318" class="arrow-label" fill="#fbbf24">PATCH replied</text>
+
+      <!-- ④ Intent -->
+      <path d="M 204 380 L 318 290" fill="none" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrow-read)" />
+      <text x="228" y="362" class="arrow-label" fill="#38bdf8">GET recent</text>
+      <path d="M 204 395 L 318 320" fill="none" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrow-write)" />
+      <text x="228" y="392" class="arrow-label" fill="#4ade80">POST run</text>
+      <path d="M 204 410 L 318 335" fill="none" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrow-write)" />
+      <text x="228" y="422" class="arrow-label" fill="#4ade80">POST contacts</text>
+      <path d="M 204 425 L 318 350" fill="none" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrow-write)" />
+      <text x="228" y="448" class="arrow-label" fill="#4ade80">POST signals</text>
+
+      <!-- Admin -->
+      <path d="M 490 478 L 490 540 L 858 540 L 858 380" fill="none" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow-admin)" />
+      <text x="600" y="532" class="arrow-label" fill="#f59e0b">UI read/write (admin session)</text>
+    </svg>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h2>Data split</h2>
+      <ul>
+        <li><code>prospects</code> — cold outbound + demo pages (<code>/p/slug</code>)</li>
+        <li><code>outreach_*</code> — intent / warm-signal contacts only</li>
+        <li>Intent demos create a shadow <code>prospects</code> row (<code>source=outreach</code>) hidden from Sequences until promoted</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h2>Typical daily order</h2>
+      <ul>
+        <li>Reply Checker — stop sequences for anyone who replied</li>
+        <li>Intent Signal — ingest yesterday’s warm contacts</li>
+        <li>Outreach Orchestrator — send due cold emails + flagged intent emails</li>
+        <li>Prospecting Blitz — add new cold prospects (on its own schedule)</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h2>Auth</h2>
+      <p>All ChatGTM HTTP steps use <code>Authorization: Bearer CHATGTM_API_TOKEN</code>. The admin dashboard uses a separate admin password session; both hit the same Neon database through the Vercel app.</p>
+    </div>
+  </div>
+</body>
+</html>

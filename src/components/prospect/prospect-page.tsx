@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Calculator,
@@ -19,7 +19,9 @@ import {
 } from '@/lib/prospect/config';
 import { AccountLogo } from '@/components/prospect/account-logo';
 import { AuroraBackdrop } from '@/components/prospect/aurora-backdrop';
-import { VendorDemoCard } from '@/components/prospect/vendor-demo-card';
+import { VendorPreviewCard } from '@/components/prospect/vendor-preview-card';
+import { VendorWorkflowModal } from '@/components/prospect/vendor-workflow-modal';
+import type { Vendor } from '@/lib/prospect/vendors';
 import { RoiCalculator } from '@/components/prospect/roi-calculator';
 import { CursorSdkLiveDemo } from '@/components/sdk-demo/cursor-sdk-live-demo';
 import { configureTracker, track } from '@/lib/prospect/tracker';
@@ -52,6 +54,19 @@ export function ProspectPage({
 }: Props) {
   const accent = resolvedAccent(config);
   const vendors = getVendorsFor(config);
+  const [activeVendor, setActiveVendor] = useState<Vendor | null>(null);
+
+  const openVendorWorkflow = (vendor: Vendor) => {
+    setActiveVendor(vendor);
+    track('vendor.card.click', { vendor: vendor.id });
+  };
+
+  const closeVendorWorkflow = () => {
+    if (activeVendor) {
+      track('vendor.modal.close', { vendor: activeVendor.id });
+    }
+    setActiveVendor(null);
+  };
 
   // Inject the brand accent as a CSS variable so children can pull it
   // through Tailwind arbitrary values when convenient.
@@ -204,11 +219,11 @@ export function ProspectPage({
             />
             <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {vendors.map(v => (
-                <a
+                <button
                   key={v.id}
-                  href={`#vendor-${v.id}`}
-                  onClick={() => track('nav.section_anchor', { vendor: v.id })}
-                  className="rounded-lg border p-4 hover:scale-[1.01] transition-all"
+                  type="button"
+                  onClick={() => openVendorWorkflow(v)}
+                  className="rounded-lg border p-4 hover:scale-[1.01] transition-all text-left"
                   style={{
                     borderColor: `${v.brand}33`,
                     background: `${v.brand}0a`,
@@ -233,7 +248,7 @@ export function ProspectPage({
                     </div>
                   </div>
                   <p className="text-xs text-text-secondary leading-snug">{v.category}</p>
-                </a>
+                </button>
               ))}
               {vendors.length === 0 && (
                 <p className="col-span-full text-sm text-text-secondary">
@@ -283,12 +298,19 @@ export function ProspectPage({
               icon={<Sparkles className="w-4 h-4" />}
               eyebrow={`${vendors.length} per-vendor automations`}
               title={`What Cursor automates across ${config.account}'s existing technology stack.`}
-              description={`Each automation plays the agent steps end to end so the ${config.account} team can see exactly what Cursor does in their environment.`}
+              description={`Click a card to open the full scroll-driven workflow — the same illustrated story we show on our partnership demos.`}
               accent={accent}
             />
-            <div className="space-y-6">
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {vendors.map((v, i) => (
-                <VendorDemoCard key={v.id} vendor={v} account={config.account} pageAccent={accent} index={i} />
+                <VendorPreviewCard
+                  key={v.id}
+                  vendor={v}
+                  account={config.account}
+                  pageAccent={accent}
+                  index={i}
+                  onOpen={() => openVendorWorkflow(v)}
+                />
               ))}
             </div>
           </section>
@@ -361,6 +383,15 @@ export function ProspectPage({
           </section>
         </div>
       </main>
+
+      {activeVendor && (
+        <VendorWorkflowModal
+          vendor={activeVendor}
+          account={config.account}
+          pageAccent={accent}
+          onClose={closeVendorWorkflow}
+        />
+      )}
     </div>
   );
 }

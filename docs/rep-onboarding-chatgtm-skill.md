@@ -66,6 +66,8 @@ Clone Omar's automation templates and substitute:
 
 Source instructions: `docs/chatgtm-agent-instructions.md` in the template repo (substitute host + email + domains).
 
+Docs index: `docs/README.md` · Architecture: `docs/chatgtm-solution-architecture.html`
+
 **Per-account orchestrator/blitz:** If Omar's pattern uses separate automations per account so reps can pause one account, create one Prospecting Blitz + one Outreach Orchestrator per `target_accounts[].domain`. Intent Signal + Reply Checker stay single territory-wide automations.
 
 Disable all four until the rep completes Cursor setup and confirms smoke tests pass.

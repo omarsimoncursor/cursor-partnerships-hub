@@ -68,6 +68,8 @@ For demos that mutate in-repo fixtures, add `scripts/reset-<partner>-demo.sh` th
 
 ## 7. Checklist before opening a PR
 
+Territory-dashboard doc changes should update [`docs/README.md`](docs/README.md) if you add or rename integration docs.
+
 - [ ] `npx tsc --noEmit` is clean
 - [ ] `npm run build` succeeds
 - [ ] `npm run dev`, navigate to both `/partnerships/<partner>` and `/partnerships/<partner>/demo`, confirm they render and every artifact modal opens

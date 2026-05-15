@@ -8,20 +8,22 @@ This file is the contract between a **Cursor agent** and the user who just clone
 
 ## 0. What you (the agent) are setting up
 
-This repo is a Next.js webapp that:
+This repo is a Next.js **territory dashboard** that:
 
-1. Receives **batches of prospect records** from the rep's ChatGTM automation via `POST /api/chatgtm/prospects` and stores them in a Neon Postgres DB.
-2. Returns each prospect a **personalized, password-gated demo URL** at `/p/<slug>` with their company logo, accent color, vendor demo cards, and (for leadership prospects) an ROI calculator.
-3. Exposes an **admin panel** at `/admin` (password-gated, separately from the prospect demos) for the rep to manage demos, edit / delete, see analytics, and create demos by hand. The legacy `/prospect-builder/admin` URL still resolves via a 308 redirect for any saved bookmarks.
-4. Exposes `GET /api/chatgtm/digest/opened?since=24h` so ChatGTM can post a daily Slack digest of prospects who opened their demo.
+1. Receives **cold prospect batches** from ChatGTM via `POST /api/chatgtm/prospects`, stores them in Neon, and returns a **password-gated demo URL** at `/p/<slug>` synchronously (demo build runs in the background).
+2. Tracks **6-step email sequences** and LinkedIn outreach state (`last_sequence_sent`, `replied`, `linkedin_draft`, …) for the Outreach Orchestrator and Reply Checker automations.
+3. Ingests **Intent Data** warm-signal contacts via `/api/outreach/*` (separate from cold sequences; worked in the **Intent Data** admin tab).
+4. Exposes **`/admin`** (password-gated) with four tabs: **Prospects**, **Sequences**, **Intent Data**, **Analytics**. Legacy `/prospect-builder/admin` redirects to `/admin`.
+5. Optionally exposes `GET /api/chatgtm/digest/opened?since=24h` for a daily Slack digest of demo opens.
 
 The end-state after setup:
 
 - The repo is **forked into the user's GitHub** and deployed to **their Vercel** at **their subdomain**.
 - Their **Neon** database is wired up via the Vercel integration.
-- Their **ChatGTM** automation points at their subdomain with a token they generated.
+- Their **four ChatGTM automations** (Prospecting Blitz, Outreach Orchestrator, Reply Checker, Intent Signal) point at their subdomain with a token they generated. Paste-in prompts: `docs/chatgtm-agent-instructions.md`.
 - Their **5–10 target accounts** are in the company seed list (replacing the template defaults).
 - Their **Calendly URL** is in the demo's "Book a 30-minute Demo" CTA.
+- Optional: team provisioning via ChatGTM skill — `docs/rep-onboarding-chatgtm-skill.md`.
 
 ---
 
@@ -177,28 +179,31 @@ Delete the test prospect via the trash icon. Setup is done.
 
 ## 9. Hand off the ChatGTM integration
 
-The ChatGTM automation is **outside** this repo and is shared publicly by the original author. The user replicates that automation on their side and points its outbound HTTP step at **their** domain + **their** token.
+ChatGTM automations live **outside** this repo. The user either duplicated them via the provisioning skill (`docs/rep-onboarding-chatgtm-skill.md`) or copies sections from `docs/chatgtm-agent-instructions.md`. Every HTTP step uses **their** domain and **their** token.
 
-Print this for the user, with their values filled in:
+Print this summary with their values filled in:
 
 ```
-ChatGTM HTTP step:
-  URL:     https://<their-domain>/api/chatgtm/prospects
-  Method:  POST
-  Auth:    Authorization: Bearer <CHATGTM_API_TOKEN>
+Production API base: https://<their-domain>
+CHATGTM_API_TOKEN: <token>
 
-Payload shape: see docs/chatgtm-integration.md in this repo.
+Automations (paste instructions from docs/chatgtm-agent-instructions.md):
+  1. Prospecting Blitz      → POST /api/chatgtm/prospects
+  2. Outreach Orchestrator  → GET + PATCH /api/chatgtm/prospects
+                              (+ optional GET /api/outreach/contacts?email_flagged_to_send=true)
+  3. Reply Checker          → PATCH /api/chatgtm/prospects/:id  { "replied": true }
+  4. Intent Signal          → /api/outreach/runs, /contacts/batch, /contact-signals/batch
 
-Daily Slack digest (separate automation):
-  URL:     https://<their-domain>/api/chatgtm/digest/opened?since=24h
-  Method:  GET
-  Auth:    Authorization: Bearer <CHATGTM_API_TOKEN>
+API reference:
+  Cold prospects — docs/chatgtm-integration.md
+  Intent Data    — docs/outreach-integration.md
 
-Prompt to paste into the digest automation builder:
-  see docs/chatgtm-daily-digest-automation.md
+Optional fifth automation — demo-open Slack digest:
+  GET https://<their-domain>/api/chatgtm/digest/opened?since=24h
+  Prompt: docs/chatgtm-daily-digest-automation.md
 ```
 
-Both docs are in this repo. Don't rewrite them — just point the user to them and remind them to substitute their domain + token wherever they see `cursor.omarsimon.com` (or the legacy `cursorpartners.omarsimon.com`) or `$CHATGTM_API_TOKEN`.
+Don't rewrite those docs — point the user to them and remind them to substitute their domain anywhere they see `cursor.omarsimon.com` (or legacy `cursorpartners.omarsimon.com`).
 
 ---
 
@@ -219,11 +224,12 @@ When you're done, run through this with the user:
 - [ ] Creating a test prospect via `POST /api/chatgtm/prospects` returns a `url` + `password`.
 - [ ] Opening that URL renders the gate; the password unlocks the demo.
 - [ ] The unlocked demo shows the company's brand accent and vendor cards.
-- [ ] `/admin` requires the admin password; once entered, the prospect list shows the test prospect.
-- [ ] Test prospect deleted; the admin shows the table empty (or only the user's real prospects).
-- [ ] ChatGTM's outbound HTTP step is updated with the new URL + token; one real test record flows through.
+- [ ] `/admin` → **Prospects** tab shows the smoke-test row; **Sequences** tab lists it (cold outbound only).
+- [ ] `/admin` → **Intent Data** tab loads (empty until Intent Signal automation runs).
+- [ ] Test prospect deleted from Prospects tab.
+- [ ] All four ChatGTM automations use `https://<their-domain>` and the same `CHATGTM_API_TOKEN`; at least one Prospecting Blitz test record flows through.
 
-If all eight tick, the user is live. Congratulate them.
+If all items tick, the user is live. Congratulate them.
 
 ---
 
@@ -239,7 +245,22 @@ If all eight tick, the user is live. Congratulate them.
 | ChatGTM contract | `docs/chatgtm-integration.md` |
 | Daily digest prompt | `docs/chatgtm-daily-digest-automation.md` |
 | API token rotation | Change env in Vercel + redeploy + update ChatGTM stored token |
-| ChatGTM-agent playbook | `docs/chatgtm-agent-instructions.md` (paste-into-ChatGTM instructions for the three automations) |
+| ChatGTM-agent playbook | `docs/chatgtm-agent-instructions.md` (four automations) |
+| Intent Data API | `docs/outreach-integration.md` |
+| Team provisioning skill | `docs/rep-onboarding-chatgtm-skill.md` |
+| Architecture diagram | `docs/chatgtm-solution-architecture.html` |
+| All docs index | `docs/README.md` |
+
+## 12. Staying in sync with upstream (forked deployments)
+
+Forks do **not** receive updates automatically. Tell the user:
+
+```bash
+git remote add upstream https://github.com/omarsimoncursor/cursor-partnerships-hub.git  # once
+git fetch upstream && git merge upstream/main
+```
+
+Resolve conflicts by keeping **their** `setup-config.ts` and `company-seeds.ts`. Push to their fork; Vercel redeploys. Re-run `POST /api/db/init` after pulls that touch `schema.sql`.
 
 ## When something goes wrong
 

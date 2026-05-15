@@ -1,6 +1,8 @@
 # ChatGTM ↔ Personalized prospect demos
 
-This app is the destination for ChatGTM's outbound automation. ChatGTM (Cursor's internal Sumble → Notion → Gmail / LinkedIn orchestration) sends a batch of prospects to this app and receives the demo URL + password for each one **synchronously**, so it can write them straight into the Notion table and inline them in the auto-drafted Gmail / LinkedIn messages without waiting for the build.
+This app is the **cold-outbound** destination for ChatGTM. ChatGTM (Sumble enrichment → Gmail / LinkedIn orchestration) sends prospect batches here and receives each demo URL + password **synchronously** from Postgres, so it can inline them in auto-drafted messages without waiting for the background demo build.
+
+Warm-signal / Intent Data contacts use a separate API — see [`outreach-integration.md`](./outreach-integration.md).
 
 ## Pipeline overview
 
@@ -13,9 +15,8 @@ Sumble ──▶ ChatGTM ──▶  POST /api/chatgtm/prospects  ──▶  Neon
                                 returned synchronously
                                           │
                                           ▼
-                    ChatGTM writes URL + password into Notion
-                       & inlines them in the email / LinkedIn
-                                  message drafts
+                    ChatGTM stores url + password on the row
+                       & inlines them in Gmail / LinkedIn drafts
                                           │
                                           ▼
         Personalized demo build runs in the background (logo
@@ -38,7 +39,7 @@ Base URL: `https://cursor.omarsimon.com` (or the preview URL in PRs).
 
 > The legacy `https://cursorpartners.omarsimon.com` host is still attached to the same Vercel project so any prospect URL ChatGTM has already shared keeps resolving. New API calls and new generated URLs should use `cursor.omarsimon.com`.
 
-> Also see [`chatgtm-agent-instructions.md`](./chatgtm-agent-instructions.md) for copy-pasteable instructions to drop into each ChatGTM automation builder (Prospecting Blitz / Sequence Orchestrator / Reply Detector). This doc is the underlying API reference; the agent-instructions doc is the operational playbook.
+> Also see [`chatgtm-agent-instructions.md`](./chatgtm-agent-instructions.md) for copy-pasteable ChatGTM automation prompts (Prospecting Blitz, Outreach Orchestrator, Reply Checker, Intent Signal). This doc is the **cold-prospect API reference**; [`outreach-integration.md`](./outreach-integration.md) covers Intent Data. Index: [`README.md`](./README.md).
 
 ### Authentication
 
@@ -75,7 +76,6 @@ them.
       "mcp_relevant": true,
       "gmail_draft_link": "https://mail.google.com/mail/u/0/#drafts/abc123",
       "linkedin_message_link": "https://www.linkedin.com/messaging/thread/xyz",
-      "notion_page_id": "abc123",
       "metadata": { "sumble_id": "sumble_42" }
     },
     { "name": "Mark Lee", "company": "KLA", "level": "Engineering Manager",
@@ -103,7 +103,7 @@ Hard limit: **100 prospects per request** (`413 batch_too_large` past that). Seq
 | `sdk_workflow`            | string    |          | Optional handle of an SDK preset to lead with.                          |
 | `gmail_draft_link`        | string    |          | Stored for the audit trail.                                             |
 | `linkedin_message_link`   | string    |          | Stored for the audit trail.                                             |
-| `notion_page_id`          | string    |          | If ChatGTM has a Notion page id, store it for cross-reference.          |
+| `notion_page_id`          | string    |          | Legacy optional cross-reference id (Notion retired; field kept for old rows). |
 | `metadata`                | object    |          | Free-form JSONB, persisted as-is.                                       |
 | `linkedin_draft`          | string    |          | Personalized LinkedIn connect-request copy (Prospecting Blitz writes; ≤ 300-char target — LinkedIn truncates connection notes past 300). The rep pastes this into LinkedIn's compose box manually via the Sequences-tab `Send LI` button, so write it as if it were going straight into the LinkedIn UI. |
 | `mcp_detail`              | string    |          | Two-sentence "how Cursor MCP/SDK applies to this person's role" blurb.  |
@@ -218,7 +218,7 @@ Lists prospects with optional filters. Three callers today:
 | Caller | Query | Purpose |
 | --- | --- | --- |
 | Prospecting Blitz | `?company_domain=unisys.com` | The dedup query — pull every existing row for a target account so the Blitz can skip duplicates. |
-| Sequence Orchestrator | `?company_domain=unisys.com&replied=false&last_sequence_sent_lt=6` | "Active sequence" pull — every prospect whose 6-step email sequence isn't done and who hasn't replied. |
+| Outreach Orchestrator | `?company_domain=unisys.com&replied=false&last_sequence_sent_lt=6` | "Active sequence" pull — every prospect whose 6-step email sequence isn't done and who hasn't replied. Intent-demo shadow rows (`source=outreach`) are excluded unless `include_outreach=true`. |
 | Admin UI / monitoring | (no params) | Recent rows, ordered by `created_at DESC`. |
 
 Pagination is **cursor-based**: callers iterate by passing `cursor` from a previous response's `next_cursor` until `next_cursor` is null. There is no fixed row cap on filtered queries — the Blitz dedup query needs the entire set.
@@ -338,7 +338,7 @@ Looks up a prospect by either UUID or slug. Returns the same shape as
 ### `PATCH /api/chatgtm/prospects/:id`
 
 Partial update for outreach tracking. Used by the Sequence
-Orchestrator after each email send and by the Reply Detector when a
+Orchestrator after each email send and by the Reply Checker when a
 prospect replies.
 
 The `:id` param accepts either a UUID or a 10-char slug. Body is a
@@ -352,7 +352,7 @@ with status 400.
 | `last_sequence_sent`   | integer (1-6)       | Which step of the 6-step sequence was last sent. |
 | `last_email_send_date` | "YYYY-MM-DD"        | Date the last email went out. The `next_email_send_date` field on the GET response is computed from this + the cadence in `setup-config.ts`. |
 | `thread_id`            | string              | Gmail thread id (captured after Email 1). |
-| `replied`              | boolean             | Reply Detector flips this. |
+| `replied`              | boolean             | Reply Checker flips this. |
 | `linkedin_sent`        | boolean             | Whether the LinkedIn message went out. |
 | `linkedin_draft`       | string              | Update the draft copy. |
 | `reached_out_at`       | ISO datetime        | Stamps when the rep reached out. |
@@ -384,7 +384,7 @@ otherwise the legacy whitelist runs (silently dropping unknown keys).
 
 ### `PATCH /api/chatgtm/prospects` (batch)
 
-Batch outreach update. The Sequence Orchestrator typically updates
+Batch outreach update. The Outreach Orchestrator typically updates
 5-15 prospects per run (one per email it just sent); sending one
 HTTP call instead of N keeps both the Vercel function and the Neon
 pool happy.
@@ -422,7 +422,7 @@ updates per request.
 
 The `/admin` page has a **Sequences** tab that
 reads this same `GET /api/chatgtm/prospects?include=opens` endpoint
-and surfaces the email-tracking state ChatGTM's Sequence
+and surfaces the email-tracking state ChatGTM's Outreach
 Orchestrator reads/writes:
 
 - Thread ID (copy-on-click chip)
@@ -451,7 +451,7 @@ even as the working set grows.
   disabled with a tooltip that points the rep at the prospect Edit
   modal.
 - A `Replied` pill that toggles the flag in one click. Flipping it
-  off un-archives the prospect (the Sequence Orchestrator stops
+  off un-archives the prospect (the Outreach Orchestrator stops
   skipping them).
 - A `LinkedIn` pill (in the Flags column) that toggles `linkedin_sent`
   manually — useful for backfill when the rep already sent the
@@ -469,7 +469,7 @@ canonical batch-outreach loop: filter → for each row click `Send LI`
 → paste in LinkedIn → confirm sent.
 
 **Edit sequence state** modal — focused per-prospect editor for the
-outreach fields the Orchestrator + Reply Detector own:
+outreach fields the Outreach Orchestrator + Reply Checker own:
 `last_sequence_sent`, `last_email_send_date`, `thread_id`, `replied`,
 `linkedin_sent`, `linkedin_draft`, `mcp_detail`, `team`,
 `classified_level`, `email`, `linkedin_url`. Includes a live
@@ -571,11 +571,13 @@ have its own scope).
 
 ## Persistence model
 
-Three tables, all in the `public` schema (see `src/lib/prospect-store/schema.sql`):
+**Cold outbound** — three tables in `public` (see `src/lib/prospect-store/schema.sql`):
 
-- **`companies`** — seeded list of target accounts with their default accent + tech stack.
-- **`prospects`** — one row per ChatGTM call. Stores the password (cleartext — the threat model is "drive-by URL discovery", not "DB compromise"; the demo content is sales material, not customer data) plus the build state (`build_status`, `build_started_at`, `build_completed_at`, `build_error`, `build_artifacts`).
-- **`prospect_views`** — append-only audit log of every page hit (locked + unlocked) with IP and user agent.
+- **`companies`** — seeded target accounts (accent, default tech stack).
+- **`prospects`** — one row per cold prospect. Password stored cleartext (sales-tool threat model). Includes `build_status`, sequence fields, `source` (`chatgtm` | `outreach` | `outreach_promote`).
+- **`prospect_views`** — append-only page hits (locked + unlocked).
+
+**Intent Data** — three additional tables: `outreach_runs`, `outreach_contacts`, `outreach_contact_signals`. See [`outreach-integration.md`](./outreach-integration.md).
 
 ## Build state machine
 

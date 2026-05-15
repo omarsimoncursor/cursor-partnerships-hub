@@ -97,6 +97,13 @@ ALTER TABLE prospects ADD COLUMN IF NOT EXISTS last_sequence_sent   INTEGER;
 ALTER TABLE prospects ADD COLUMN IF NOT EXISTS last_email_send_date DATE;
 ALTER TABLE prospects ADD COLUMN IF NOT EXISTS replied              BOOLEAN     NOT NULL DEFAULT FALSE;
 ALTER TABLE prospects ADD COLUMN IF NOT EXISTS thread_id            TEXT;
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS preferred_first_name TEXT;
+
+-- One row per non-null email (case-insensitive). Enables upsert-on-ingest
+-- and prevents duplicate demos for the same human.
+CREATE UNIQUE INDEX IF NOT EXISTS prospects_email_lower_unique_idx
+  ON prospects (LOWER(email))
+  WHERE email IS NOT NULL AND TRIM(email) <> '';
 
 -- The spec defines a CHECK (last_sequence_sent BETWEEN 1 AND 6).
 -- Add it idempotently so re-running the migration is safe; we don't

@@ -12,6 +12,11 @@ import {
 } from './company-seeds';
 import { buildDefaultLinkedinDraft } from './linkedin-draft-template';
 import { computeNextEmailSendDate, normalizeDateOnly } from './sequence-cadence';
+import {
+  inferPreferredFirstName,
+  isPersonalizationReady,
+  resolvePersonalizationFields,
+} from './personalization';
 import type { BuildStatus, ChatgtmProspectInput, ProspectPublic, ProspectRow } from './types';
 
 // Re-export so the existing `import { computeNextEmailSendDate } from
@@ -113,6 +118,11 @@ export type ListProspectsFilter = {
   // first/last_unlocked_at on every row. Powers the Sequences
   // dashboard's read/unread column.
   includeOpens?: boolean;
+  // When true, only rows with both classified_level and mcp_detail set.
+  personalizationReady?: boolean;
+  // Collapse to one row per LOWER(email) before returning. Default true
+  // for filtered list calls (Sequence Orchestrator / Blitz dedup).
+  dedupeByEmail?: boolean;
 };
 
 const MAX_LIST_LIMIT = 500;
@@ -158,6 +168,7 @@ export async function listProspectsFiltered(
     1,
     Math.min(MAX_LIST_LIMIT, Number(filter.limit ?? DEFAULT_LIST_LIMIT) || DEFAULT_LIST_LIMIT),
   );
+  const dedupeByEmail = filter.dedupeByEmail !== false;
 
   const where: string[] = [];
   const values: unknown[] = [];
@@ -167,46 +178,24 @@ export async function listProspectsFiltered(
   }
 
   if (filter.companyDomain) {
-    add('company_domain = ?', String(filter.companyDomain).trim().toLowerCase());
+    add('p.company_domain = ?', String(filter.companyDomain).trim().toLowerCase());
   }
   if (typeof filter.replied === 'boolean') {
-    add('replied = ?', filter.replied);
+    add('p.replied = ?', filter.replied);
   }
   if (typeof filter.lastSequenceSentLt === 'number' && Number.isFinite(filter.lastSequenceSentLt)) {
-    // "< N" semantics that include "never started" (NULL) too — that's
-    // the Sequence Orchestrator's mental model.
-    add('(last_sequence_sent IS NULL OR last_sequence_sent < ?)', filter.lastSequenceSentLt);
+    add('(p.last_sequence_sent IS NULL OR p.last_sequence_sent < ?)', filter.lastSequenceSentLt);
+  }
+  if (filter.personalizationReady === true) {
+    where.push(
+      `p.classified_level IS NOT NULL AND TRIM(p.classified_level) <> '' AND p.mcp_detail IS NOT NULL AND TRIM(p.mcp_detail) <> ''`,
+    );
   }
 
-  if (filter.cursor) {
-    const decoded = decodeCursor(filter.cursor);
-    if (decoded) {
-      // Strict cursor: resume strictly *after* the previous page's last
-      // row. Order is created_at DESC, id DESC for tiebreak stability.
-      values.push(decoded.createdAt);
-      const cAtIdx = values.length;
-      values.push(decoded.id);
-      const cIdIdx = values.length;
-      where.push(`(created_at < $${cAtIdx} OR (created_at = $${cAtIdx} AND id < $${cIdIdx}))`);
-    }
-  }
+  const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
-  values.push(limit + 1);
-  const limitIdx = values.length;
-  // The WHERE clauses we built above all reference `prospects` columns
-  // unqualified. Re-prefix the column names that need it before
-  // concatenating into the final SQL — only company_domain, replied,
-  // last_sequence_sent, created_at, id show up.
-  const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ').replace(/\b(company_domain|replied|last_sequence_sent|created_at|id)\b/g, 'p.$1')}` : '';
-
-  const sql = filter.includeOpens
-    ? `SELECT
-         p.*,
-         COALESCE(v.unlocked_view_count, 0)::int AS unlocked_view_count,
-         v.first_unlocked_at::text AS first_unlocked_at,
-         v.last_unlocked_at::text AS last_unlocked_at
-       FROM prospects p
-       LEFT JOIN (
+  const opensJoin = filter.includeOpens
+    ? `LEFT JOIN (
          SELECT
            prospect_id,
            MIN(viewed_at) AS first_unlocked_at,
@@ -215,12 +204,55 @@ export async function listProspectsFiltered(
          FROM prospect_views
          WHERE unlocked = TRUE
          GROUP BY prospect_id
-       ) v ON v.prospect_id = p.id
-       ${whereSql}
-       ORDER BY p.created_at DESC, p.id DESC
-       LIMIT $${limitIdx}`
-    : `SELECT p.* FROM prospects p ${whereSql}
-       ORDER BY p.created_at DESC, p.id DESC
+       ) v ON v.prospect_id = p.id`
+    : '';
+
+  const opensSelect = filter.includeOpens
+    ? `, COALESCE(v.unlocked_view_count, 0)::int AS unlocked_view_count,
+           v.first_unlocked_at::text AS first_unlocked_at,
+           v.last_unlocked_at::text AS last_unlocked_at`
+    : '';
+
+  let cursorSql = '';
+  if (filter.cursor) {
+    const decoded = decodeCursor(filter.cursor);
+    if (decoded) {
+      values.push(decoded.createdAt);
+      const cAtIdx = values.length;
+      values.push(decoded.id);
+      const cIdIdx = values.length;
+      cursorSql = `AND (d.created_at < $${cAtIdx} OR (d.created_at = $${cAtIdx} AND d.id < $${cIdIdx}))`;
+    }
+  }
+
+  values.push(limit + 1);
+  const limitIdx = values.length;
+
+  const dedupeCte = dedupeByEmail
+    ? `deduped AS (
+         SELECT DISTINCT ON (COALESCE(NULLIF(LOWER(TRIM(p.email)), ''), p.id::text))
+                p.*${opensSelect}
+           FROM prospects p
+           ${opensJoin}
+           ${whereSql}
+           ORDER BY
+             COALESCE(NULLIF(LOWER(TRIM(p.email)), ''), p.id::text),
+             (p.thread_id IS NOT NULL) DESC,
+             (p.classified_level IS NOT NULL AND TRIM(p.classified_level) <> '') DESC,
+             p.created_at DESC,
+             p.id DESC
+       )`
+    : `deduped AS (
+         SELECT p.*${opensSelect}
+           FROM prospects p
+           ${opensJoin}
+           ${whereSql}
+       )`;
+
+  const sql = `WITH ${dedupeCte}
+       SELECT * FROM deduped d
+       WHERE 1=1 ${cursorSql}
+       ORDER BY d.created_at DESC, d.id DESC
        LIMIT $${limitIdx}`;
 
   const { rows } = await query<ProspectRow & Partial<ProspectOpenStats>>(sql, values);
@@ -260,6 +292,7 @@ export type ChatgtmProspectResponse = Omit<ProspectRow, 'password'> & {
   demo_url: string | null;
   demo_password: string | null;
   next_email_send_date: string | null;
+  personalization_ready: boolean;
   // Optional — only populated when the caller passes ?include=opens.
   unlocked_view_count?: number;
   first_unlocked_at?: string | null;
@@ -288,6 +321,7 @@ export function toChatgtmResponse(
     demo_url: trimmedOrigin ? `${trimmedOrigin}/p/${row.slug}` : null,
     demo_password: password ?? null,
     next_email_send_date: nextEmailSendDate,
+    personalization_ready: isPersonalizationReady(rest.classified_level, rest.mcp_detail),
   };
   // Pass through optional open stats when the caller joined them in.
   // We test against `'unlocked_view_count' in row` so the field is
@@ -305,12 +339,6 @@ export function toChatgtmResponse(
 // ---------------------------------------------------------------------------
 // Writes
 
-export type CreateProspectResult = {
-  prospect: ProspectRow;
-  url: string;
-  password: string;
-};
-
 const REQUIRED = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !value.trim()) {
     throw new ValidationError(`Missing required field: ${field}`);
@@ -323,6 +351,24 @@ export class ValidationError extends Error {
     super(message);
     this.name = 'ValidationError';
   }
+}
+
+export type CreateProspectResult = {
+  prospect: ProspectRow;
+  url: string;
+  password: string;
+  was_existing?: boolean;
+};
+
+async function getProspectByEmailNorm(emailNorm: string): Promise<ProspectRow | null> {
+  const { rows } = await query<ProspectRow>(
+    `SELECT * FROM prospects
+       WHERE email IS NOT NULL AND LOWER(TRIM(email)) = $1
+       ORDER BY created_at ASC, slug ASC
+       LIMIT 1`,
+    [emailNorm],
+  );
+  return rows[0] ?? null;
 }
 
 export async function createProspect(
@@ -340,21 +386,108 @@ export async function createProspect(
   const techsForNormalization = techsArray.length > 0 ? techsArray : seed.defaultTechs;
   const tech = normalizeTechnologies(techsForNormalization);
 
-  // Preserve filtered (non-automation-target) tech terms in metadata so the
-  // rep can see them without surfacing them as awkward SDK cards.
   const incomingMeta = input.metadata && typeof input.metadata === 'object' ? input.metadata : {};
   const mergedMetadata: Record<string, unknown> = {
     ...incomingMeta,
     ...(tech.filtered.length > 0 ? { filtered_technologies: tech.filtered } : {}),
   };
 
-  const level: ProspectLevel = normalizeLevel(input.level ?? null);
+  const levelRaw = (input.level ?? '').toString().trim() || null;
+  const level: ProspectLevel = normalizeLevel(levelRaw);
   const showRoi = shouldShowRoiCalculator(level);
+  const email = (input.email ?? '').toString().trim() || null;
+  const emailNorm = email ? email.toLowerCase() : null;
+
+  const personalization = resolvePersonalizationFields({
+    name,
+    email,
+    companyName,
+    levelRaw,
+    levelNormalized: level,
+    classifiedLevel: input.classified_level,
+    mcpDetail: input.mcp_detail,
+    team: input.team,
+    vendorIds: tech.vendorIds,
+    unmatchedTechnologies: tech.unmatched,
+  });
+
+  const accent = sanitizeHex(input.company_accent) || seed.accent;
+  const linkedinDraft = (input.linkedin_draft ?? '').toString().trim() || null;
+  const preferredFirst =
+    inferPreferredFirstName(name, email) ??
+    ((input.preferred_first_name ?? '').toString().trim() || null);
+
+  // Upsert on email when present — keeps slug / demo / sequence state.
+  if (emailNorm) {
+    const existing = await getProspectByEmailNorm(emailNorm);
+    if (existing) {
+      const { rows } = await query<ProspectRow>(
+        `UPDATE prospects SET
+            name = $2,
+            email = $3,
+            level_raw = COALESCE($4, level_raw),
+            level_normalized = $5,
+            linkedin_url = COALESCE($6, linkedin_url),
+            company_name = $7,
+            company_domain = $8,
+            company_accent = $9,
+            technologies_raw = $10,
+            vendor_ids = $11,
+            unmatched_technologies = $12,
+            mcp_relevant = $13,
+            sdk_workflow = COALESCE($14, sdk_workflow),
+            show_roi_calculator = $15,
+            gmail_draft_link = COALESCE($16, gmail_draft_link),
+            linkedin_message_link = COALESCE($17, linkedin_message_link),
+            notion_page_id = COALESCE($18, notion_page_id),
+            metadata = metadata || $19::jsonb,
+            linkedin_draft = COALESCE($20, linkedin_draft),
+            mcp_detail = COALESCE(NULLIF($21, ''), mcp_detail),
+            team = COALESCE($22, team),
+            classified_level = COALESCE(NULLIF($23, ''), classified_level),
+            preferred_first_name = COALESCE($24, preferred_first_name),
+            updated_at = now()
+          WHERE id = $1
+          RETURNING *`,
+        [
+          existing.id,
+          name,
+          email,
+          levelRaw,
+          level,
+          (input.linkedin_url ?? '').toString().trim() || null,
+          companyName,
+          companyDomain,
+          accent,
+          tech.raw,
+          tech.vendorIds,
+          tech.unmatched,
+          Boolean(input.mcp_relevant),
+          (input.sdk_workflow ?? '').toString().trim() || null,
+          showRoi,
+          (input.gmail_draft_link ?? '').toString().trim() || null,
+          (input.linkedin_message_link ?? '').toString().trim() || null,
+          (input.notion_page_id ?? '').toString().trim() || null,
+          JSON.stringify(mergedMetadata),
+          linkedinDraft,
+          personalization.mcp_detail,
+          (input.team ?? '').toString().trim() || null,
+          personalization.classified_level,
+          preferredFirst,
+        ],
+      );
+      const row = rows[0] ?? existing;
+      return {
+        prospect: row,
+        url: `${origin.replace(/\/$/, '')}/p/${row.slug}`,
+        password: row.password,
+        was_existing: true,
+      };
+    }
+  }
 
   const password = generatePassword(name);
-  const accent = sanitizeHex(input.company_accent) || seed.accent;
 
-  // Retry slug generation on the off chance of a collision.
   let row: ProspectRow | null = null;
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 5 && !row; attempt += 1) {
@@ -368,7 +501,7 @@ export async function createProspect(
             mcp_relevant, sdk_workflow, show_roi_calculator,
             password, gmail_draft_link, linkedin_message_link, notion_page_id,
             source, metadata,
-            linkedin_draft, mcp_detail, team, classified_level
+            linkedin_draft, mcp_detail, team, classified_level, preferred_first_name
           )
           VALUES (
             $1, $2, $3, $4, $5, $6,
@@ -377,14 +510,14 @@ export async function createProspect(
             $13, $14, $15,
             $16, $17, $18, $19,
             $20, $21,
-            $22, $23, $24, $25
+            $22, $23, $24, $25, $26
           )
           RETURNING *`,
         [
           slug,
           name,
-          (input.email ?? '').toString().trim() || null,
-          (input.level ?? '').toString().trim() || null,
+          email,
+          levelRaw,
           level,
           (input.linkedin_url ?? '').toString().trim() || null,
           companyName,
@@ -402,17 +535,32 @@ export async function createProspect(
           (input.notion_page_id ?? '').toString().trim() || null,
           'chatgtm',
           mergedMetadata,
-          (input.linkedin_draft ?? '').toString().trim() || null,
-          (input.mcp_detail ?? '').toString().trim() || null,
+          linkedinDraft,
+          personalization.mcp_detail,
           (input.team ?? '').toString().trim() || null,
-          (input.classified_level ?? '').toString().trim() || null,
+          personalization.classified_level,
+          preferredFirst,
         ],
       );
       row = result.rows[0] ?? null;
     } catch (err: unknown) {
       lastError = err;
       const code = (err as { code?: string }).code;
-      if (code !== '23505') throw err; // not a unique violation, rethrow
+      if (code === '23505') {
+        if (emailNorm) {
+          const raced = await getProspectByEmailNorm(emailNorm);
+          if (raced) {
+            return {
+              prospect: raced,
+              url: `${origin.replace(/\/$/, '')}/p/${raced.slug}`,
+              password: raced.password,
+              was_existing: true,
+            };
+          }
+        }
+        continue;
+      }
+      throw err;
     }
   }
   if (!row) {
@@ -420,7 +568,7 @@ export async function createProspect(
   }
 
   const url = `${origin.replace(/\/$/, '')}/p/${row.slug}`;
-  return { prospect: row, url, password };
+  return { prospect: row, url, password, was_existing: false };
 }
 
 export async function createProspects(
@@ -1081,6 +1229,204 @@ export async function getBuildStatus(slug: string): Promise<{
     [slug],
   );
   return rows[0] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Email dedup migration + personalization backfill
+//
+// `classified_level` and `mcp_detail` are NOT generated by a cron job.
+// ChatGTM's Prospecting Blitz is expected to send them on create; when
+// missing, `resolvePersonalizationFields()` infers them at ingest time
+// and this backfill repairs historical rows.
+
+export type EmailDedupLogEntry = {
+  email: string;
+  survivor_slug: string;
+  loser_slugs: string[];
+  merged: string[];
+};
+
+export async function deduplicateProspectsByEmail(opts: {
+  companyDomain?: string | null;
+  dryRun?: boolean;
+}): Promise<{ groups: number; deleted: number; log: EmailDedupLogEntry[] }> {
+  const domain = opts.companyDomain?.trim().toLowerCase() || null;
+  const params: unknown[] = [];
+  let domainClause = '';
+  if (domain) {
+    params.push(domain);
+    domainClause = `AND company_domain = $${params.length}`;
+  }
+
+  const { rows: groups } = await query<{
+    email_norm: string;
+    ids: string[];
+    slugs: string[];
+  }>(
+    `SELECT
+        LOWER(TRIM(email)) AS email_norm,
+        array_agg(id ORDER BY created_at ASC, slug ASC) AS ids,
+        array_agg(slug ORDER BY created_at ASC, slug ASC) AS slugs
+       FROM prospects
+       WHERE email IS NOT NULL AND TRIM(email) <> ''
+         ${domainClause}
+       GROUP BY LOWER(TRIM(email))
+       HAVING COUNT(*) > 1`,
+    params,
+  );
+
+  const log: EmailDedupLogEntry[] = [];
+  let deleted = 0;
+
+  for (const g of groups) {
+    const survivorId = g.ids[0];
+    const survivorSlug = g.slugs[0];
+    const loserIds = g.ids.slice(1);
+    const loserSlugs = g.slugs.slice(1);
+    const merged: string[] = [];
+
+    const { rows: survivorRows } = await query<ProspectRow>(
+      `SELECT * FROM prospects WHERE id = $1`,
+      [survivorId],
+    );
+    const survivor = survivorRows[0];
+    if (!survivor) continue;
+
+    for (let i = 0; i < loserIds.length; i += 1) {
+      const loserId = loserIds[i];
+      const { rows: loserRows } = await query<ProspectRow>(
+        `SELECT * FROM prospects WHERE id = $1`,
+        [loserId],
+      );
+      const loser = loserRows[0];
+      if (!loser) continue;
+
+      const patch: Partial<ProspectRow> = {};
+      if (!survivor.thread_id && loser.thread_id) {
+        patch.thread_id = loser.thread_id;
+        merged.push(`thread_id<=${loser.slug}`);
+      }
+      const survSeq = survivor.last_sequence_sent ?? 0;
+      const loseSeq = loser.last_sequence_sent ?? 0;
+      if (loseSeq > survSeq) {
+        patch.last_sequence_sent = loser.last_sequence_sent;
+        merged.push(`last_sequence_sent<=${loser.slug}`);
+      }
+      if (!survivor.last_email_send_date && loser.last_email_send_date) {
+        patch.last_email_send_date = loser.last_email_send_date;
+        merged.push(`last_email_send_date<=${loser.slug}`);
+      }
+      if (!survivor.linkedin_draft && loser.linkedin_draft) {
+        patch.linkedin_draft = loser.linkedin_draft;
+        merged.push(`linkedin_draft<=${loser.slug}`);
+      }
+      if (!survivor.classified_level && loser.classified_level) {
+        patch.classified_level = loser.classified_level;
+        merged.push(`classified_level<=${loser.slug}`);
+      }
+      if (!survivor.mcp_detail && loser.mcp_detail) {
+        patch.mcp_detail = loser.mcp_detail;
+        merged.push(`mcp_detail<=${loser.slug}`);
+      }
+
+      if (!opts.dryRun && Object.keys(patch).length > 0) {
+        const sets = Object.entries(patch).map(([k], idx) => `${k} = $${idx + 2}`);
+        await query(
+          `UPDATE prospects SET ${sets.join(', ')}, updated_at = now() WHERE id = $1`,
+          [survivorId, ...Object.values(patch)],
+        );
+        Object.assign(survivor, patch);
+      }
+
+      if (!opts.dryRun) {
+        await query(`DELETE FROM prospects WHERE id = $1`, [loserId]);
+        deleted += 1;
+      }
+    }
+
+    log.push({
+      email: g.email_norm,
+      survivor_slug: survivorSlug,
+      loser_slugs: loserSlugs,
+      merged,
+    });
+  }
+
+  return { groups: groups.length, deleted, log };
+}
+
+export async function backfillProspectPersonalization(opts: {
+  companyDomain?: string | null;
+  dryRun?: boolean;
+}): Promise<{ scanned: number; updated: number }> {
+  const domain = opts.companyDomain?.trim().toLowerCase() || null;
+  const params: unknown[] = [];
+  let domainClause = '';
+  if (domain) {
+    params.push(domain);
+    domainClause = `AND company_domain = $${params.length}`;
+  }
+
+  const { rows } = await query<ProspectRow>(
+    `SELECT * FROM prospects
+       WHERE (classified_level IS NULL OR TRIM(classified_level) = ''
+              OR mcp_detail IS NULL OR TRIM(mcp_detail) = '')
+         ${domainClause}
+       ORDER BY created_at ASC`,
+    params,
+  );
+
+  let updated = 0;
+  for (const row of rows) {
+    const resolved = resolvePersonalizationFields({
+      name: row.name,
+      email: row.email,
+      companyName: row.company_name,
+      levelRaw: row.level_raw,
+      levelNormalized: row.level_normalized,
+      classifiedLevel: row.classified_level,
+      mcpDetail: row.mcp_detail,
+      team: row.team,
+      vendorIds: row.vendor_ids,
+      unmatchedTechnologies: row.unmatched_technologies,
+    });
+    const preferred =
+      row.preferred_first_name ?? inferPreferredFirstName(row.name, row.email);
+
+    const needsUpdate =
+      row.classified_level !== resolved.classified_level ||
+      row.mcp_detail !== resolved.mcp_detail ||
+      (preferred && row.preferred_first_name !== preferred);
+
+    if (!needsUpdate) continue;
+    updated += 1;
+
+    if (!opts.dryRun) {
+      await query(
+        `UPDATE prospects SET
+            classified_level = $2,
+            mcp_detail = $3,
+            preferred_first_name = COALESCE($4, preferred_first_name),
+            updated_at = now()
+          WHERE id = $1`,
+        [row.id, resolved.classified_level, resolved.mcp_detail, preferred],
+      );
+    }
+  }
+
+  return { scanned: rows.length, updated };
+}
+
+export async function runProspectDedupAndPersonalizationBackfill(opts: {
+  companyDomain?: string | null;
+  dryRun?: boolean;
+}): Promise<{
+  dedup: Awaited<ReturnType<typeof deduplicateProspectsByEmail>>;
+  personalization: Awaited<ReturnType<typeof backfillProspectPersonalization>>;
+}> {
+  const dedup = await deduplicateProspectsByEmail(opts);
+  const personalization = await backfillProspectPersonalization(opts);
+  return { dedup, personalization };
 }
 
 // ---------------------------------------------------------------------------

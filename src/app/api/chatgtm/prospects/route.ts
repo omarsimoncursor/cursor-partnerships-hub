@@ -269,6 +269,8 @@ function parsePayload(body: unknown): ParsedPayload {
  *   ?limit=200                      1-500. Defaults to 200.
  *   ?cursor=...                     Opaque cursor from a previous
  *                                   page's `next_cursor`.
+ *   ?personalization_ready=true     Only rows with both classified_level
+ *                                   and mcp_detail set (opt-in filter).
  *
  * Response:
  *   {
@@ -339,6 +341,23 @@ export async function GET(req: NextRequest) {
     .filter(Boolean);
   const includeOpens = include.includes('opens');
 
+  let personalizationReady: boolean | null = null;
+  const prParam = params.get('personalization_ready');
+  if (prParam !== null) {
+    if (prParam === 'true') personalizationReady = true;
+    else if (prParam === 'false') personalizationReady = false;
+    else {
+      return NextResponse.json(
+        {
+          error: 'invalid_field',
+          field: 'personalization_ready',
+          message: '`personalization_ready` must be "true" or "false".',
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   try {
     await ensureSchema();
     const origin = originFromRequest(req);
@@ -349,6 +368,7 @@ export async function GET(req: NextRequest) {
       cursor,
       limit,
       includeOpens,
+      personalizationReady: personalizationReady === true ? true : undefined,
     });
     return NextResponse.json({
       ok: true,

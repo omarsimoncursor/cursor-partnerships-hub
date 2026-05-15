@@ -231,6 +231,24 @@ Pagination is **cursor-based**: callers iterate by passing `cursor` from a previ
 | `limit`                    | 1-500. Defaults to 200. |
 | `cursor`                   | Opaque cursor from a previous page's `next_cursor`. Resumes strictly after that row. |
 | `include`                  | Comma-separated. Currently supports `opens` — joins `prospect_views` and adds `unlocked_view_count` / `first_unlocked_at` / `last_unlocked_at` to every row. Used by the Sequences dashboard to compute the read/unread badge. |
+| `personalization_ready`    | `true` or `false` (opt-in). When `true`, only returns rows where both `classified_level` and `mcp_detail` are non-null. Default: no filter. |
+
+**Email dedup (read path):** every list response collapses to **one row per
+`LOWER(email)`** before pagination. Survivor preference: non-null
+`thread_id` → non-null `classified_level` → most-recent `created_at`.
+Rows without an email are never collapsed.
+
+**Ingest dedup (write path):** `POST /api/chatgtm/prospects` upserts on
+`LOWER(email)` when an email is present — an existing row keeps its
+`slug`, `demo_url`, `demo_password`, `thread_id`, and sequence progress.
+A unique index on `LOWER(email)` enforces this at the database layer.
+
+**`classified_level` + `mcp_detail`:** there is **no cron job**. ChatGTM's
+Prospecting Blitz should send both on create. When either is missing, the
+server infers them at ingest time via `src/lib/prospect-store/personalization.ts`.
+Repair historical rows with
+`POST /api/chatgtm/admin/dedup-prospects?company_domain=<domain>` (runs
+email dedup + personalization backfill in one pass).
 
 **Response shape** (per prospect):
 
@@ -269,6 +287,8 @@ Pagination is **cursor-based**: callers iterate by passing `cursor` from a previ
   "demo_url": "https://<host>/p/<slug> | null",
   "demo_password": "string | null",
   "next_email_send_date": "YYYY-MM-DD | null",
+  "personalization_ready": "boolean",
+  "preferred_first_name": "string | null",
 
   "reached_out_at": "ISO datetime | null",
   "created_at": "ISO datetime",

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Calculator,
@@ -8,7 +8,6 @@ import {
   Code2,
   ExternalLink,
   Gauge,
-  Layers,
   Sparkles,
   Workflow,
 } from 'lucide-react';
@@ -19,7 +18,9 @@ import {
 } from '@/lib/prospect/config';
 import { AccountLogo } from '@/components/prospect/account-logo';
 import { AuroraBackdrop } from '@/components/prospect/aurora-backdrop';
-import { VendorDemoCard } from '@/components/prospect/vendor-demo-card';
+import { VendorPreviewCard } from '@/components/prospect/vendor-preview-card';
+import { VendorWorkflowModal } from '@/components/prospect/vendor-workflow-modal';
+import type { Vendor } from '@/lib/prospect/vendors';
 import { RoiCalculator } from '@/components/prospect/roi-calculator';
 import { CursorSdkLiveDemo } from '@/components/sdk-demo/cursor-sdk-live-demo';
 import { configureTracker, track } from '@/lib/prospect/tracker';
@@ -52,6 +53,19 @@ export function ProspectPage({
 }: Props) {
   const accent = resolvedAccent(config);
   const vendors = getVendorsFor(config);
+  const [activeVendor, setActiveVendor] = useState<Vendor | null>(null);
+
+  const openVendorWorkflow = (vendor: Vendor) => {
+    setActiveVendor(vendor);
+    track('vendor.card.click', { vendor: vendor.id });
+  };
+
+  const closeVendorWorkflow = () => {
+    if (activeVendor) {
+      track('vendor.modal.close', { vendor: activeVendor.id });
+    }
+    setActiveVendor(null);
+  };
 
   // Inject the brand accent as a CSS variable so children can pull it
   // through Tailwind arbitrary values when convenient.
@@ -194,59 +208,32 @@ export function ProspectPage({
             </div>
           </header>
 
-          {/* Stack matrix */}
-          <section className="mb-16">
+          {/* Per-vendor automations — shown first so prospects land on
+              the illustrated vendor workflows before the SDK demo. */}
+          <section id="integrations" className="mb-20">
             <SectionHeader
-              icon={<Layers className="w-4 h-4" />}
-              eyebrow="Detected stack"
-              title={`Cursor integrates with the tools ${config.account} already runs on.`}
+              icon={<Sparkles className="w-4 h-4" />}
+              eyebrow={`${vendors.length} per-vendor automations`}
+              title={`What Cursor automates across ${config.account}'s existing technology stack.`}
+              description={`Click a card to open the full scroll-driven workflow — the same illustrated story we show on our partnership demos.`}
               accent={accent}
             />
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {vendors.map(v => (
-                <a
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {vendors.map((v, i) => (
+                <VendorPreviewCard
                   key={v.id}
-                  href={`#vendor-${v.id}`}
-                  onClick={() => track('nav.section_anchor', { vendor: v.id })}
-                  className="rounded-lg border p-4 hover:scale-[1.01] transition-all"
-                  style={{
-                    borderColor: `${v.brand}33`,
-                    background: `${v.brand}0a`,
-                  }}
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className="w-9 h-9 rounded-md flex items-center justify-center text-xs font-bold overflow-hidden"
-                      style={{ background: `${v.brand}25`, color: v.brand }}
-                    >
-                      {v.logo ? (
-                        <img src={v.logo} alt={`${v.name} logo`} className="w-full h-full object-contain p-1.5" />
-                      ) : (
-                        v.name.charAt(0)
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-text-primary truncate">{v.name}</p>
-                      <p className="text-[10px] uppercase tracking-wider font-mono text-text-tertiary">
-                        {v.mode === 'mcp' ? 'MCP' : v.mode === 'sdk' ? 'SDK' : 'MCP + SDK'}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-text-secondary leading-snug">{v.category}</p>
-                </a>
+                  vendor={v}
+                  account={config.account}
+                  pageAccent={accent}
+                  index={i}
+                  onOpen={() => openVendorWorkflow(v)}
+                />
               ))}
-              {vendors.length === 0 && (
-                <p className="col-span-full text-sm text-text-secondary">
-                  No vendors selected. Pop back into the builder to add their stack.
-                </p>
-              )}
             </div>
           </section>
 
-          {/* Cursor SDK live demo — moved to the top of the page after
-              the stack matrix so prospects land on the "build a real
-              Cursor agent" surface first. The full multi-phase live
-              demo we ship publicly at /partnerships/cursor-sdk/demo. */}
+          {/* Cursor SDK live demo — the full multi-phase live demo we ship
+              publicly at /partnerships/cursor-sdk/demo. */}
           <section id="composer" className="mb-20">
             <SectionHeader
               icon={<Code2 className="w-4 h-4" />}
@@ -259,9 +246,7 @@ export function ProspectPage({
           </section>
 
           {/* ROI — leadership / executive levels only. Sits between the
-              SDK demo and the per-vendor automations so a Director / VP
-              who lands here sees workflow + ROI before drilling into
-              individual vendors. */}
+              SDK demo and unmatched-technology callouts. */}
           {showRoiCalculator && (
             <section id="roi" className="mb-20">
               <SectionHeader
@@ -274,24 +259,6 @@ export function ProspectPage({
               <RoiCalculator account={config.account} accent={accent} />
             </section>
           )}
-
-          {/* Per-vendor automations — these live below the SDK demo + ROI
-              so prospects see the strategic case before drilling into
-              individual vendor workflows. */}
-          <section id="integrations" className="mb-20">
-            <SectionHeader
-              icon={<Sparkles className="w-4 h-4" />}
-              eyebrow={`${vendors.length} per-vendor automations`}
-              title={`What Cursor automates across ${config.account}'s existing technology stack.`}
-              description={`Each automation plays the agent steps end to end so the ${config.account} team can see exactly what Cursor does in their environment.`}
-              accent={accent}
-            />
-            <div className="space-y-6">
-              {vendors.map((v, i) => (
-                <VendorDemoCard key={v.id} vendor={v} account={config.account} pageAccent={accent} index={i} />
-              ))}
-            </div>
-          </section>
 
           {/* Unmatched technologies — the SDK fallback cards land at the
               very bottom (just above the next-step CTA) so the rep has
@@ -361,6 +328,15 @@ export function ProspectPage({
           </section>
         </div>
       </main>
+
+      {activeVendor && (
+        <VendorWorkflowModal
+          vendor={activeVendor}
+          account={config.account}
+          pageAccent={accent}
+          onClose={closeVendorWorkflow}
+        />
+      )}
     </div>
   );
 }

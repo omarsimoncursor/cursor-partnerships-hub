@@ -46,9 +46,15 @@ export async function GET(req: NextRequest) {
       listOpenedProspects({ limit: 5_000 }),
     ]);
     const origin = originFromRequest(req);
-    const opened = openedRaw.map((row) => ({
-      ...row,
-      url: `${origin.replace(/\/$/, '')}/p/${row.slug}`,
+    // Strip the internal `password` column from the wire and re-export
+    // it as `demo_password` so the analytics-tab UI can pick it up the
+    // same way the Sequences-tab + ChatGTM consumers do. Keeps every
+    // admin surface aligned on a single field name for the demo
+    // password.
+    const opened = openedRaw.map(({ password, ...rest }) => ({
+      ...rest,
+      url: `${origin.replace(/\/$/, '')}/p/${rest.slug}`,
+      demo_password: password ?? null,
     }));
     return NextResponse.json({ ok: true, totals, companies, opened });
   } catch (err: unknown) {

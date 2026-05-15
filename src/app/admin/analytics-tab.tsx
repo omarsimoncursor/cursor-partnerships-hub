@@ -2,10 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Activity,
   ArrowDownUp,
   CheckCircle2,
   Circle,
+  Copy,
   ExternalLink,
+  Eye,
+  EyeOff,
   Linkedin,
   Loader2,
   RefreshCw,
@@ -13,6 +17,8 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { ActivityModal } from './activity-modal';
+import { Pager, paginate } from './pager';
 
 type CompanyCount = {
   company_name: string;
@@ -42,7 +48,17 @@ type OpenedRow = {
   first_unlocked_at: string;
   last_unlocked_at: string;
   unlocked_view_count: number;
+  // Per-prospect detail surfaced from the Prospects tab.
+  vendor_ids: string[];
+  unmatched_technologies: string[];
+  show_roi_calculator: boolean;
+  build_status: 'queued' | 'building' | 'ready' | 'failed';
+  build_error: string | null;
+  demo_password: string | null;
+  created_at: string;
 };
+
+const PAGE_SIZE = 25;
 
 type Props = { apiToken: string };
 
@@ -60,6 +76,8 @@ export function AnalyticsTab({ apiToken }: Props) {
   const [hideReached, setHideReached] = useState(false);
   const [search, setSearch] = useState('');
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [activityTarget, setActivityTarget] = useState<OpenedRow | null>(null);
 
   const load = async () => {
     if (!apiToken) return;
@@ -181,6 +199,18 @@ export function AnalyticsTab({ apiToken }: Props) {
   const reachedCount = useMemo(
     () => opened.filter((r) => r.reached_out_at).length,
     [opened],
+  );
+
+  // Reset to page 1 whenever the active filter / sort changes — paging
+  // through stale rows after a filter change is just confusing.
+  useEffect(() => {
+    setPage(0);
+  }, [companyFilter, hideReached, search, sortKey, sortDesc]);
+
+  const { totalPages, currentPage, pageStart, visible } = paginate(
+    filteredSorted,
+    page,
+    PAGE_SIZE,
   );
 
   return (
@@ -346,20 +376,16 @@ export function AnalyticsTab({ apiToken }: Props) {
                     onClick={() => toggleSort('company')}
                   />
                 </th>
+                <th className="text-left px-4 py-2.5">Vendors</th>
+                <th className="text-left px-4 py-2.5">ROI</th>
+                <th className="text-left px-4 py-2.5">Build</th>
+                <th className="text-left px-4 py-2.5">Password</th>
                 <th className="text-left px-4 py-2.5">
                   <SortHeader
                     label="Last opened"
                     active={sortKey === 'last_opened'}
                     desc={sortDesc}
                     onClick={() => toggleSort('last_opened')}
-                  />
-                </th>
-                <th className="text-left px-4 py-2.5">
-                  <SortHeader
-                    label="First opened"
-                    active={sortKey === 'first_opened'}
-                    desc={sortDesc}
-                    onClick={() => toggleSort('first_opened')}
                   />
                 </th>
                 <th className="text-right px-4 py-2.5">
@@ -370,11 +396,11 @@ export function AnalyticsTab({ apiToken }: Props) {
                     onClick={() => toggleSort('view_count')}
                   />
                 </th>
-                <th className="text-right px-4 py-2.5">Links</th>
+                <th className="text-right px-4 py-2.5">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredSorted.map((row) => (
+              {visible.map((row) => (
                 <tr key={row.id} className="border-b border-dark-border/60 hover:bg-dark-surface-hover transition-colors">
                   <td className="px-4 py-2.5">
                     <button
@@ -403,16 +429,53 @@ export function AnalyticsTab({ apiToken }: Props) {
                       {row.email && <span className="block">{row.email}</span>}
                     </p>
                   </td>
-                  <td className="px-4 py-2.5 text-text-secondary">{row.company_name}</td>
-                  <td className="px-4 py-2.5 text-[12px] text-text-secondary tabular-nums">
+                  <td className="px-4 py-2.5">
+                    <p className="text-text-secondary">{row.company_name}</p>
+                    <p className="text-[11px] text-text-tertiary font-mono">{row.company_domain}</p>
+                  </td>
+                  <td className="px-4 py-2.5 align-top">
+                    <p className="text-[11px] text-text-secondary">
+                      {row.vendor_ids.length} matched
+                      {row.unmatched_technologies.length > 0 && (
+                        <span className="text-text-tertiary"> · {row.unmatched_technologies.length} SDK</span>
+                      )}
+                    </p>
+                    <p className="text-[10px] text-text-tertiary truncate max-w-[180px]">
+                      {row.vendor_ids.join(', ') || '—'}
+                    </p>
+                  </td>
+                  <td className="px-4 py-2.5 align-top">
+                    <span className={`text-[11px] ${row.show_roi_calculator ? 'text-accent-green' : 'text-text-tertiary'}`}>
+                      {row.show_roi_calculator ? 'Shown' : 'Hidden'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 align-top">
+                    <BuildBadge status={row.build_status} error={row.build_error} />
+                  </td>
+                  <td className="px-4 py-2.5 align-top">
+                    {row.demo_password ? (
+                      <PasswordCell password={row.demo_password} />
+                    ) : (
+                      <span className="text-[11px] text-text-tertiary">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-[12px] text-text-secondary tabular-nums align-top">
                     {fmtRelativeAndAbsolute(row.last_unlocked_at)}
                   </td>
-                  <td className="px-4 py-2.5 text-[12px] text-text-tertiary tabular-nums">
-                    {new Date(row.first_unlocked_at).toLocaleString()}
+                  <td className="px-4 py-2.5 text-right tabular-nums text-text-primary align-top">
+                    {row.unlocked_view_count}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-text-primary">{row.unlocked_view_count}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <div className="inline-flex items-center gap-1.5">
+                  <td className="px-4 py-2.5 text-right align-top">
+                    <div className="inline-flex items-center gap-1.5 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setActivityTarget(row)}
+                        title="View this prospect's activity timeline"
+                        aria-label="View activity"
+                        className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-dark-surface-hover transition-colors"
+                      >
+                        <Activity className="w-3.5 h-3.5" />
+                      </button>
                       {row.linkedin_url ? (
                         <a
                           href={row.linkedin_url}
@@ -422,11 +485,8 @@ export function AnalyticsTab({ apiToken }: Props) {
                           title="Open prospect's LinkedIn profile"
                         >
                           <Linkedin className="w-3 h-3" />
-                          LinkedIn
                         </a>
-                      ) : (
-                        <span className="text-[11px] text-text-tertiary px-2 py-1">no LinkedIn</span>
-                      )}
+                      ) : null}
                       <a
                         href={row.url}
                         target="_blank"
@@ -443,7 +503,7 @@ export function AnalyticsTab({ apiToken }: Props) {
               ))}
               {filteredSorted.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-text-tertiary text-sm">
+                  <td colSpan={10} className="px-4 py-8 text-center text-text-tertiary text-sm">
                     No opens recorded {companyFilter ? `for ${companyFilter}` : ''}
                     {hideReached ? ' (with the hide-reached filter on)' : ''}.
                   </td>
@@ -452,7 +512,95 @@ export function AnalyticsTab({ apiToken }: Props) {
             </tbody>
           </table>
         </div>
+
+        <Pager
+          page={currentPage}
+          totalPages={totalPages}
+          pageStart={pageStart}
+          pageSize={PAGE_SIZE}
+          totalItems={filteredSorted.length}
+          onPage={setPage}
+        />
       </section>
+
+      {activityTarget && (
+        <ActivityModal
+          prospect={{
+            id: activityTarget.id,
+            slug: activityTarget.slug,
+            name: activityTarget.name,
+            company_name: activityTarget.company_name,
+          }}
+          apiToken={apiToken}
+          onClose={() => setActivityTarget(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Local copies of the BuildBadge + PasswordCell helpers from
+// admin-client.tsx — duplicated rather than imported because the
+// admin-client component is large and mostly Prospects-tab-specific;
+// these two pieces are small enough that keeping them per-tab is
+// less coupling than ripping them out into yet another shared file.
+function BuildBadge({
+  status,
+  error,
+}: {
+  status: 'queued' | 'building' | 'ready' | 'failed' | string;
+  error: string | null;
+}) {
+  const tone =
+    status === 'ready' ? 'text-accent-green border-accent-green/30 bg-accent-green/5' :
+    status === 'failed' ? 'text-accent-red border-accent-red/40 bg-accent-red/5' :
+    status === 'building' ? 'text-accent-blue border-accent-blue/40 bg-accent-blue/5' :
+    'text-text-tertiary border-dark-border bg-dark-surface';
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider border ${tone}`}
+      title={error || undefined}
+    >
+      {status}
+    </span>
+  );
+}
+
+function PasswordCell({ password }: { password: string }) {
+  const [revealed, setRevealed] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore clipboard restrictions
+    }
+  };
+  // Fixed-width dot mask so toggling reveal doesn't reflow the column.
+  const masked = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+  return (
+    <div className="inline-flex items-center gap-1.5">
+      <span className="font-mono text-xs text-text-primary tabular-nums select-all min-w-[7ch]">
+        {revealed ? password : masked}
+      </span>
+      <button
+        onClick={() => setRevealed((r) => !r)}
+        className="p-1 text-text-tertiary hover:text-text-primary transition-colors"
+        aria-label={revealed ? 'Hide password' : 'Show password'}
+        title={revealed ? 'Hide' : 'Reveal'}
+      >
+        {revealed ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+      </button>
+      <button
+        onClick={onCopy}
+        className="p-1 text-text-tertiary hover:text-text-primary transition-colors"
+        aria-label="Copy password"
+        title={copied ? 'Copied!' : 'Copy'}
+      >
+        {copied ? <CheckCircle2 className="w-3 h-3 text-accent-green" /> : <Copy className="w-3 h-3" />}
+      </button>
     </div>
   );
 }

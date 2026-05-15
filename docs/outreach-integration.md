@@ -36,6 +36,7 @@ Upserts contacts. Up to **100 per request**. Accepts `run_id` or `automation_run
 - `cursor_usage.signup_email` — the email the user signed up to Cursor with (store always for enrolled users).
 - `contact.seniority_tier` — `IC` | `Manager` | `Leader` | `Executive`
 - `contact.work_email` — email of record (work or personal; no domain restriction)
+- `demo.demo_ok` — defaults to `true`; server generates demo URL + password on ingest.
 
 **Server preserves on re-POST (UI-managed):**
 

@@ -10,6 +10,7 @@ import {
   resolveCompanyDefaults,
   type CompanyDefaults,
 } from './company-seeds';
+import { buildDefaultLinkedinDraft } from './linkedin-draft-template';
 import { computeNextEmailSendDate, normalizeDateOnly } from './sequence-cadence';
 import type { BuildStatus, ChatgtmProspectInput, ProspectPublic, ProspectRow } from './types';
 
@@ -858,6 +859,95 @@ export async function backfillLevelNormalization(opts: { dryRun?: boolean } = {}
   }
 
   return { scanned: rows.length, changed: changes.length, changes };
+}
+
+/**
+ * Maintenance: fill in `linkedin_draft` on every prospect missing one
+ * with the shared default template (see
+ * `linkedin-draft-template.ts`). Idempotent — by default skips rows
+ * that already have a draft. Pass `overwrite: true` to replace every
+ * row's draft regardless (used when the rep wants to reset everyone
+ * back to the template after editing it).
+ *
+ * Returns a per-row diff so the caller can show the rep exactly which
+ * prospects got patched.
+ */
+export type LinkedinDraftBackfillChange = {
+  id: string;
+  slug: string;
+  name: string;
+  company_name: string;
+  old_draft: string | null;
+  new_draft: string;
+};
+
+export async function backfillLinkedinDrafts(
+  opts: { dryRun?: boolean; overwrite?: boolean } = {},
+): Promise<{
+  scanned: number;
+  changed: number;
+  skipped: number;
+  changes: LinkedinDraftBackfillChange[];
+}> {
+  // When `overwrite` is set we scan every row; otherwise we filter at
+  // the DB to only rows whose existing draft is NULL or whitespace.
+  // The WHERE clause is identical on both paths except for the empty
+  // check — keeping the scan and the diff in sync.
+  const where = opts.overwrite
+    ? ''
+    : `WHERE linkedin_draft IS NULL OR length(trim(linkedin_draft)) = 0`;
+
+  const { rows } = await query<{
+    id: string;
+    slug: string;
+    name: string;
+    company_name: string;
+    linkedin_draft: string | null;
+  }>(
+    `SELECT id, slug, name, company_name, linkedin_draft
+       FROM prospects
+       ${where}
+       ORDER BY created_at ASC`,
+  );
+
+  const changes: LinkedinDraftBackfillChange[] = [];
+  let skipped = 0;
+  for (const row of rows) {
+    const newDraft = buildDefaultLinkedinDraft(row.name);
+    const currentTrimmed = (row.linkedin_draft ?? '').trim();
+    // Belt-and-suspenders: even with overwrite=false, skip if the
+    // computed draft would no-op against the existing value. Keeps
+    // the response diff free of redundant rows.
+    if (currentTrimmed === newDraft) {
+      skipped += 1;
+      continue;
+    }
+    changes.push({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      company_name: row.company_name,
+      old_draft: row.linkedin_draft,
+      new_draft: newDraft,
+    });
+
+    if (!opts.dryRun) {
+      await query(
+        `UPDATE prospects
+            SET linkedin_draft = $2,
+                updated_at = now()
+            WHERE id = $1`,
+        [row.id, newDraft],
+      );
+    }
+  }
+
+  return {
+    scanned: rows.length,
+    changed: changes.length,
+    skipped,
+    changes,
+  };
 }
 
 // ---------------------------------------------------------------------------

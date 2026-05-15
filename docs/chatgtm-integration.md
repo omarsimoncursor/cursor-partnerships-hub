@@ -457,6 +457,57 @@ disagrees with the stored value. Server validation errors come back
 as `{error, field, message}` and are rendered inline next to the
 offending input. Only changed fields are sent in the PATCH body.
 
+**Fill drafts** toolbar button — bulk-fills `linkedin_draft` on every
+prospect missing one with the shared default template (see
+`src/lib/prospect-store/linkedin-draft-template.ts`):
+
+> `{firstName} - i put together a personalized interactive demo to
+> illustrate how Cursor agents can automate workflows across existing
+> technology stacks. If you have a moment to take a look, I'd love to
+> hear your thoughts!`
+
+The first name is derived from the stored `name` (handles `"First
+Last"`, `"Last, First"`, hyphenated names, etc.; falls back to
+`"there"` when the input is empty). The demo URL + password are NOT
+stored in the draft — the `Send LI` dialog auto-appends them when
+composing the clipboard payload, so the prose is the only thing that
+needs to be persisted.
+
+The button is disabled when zero prospects are missing a draft; the
+count badge shows how many rows will be touched. Clicking it opens a
+preview modal with up to 3 rendered drafts; the **Apply** button then
+POSTs `/api/chatgtm/admin/backfill-linkedin-drafts` and reloads the
+table.
+
+### `POST /api/chatgtm/admin/backfill-linkedin-drafts[?dry_run=1][&overwrite=1]`
+
+Maintenance endpoint that powers the Fill-drafts toolbar action.
+Idempotent — by default touches only rows whose `linkedin_draft` is
+NULL or whitespace. Pass `?overwrite=1` to reset every prospect's
+draft to the template regardless of its current value (use this
+sparingly — it overwrites any per-prospect personalization the rep
+or the Prospecting Blitz wrote). `?dry_run=1` returns the diff
+without writing anything; the route also exposes a `GET` that is
+dry-run by default for safe inspection. Auth: `Bearer
+CHATGTM_API_TOKEN`. Response:
+
+```json
+{
+  "ok": true,
+  "dry_run": false,
+  "overwrite": false,
+  "scanned": 47,
+  "changed": 12,
+  "skipped": 35,
+  "changes": [
+    { "id": "...", "slug": "...", "name": "Anindya Saha",
+      "company_name": "Unisys",
+      "old_draft": null,
+      "new_draft": "Anindya - i put together..." }
+  ]
+}
+```
+
 ### Outreach enum values
 
 The enum-shaped TEXT columns (`team`, `classified_level`) are

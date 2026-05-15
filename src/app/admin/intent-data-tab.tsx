@@ -52,6 +52,8 @@ export type IntentRow = {
   last_active_at: string | null;
   linkedin_message: string | null;
   linkedin_sent: boolean;
+  demo_url: string | null;
+  demo_password: string | null;
   email_subject: string | null;
   email_body: string | null;
   email_status: string;
@@ -282,6 +284,8 @@ export function IntentDataTab({ apiToken }: Props) {
             linkedin_url: liTarget.linkedin_url,
             linkedin_message: liTarget.linkedin_message,
             linkedin_sent: liTarget.linkedin_sent,
+            demo_url: liTarget.demo_url,
+            demo_password: liTarget.demo_password,
           } satisfies LinkedinSendTarget}
           apiToken={apiToken}
           onClose={() => setLiTargetId(null)}

@@ -161,38 +161,25 @@ export function IntentContactDetailModal({
               <>
                 <Section title="Your outreach">
                   <div className="sm:col-span-2 space-y-4">
-                    <div className="rounded-lg border border-dark-border bg-dark-surface p-4 space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="rounded-lg border border-dark-border bg-dark-surface p-4 flex flex-wrap items-center justify-between gap-3">
+                      <div>
                         <p className="text-sm font-medium text-text-primary inline-flex items-center gap-2">
                           <Linkedin className="w-4 h-4 text-[#0a66c2]" />
-                          LinkedIn message
+                          LinkedIn
                         </p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={busy || !contact.linkedin_url || !contact.linkedin_message}
-                            onClick={() => setShowLiDialog(true)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-[#0a66c2] text-white hover:opacity-90 disabled:opacity-40"
-                          >
-                            Copy & open LinkedIn
-                          </button>
-                          <label className="inline-flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={contact.linkedin_sent}
-                              disabled={busy}
-                              onChange={(e) => void patchContact({ linkedin_sent: e.target.checked })}
-                              className="rounded border-dark-border"
-                            />
-                            Mark sent
-                          </label>
-                        </div>
+                        <p className="text-[12px] text-text-tertiary mt-1">
+                          Same copy-and-open flow as the Sequences tab — draft, demo link, and password.
+                        </p>
                       </div>
-                      <p className="text-[13px] text-text-secondary whitespace-pre-wrap leading-relaxed">
-                        {contact.linkedin_message || (
-                          <span className="italic text-text-tertiary">No message drafted yet</span>
-                        )}
-                      </p>
+                      <button
+                        type="button"
+                        disabled={busy || !contact.linkedin_url}
+                        onClick={() => setShowLiDialog(true)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-semibold bg-[#0a66c2] text-white hover:opacity-90 disabled:opacity-40"
+                      >
+                        <Linkedin className="w-4 h-4" />
+                        {contact.linkedin_sent ? 'Open LinkedIn again' : 'Copy & open LinkedIn'}
+                      </button>
                     </div>
 
                     <div className="rounded-lg border border-dark-border bg-dark-surface p-4 space-y-3">
@@ -265,9 +252,9 @@ export function IntentContactDetailModal({
                       </div>
                     ) : (
                       <p className="text-[12px] text-text-tertiary leading-relaxed">
-                        No demo link for this contact. The intent automation is configured for
-                        training-focused outreach (`demo_ok: false`). Set `demo.demo_ok: true` in
-                        ChatGTM to generate demos on ingest.
+                        Demo link will appear after the next intent upload, or run{' '}
+                        <span className="font-mono text-[11px]">POST /api/outreach/admin/backfill-demos</span>{' '}
+                        to generate for existing contacts.
                       </p>
                     )}
                   </div>
@@ -360,6 +347,8 @@ export function IntentContactDetailModal({
             linkedin_url: contact.linkedin_url,
             linkedin_message: contact.linkedin_message,
             linkedin_sent: contact.linkedin_sent,
+            demo_url: contact.demo_url,
+            demo_password: contact.demo_password,
           } satisfies LinkedinSendTarget}
           apiToken={apiToken}
           onClose={() => setShowLiDialog(false)}

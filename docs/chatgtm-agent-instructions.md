@@ -450,7 +450,7 @@ Body shape: `{ run_id, contacts: [...] }`. Up to 100 contacts per request. Idemp
 4. **Always set `cursor_usage.signup_email`** for enrolled Cursor users — the email they signed up with (often personal Gmail). Store separately from `contact.work_email` (employer-matched).
 5. **UI-managed columns are the dashboard's, not yours.** Do not set `linkedin_sent`, `email_flagged_to_send`, `email_sent_at`, `connection_status_value`, `connection_*_at`, or `omar_notes`. The upsert preserves them across your re-POSTs.
 6. **`account_display_name` is the rollup key.** Cognizant + 18 subsidiaries should all set `account_display_name = "Cognizant"` even though `account_name` is the specific entity ("Cognizant Softvision"). The dashboard groups + filters by `account_display_name`.
-7. **`demo.demo_ok`** — set `false` (default for training-only LinkedIn) to skip demo generation, or `true` to create a personalized demo URL server-side on ingest (stored on the row; not appended to the LinkedIn message).
+7. **`demo.demo_ok`** — omit or set `true` (default). Server generates a personalized demo URL + password on ingest. The dashboard appends them to the LinkedIn copy (same as Sequences). Set `false` only to skip demo generation.
 
 **Example `linkedin.message`:**
 

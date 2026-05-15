@@ -331,7 +331,7 @@ CREATE TABLE IF NOT EXISTS outreach_contacts (
   demo_url                        TEXT,
   demo_password                   TEXT,
   show_roi_calculator             BOOLEAN NOT NULL DEFAULT FALSE,
-  demo_ok                         BOOLEAN NOT NULL DEFAULT FALSE,
+  demo_ok                         BOOLEAN NOT NULL DEFAULT TRUE,
   demo_session_id                 TEXT,
   -- The prospects.id whose slug backs demo_url. Lets us pivot to the demo's
   -- engagement events without re-resolving via slug.

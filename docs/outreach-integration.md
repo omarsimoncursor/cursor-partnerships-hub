@@ -30,7 +30,7 @@ Upserts contacts. Up to **100 per request**. Idempotent on `(run_id, external_ke
 - `linkedin.message` — full LinkedIn DM (thank-you + training offer). Stored verbatim.
 - `email` — when `work_email` or `cursor_usage.signup_email` exists: `{ subject, body, status: "drafted" }`. When missing: `{ status: "no_work_email" }`.
 - `cursor_usage.signup_email` — the email the user signed up to Cursor with (store always for enrolled users).
-- `demo.demo_ok: false` — no demo generation for intent outreach.
+- `demo.demo_ok` — defaults to `true`; server generates demo URL + password on ingest.
 
 **Server preserves on re-POST (UI-managed):**
 

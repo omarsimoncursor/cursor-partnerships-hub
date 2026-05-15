@@ -110,9 +110,7 @@ async function resolveDemoForContact(
             ? proseDraft
             : buildDefaultLinkedinDraft(input.contact.full_name),
         mcp_detail: input.priority.rationale ?? null,
-        // Source discriminator so cold-outbound views can filter these
-        // out and we can later attribute conversion back to the intent
-        // surface that surfaced them.
+        source: 'outreach',
         metadata: {
           source: 'outreach',
           outreach_external_key: input.external_key,

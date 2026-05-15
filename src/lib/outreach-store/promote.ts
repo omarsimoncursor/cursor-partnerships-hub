@@ -53,6 +53,13 @@ export async function promoteContact(
   // have written one already).
   const naturalMatch = await findExistingProspect(contact);
   if (naturalMatch) {
+    if (naturalMatch.source === 'outreach') {
+      await query(
+        `UPDATE prospects SET source = 'outreach_promote', updated_at = now() WHERE id = $1`,
+        [naturalMatch.id],
+      );
+      naturalMatch.source = 'outreach_promote';
+    }
     const updated = await stampPromotedProspect(outreachContactId, naturalMatch.id);
     return {
       contact: updated ?? contact,
@@ -83,6 +90,7 @@ export async function promoteContact(
       linkedin_draft: extractProseFromOutreachMessage(contact.linkedin_message)
         ?? buildDefaultLinkedinDraft(contact.full_name),
       mcp_detail: contact.priority_rationale ?? null,
+      source: 'outreach_promote',
       metadata: {
         source: 'outreach_promote',
         outreach_contact_id: contact.id,

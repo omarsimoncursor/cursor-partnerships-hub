@@ -123,6 +123,9 @@ export type ListProspectsFilter = {
   // Collapse to one row per LOWER(email) before returning. Default true
   // for filtered list calls (Sequence Orchestrator / Blitz dedup).
   dedupeByEmail?: boolean;
+  // When false (default), excludes `source = 'outreach'` intent-demo shadows
+  // from cold-sequence pulls. Pass true via `include_outreach` query param.
+  includeOutreach?: boolean;
 };
 
 const MAX_LIST_LIMIT = 500;
@@ -190,6 +193,9 @@ export async function listProspectsFiltered(
     where.push(
       `p.classified_level IS NOT NULL AND TRIM(p.classified_level) <> '' AND p.mcp_detail IS NOT NULL AND TRIM(p.mcp_detail) <> ''`,
     );
+  }
+  if (filter.includeOutreach !== true) {
+    where.push(`COALESCE(p.source, 'chatgtm') <> 'outreach'`);
   }
 
   const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
@@ -416,6 +422,7 @@ export async function createProspect(
   const preferredFirst =
     inferPreferredFirstName(name, email) ??
     ((input.preferred_first_name ?? '').toString().trim() || null);
+  const incomingSource = (input.source ?? 'chatgtm').toString().trim() || 'chatgtm';
 
   // Upsert on email when present — keeps slug / demo / sequence state.
   if (emailNorm) {
@@ -446,6 +453,10 @@ export async function createProspect(
             team = COALESCE($22, team),
             classified_level = COALESCE(NULLIF($23, ''), classified_level),
             preferred_first_name = COALESCE($24, preferred_first_name),
+            source = CASE
+              WHEN $25 = 'outreach_promote' THEN 'outreach_promote'
+              ELSE source
+            END,
             updated_at = now()
           WHERE id = $1
           RETURNING *`,
@@ -474,6 +485,7 @@ export async function createProspect(
           (input.team ?? '').toString().trim() || null,
           personalization.classified_level,
           preferredFirst,
+          incomingSource,
         ],
       );
       const row = rows[0] ?? existing;
@@ -533,7 +545,7 @@ export async function createProspect(
           (input.gmail_draft_link ?? '').toString().trim() || null,
           (input.linkedin_message_link ?? '').toString().trim() || null,
           (input.notion_page_id ?? '').toString().trim() || null,
-          'chatgtm',
+          incomingSource,
           mergedMetadata,
           linkedinDraft,
           personalization.mcp_detail,
@@ -1427,6 +1439,24 @@ export async function runProspectDedupAndPersonalizationBackfill(opts: {
   const dedup = await deduplicateProspectsByEmail(opts);
   const personalization = await backfillProspectPersonalization(opts);
   return { dedup, personalization };
+}
+
+/** Tag intent-demo shadow rows so they are excluded from Sequences / orchestrator. */
+export async function backfillOutreachProspectSources(): Promise<{ updated: number }> {
+  const { rowCount } = await query(
+    `UPDATE prospects p
+        SET source = 'outreach',
+            updated_at = now()
+      WHERE COALESCE(p.source, 'chatgtm') = 'chatgtm'
+        AND (
+          p.metadata->>'source' = 'outreach'
+          OR EXISTS (
+            SELECT 1 FROM outreach_contacts oc
+             WHERE oc.demo_prospect_id = p.id
+          )
+        )`,
+  );
+  return { updated: rowCount ?? 0 };
 }
 
 // ---------------------------------------------------------------------------

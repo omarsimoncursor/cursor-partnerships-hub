@@ -1,6 +1,8 @@
 # ChatGTM daily digest: who opened the demo
 
-A short reference for the ChatGTM automation that posts a daily Slack digest of every prospect who unlocked their personalized Cursor demo in the last 24 hours.
+Optional **fifth** automation (separate from the four territory-dashboard automations). Posts a daily Slack digest of every prospect who unlocked their personalized Cursor demo in the last 24 hours.
+
+Index: [`README.md`](./README.md)
 
 ## Endpoint
 

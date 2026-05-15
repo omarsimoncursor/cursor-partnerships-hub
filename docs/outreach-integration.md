@@ -1,8 +1,8 @@
 # Intent Data — API + UI reference
 
-Companion to `docs/chatgtm-integration.md`. Documents the data
-contract, schema, and **Intent Data** admin tab for the **Intent Signal
-LinkedIn Outreach** automation.
+Companion to `docs/chatgtm-integration.md`. Documents the data contract, schema, and **Intent Data** admin tab for the **Intent Signal** automation (Automation 4 in `docs/chatgtm-agent-instructions.md`).
+
+Index: [`docs/README.md`](./README.md)
 
 | Surface | URL | Backed by |
 |---|---|---|
@@ -78,7 +78,11 @@ UI-managed fields only:
 
 ### `GET /api/outreach/contacts/:id`
 
-Single-row fetch.
+Single-row fetch. `?include=signals` returns child signal rows for the detail modal.
+
+### `POST /api/outreach/contacts/:id/promote`
+
+Deliberately enroll an intent contact in the cold **Sequences** workflow. Sets linked `prospects.source = 'outreach_promote'` so the row appears in orchestrator pulls. Idempotent.
 
 ---
 
@@ -102,13 +106,13 @@ Compact table (same density as Sequences):
 
 **Email** — edit draft in modal, toggle "Flag to send". The orchestrator add-on sends flagged rows and stamps `email_sent_at`.
 
-No enroll-in-sequence — one-time outreach to active users.
+No enroll-in-sequence — one-time outreach to active users. Intent contacts get a demo via a shadow `prospects` row (`source = 'outreach'`) that is hidden from the Sequences tab until promoted.
 
 ---
 
-## One-time email orchestrator step
+## One-time email step (Outreach Orchestrator)
 
-Add to Sequence Orchestrator (or a sibling automation) **before** the cold loop:
+Add to **Outreach Orchestrator** (Automation 2, Step A) **before** the cold loop:
 
 ```
 GET /api/outreach/contacts?email_flagged_to_send=true
@@ -123,11 +127,12 @@ PATCH /api/outreach/contacts/<id>
 
 ---
 
+## Architecture
+
+Visual flow (ChatGTM → API → Neon): [`chatgtm-solution-architecture.html`](./chatgtm-solution-architecture.html)
+
 ## Schema
 
-See `src/lib/prospect-store/schema.sql` — outreach section.
+See `src/lib/prospect-store/schema.sql` — outreach section (`outreach_runs`, `outreach_contacts`, `outreach_contact_signals`).
 
-Key UI columns on `outreach_contacts`:
-
-- `linkedin_message`, `linkedin_sent`
-- `email_subject`, `email_body`, `email_flagged_to_send`, `email_sent_at`
+Key UI-managed columns on `outreach_contacts`: `linkedin_message`, `linkedin_sent`, `email_subject`, `email_body`, `email_flagged_to_send`, `email_sent_at`.

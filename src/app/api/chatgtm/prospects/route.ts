@@ -358,6 +358,23 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  let includeOutreach = false;
+  const ioParam = params.get('include_outreach');
+  if (ioParam !== null) {
+    if (ioParam === 'true') includeOutreach = true;
+    else if (ioParam === 'false') includeOutreach = false;
+    else {
+      return NextResponse.json(
+        {
+          error: 'invalid_field',
+          field: 'include_outreach',
+          message: '`include_outreach` must be "true" or "false".',
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   try {
     await ensureSchema();
     const origin = originFromRequest(req);
@@ -369,6 +386,7 @@ export async function GET(req: NextRequest) {
       limit,
       includeOpens,
       personalizationReady: personalizationReady === true ? true : undefined,
+      includeOutreach,
     });
     return NextResponse.json({
       ok: true,

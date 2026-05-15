@@ -1,24 +1,23 @@
-# ChatGTM agent instructions: switch from Notion to the Neon-backed API
+# ChatGTM agent instructions — territory dashboard API
 
-Paste the relevant section into each ChatGTM automation builder. Each section is **self-contained** — you do not need to read the others or any external docs to update an automation. URLs, headers, payload shapes, and validation rules are spelled out below in the form ChatGTM agents expect.
+Paste the relevant section into each ChatGTM automation builder. Each section is **self-contained**. URLs use `https://cursor.omarsimon.com` as the reference host — **replace with your deployment domain** on every forked instance.
+
+> Legacy host `https://cursorpartners.omarsimon.com` still resolves to the same backend. New automations should use your canonical domain.
 
 ---
 
-## What changed (TL;DR)
+## Overview
 
-You are migrating away from a Notion database and toward a Postgres-backed REST API hosted at:
+Four automations talk to a Postgres-backed REST API (Neon via Vercel). Notion is retired.
 
-```
-https://cursor.omarsimon.com
-```
+| # | Automation | Primary endpoints |
+| --- | --- | --- |
+| 1 | **Prospecting Blitz** | `GET` + `POST /api/chatgtm/prospects` |
+| 2 | **Outreach Orchestrator** | `GET` + `PATCH /api/chatgtm/prospects`; optional intent email step on `/api/outreach/contacts` |
+| 3 | **Reply Checker** | `GET` + `PATCH /api/chatgtm/prospects/:id` (`replied`) |
+| 4 | **Intent Signal** | `/api/outreach/runs`, `/contacts/batch`, `/contact-signals/batch` |
 
-> The previous host `https://cursorpartners.omarsimon.com` still resolves to the same backend, so anything you've already shipped won't break mid-migration. New writes and reads should use the new host.
-
-Three automations need to update:
-
-1. **Prospecting Blitz** — discovers + enriches prospects, drafts a LinkedIn message, drops them into the system. Was writing rows to Notion. **Now writes to `POST /api/chatgtm/prospects`** which both creates the row in Postgres _and_ generates a personalized password-gated demo URL synchronously.
-2. **Sequence Orchestrator** — sends the 6-step email sequence. Was reading prospect rows + tracking state in Notion. **Now reads `GET /api/chatgtm/prospects?company_domain=…&replied=false&last_sequence_sent_lt=6` and PATCHes after each send.**
-3. **Reply Detector** — flips a "replied" flag when a prospect replies. Was updating a Notion checkbox. **Now `PATCH /api/chatgtm/prospects/<id_or_slug>` with `{"replied": true}`.**
+**Intent Signal** is warm, one-time outreach (Intent Data tab). **Automations 1–3** are cold outbound (Sequences tab). Same bearer token for all.
 
 Common conventions for every automation:
 
@@ -108,7 +107,7 @@ Body — **batch form is preferred**, up to 100 prospects per request:
 | --- | --- | --- | --- |
 | `name` | string | **yes** | Full name. Used to generate the demo password (`{FirstName}{4 digits}`). |
 | `company` | string | **yes** | Company display name. |
-| `email` | string | recommended | Used by the Sequence Orchestrator. |
+| `email` | string | recommended | Used by the Outreach Orchestrator. |
 | `level` | string | recommended | The full job title from Sumble (e.g. `"VP of Engineering"`, not `"VP"`). The server normalizes this into `level_normalized` and gates the ROI calculator on it. |
 | `linkedin_url` | string | recommended | |
 | `company_domain` | string | recommended | Lowercase, no protocol, no path. e.g. `unisys.com`. The dedup key. |
@@ -178,11 +177,28 @@ A 207 response means some rows succeeded and some failed; the successful rows ar
 
 ---
 
-## Automation 2: Sequence Orchestrator
+## Automation 2: Outreach Orchestrator
 
-**Goal**: Every run, fetch the prospects whose 6-step email sequence is in flight, decide which ones are due, send via Gmail, and PATCH back each row's progress so the next run knows where to pick up.
+**Goal**: Each run, (optional) send flagged **Intent Data** one-time emails, then fetch cold prospects whose 6-step sequence is in flight, send due Gmail steps, and PATCH progress back.
 
-### Step A — pull the active-sequence working set
+### Step A (optional) — one-time Intent Data emails
+
+Run **before** the cold sequence loop. Omar flags rows in `/admin` → Intent Data (`email_flagged_to_send = true`).
+
+```
+GET https://cursor.omarsimon.com/api/outreach/contacts?email_flagged_to_send=true
+```
+
+For each contact: `gmail_send` to `work_email` if set, else `signup_email`, using `email_subject` / `email_body`. Then:
+
+```
+PATCH https://cursor.omarsimon.com/api/outreach/contacts/<id>
+{ "email_sent_at": "<ISO datetime>", "email_flagged_to_send": false }
+```
+
+Do **not** enroll these contacts in the 6-step cold sequence. Full contract: `docs/outreach-integration.md`.
+
+### Step B — pull the active-sequence working set
 
 ```
 GET https://cursor.omarsimon.com/api/chatgtm/prospects?company_domain=<domain>&replied=false&last_sequence_sent_lt=6&include=opens
@@ -201,7 +217,7 @@ Query parameters:
 
 Iterate using `next_cursor` until null, just like in Automation 1.
 
-### Step B — for each prospect, decide whether to send
+### Step C — for each prospect, decide whether to send
 
 The response includes a server-computed `next_email_send_date`:
 
@@ -244,7 +260,7 @@ The email body composition uses these row fields:
 - `unlocked_view_count > 0` to optionally reference "you opened the demo last week".
 - `thread_id` — when set (i.e. for Email 2..6), reply **in-thread** to that Gmail thread instead of starting a new thread.
 
-### Step C — after each successful Gmail send, PATCH the prospect
+### Step D — after each successful Gmail send, PATCH the prospect
 
 ```
 PATCH https://cursor.omarsimon.com/api/chatgtm/prospects/<id_or_slug>
@@ -288,7 +304,7 @@ The server writes through and echoes the full updated row in the response:
 - `thread_id` is a free-form string — Gmail's `threadId` is fine to pass straight through.
 - Sending an unchanged value still works; the server is idempotent.
 
-### Step D (optional but recommended) — batch the writes
+### Step E (optional) — batch the writes
 
 If you have 5+ prospects to update in one orchestrator run, send a single batch PATCH instead of N round-trips:
 
@@ -337,9 +353,9 @@ A failed row never aborts the batch — successful rows are still committed. Ret
 
 ---
 
-## Automation 3: Reply Detector
+## Automation 3: Reply Checker
 
-**Goal**: When a prospect replies (Gmail thread receives an inbound message that isn't ours), flip the `replied` flag so the Sequence Orchestrator stops emailing them.
+**Goal**: When a prospect replies (Gmail thread receives an inbound message that isn't ours), flip `replied` so the Outreach Orchestrator stops emailing them.
 
 You already have the Gmail thread ID and the prospect's email address. There are two equivalent paths to find the prospect row:
 
@@ -375,13 +391,13 @@ Response on success: `200 OK { "ok": true, "prospect": { /* full row */ } }`.
 
 That single PATCH causes:
 
-- The Sequence Orchestrator's `replied=false` filter to drop the row on its next run, so they never get another sequence email.
+- The Outreach Orchestrator's `replied=false` filter drops the row on its next run.
 - The dashboard's Sequences tab to switch the row's status badge to "REPLIED".
 - The server's computed `next_email_send_date` to flip to `null` (so any caching layer downstream knows there's nothing more to send).
 
 ### Optional — also stamp `reached_out_at`
 
-If your Reply Detector also functions as the "I had a real conversation with them" flag, you can stamp the timestamp the rep took action:
+If your Reply Checker also functions as the "I had a real conversation with them" flag, you can stamp the timestamp the rep took action:
 
 ```json
 { "replied": true, "reached_out_at": "2026-05-14T15:30:00Z" }
@@ -395,7 +411,7 @@ PATCHing `{"replied": true}` against an already-replied row is a no-op (server o
 
 ---
 
-## Automation 4: Intent Signal LinkedIn Outreach
+## Automation 4: Intent Signal
 
 **Goal**: Every weekday morning, scan the territory's intent signals (Cursor signups, job changes, title changes, team-admin signups, …) for the last 24h, enrich each contact, draft a brief LinkedIn thank-you + training offer, draft a one-time email when a work email exists, and POST the day's run to the outreach endpoints. Omar works the queue in the **Intent Data** tab at `/admin` — compact table view, copy-and-open LinkedIn, edit emails, flag rows to send.
 
@@ -491,25 +507,9 @@ Hot: {count of priority_tier=hot}
 Open Intent Data: https://cursor.omarsimon.com/admin
 ```
 
-### One-time email sends (orchestrator add-on)
+### One-time email sends
 
-Omar flags rows in the Intent Data tab (`email_flagged_to_send = true`). Your Sequence Orchestrator (or a sibling automation) should add a step **before** the cold sequence loop:
-
-```
-GET https://cursor.omarsimon.com/api/outreach/contacts?email_flagged_to_send=true
-```
-
-For each returned contact with a send address (`work_email` or `signup_email`) and `email_subject` / `email_body`:
-
-1. Send via `gmail_send` to `work_email` if set, else `signup_email`.
-2. Stamp the row:
-
-```
-PATCH https://cursor.omarsimon.com/api/outreach/contacts/<id>
-{ "email_sent_at": "<ISO datetime>", "email_flagged_to_send": false }
-```
-
-These are **one-time** sends to active Cursor users — do not enroll them in the 6-step cold sequence.
+Covered in **Automation 2, Step A**. Intent contacts stay out of the cold sequence unless deliberately promoted via `POST /api/outreach/contacts/:id/promote`.
 
 ### Errors to handle
 
@@ -523,14 +523,15 @@ These are **one-time** sends to active Cursor users — do not enroll them in th
 
 ### Dashboard contract
 
-Once the run lands, Omar works the queue at `https://cursor.omarsimon.com/admin` → **Intent Data** tab:
+Once the run lands, work the queue at `https://cursor.omarsimon.com/admin` → **Intent Data** tab:
 
-- Compact table (like Sequences): one row per contact with signal chips, priority, POWER/ALUMNI badges.
-- **Send LI** — copy message + open LinkedIn (same flow as Sequences tab).
-- **Email** — edit draft, toggle "Flag to send" for the orchestrator.
-- No enroll-in-sequence — these are one-time touches, not cold outbound.
+- Compact table (like Sequences): signal chips, priority, seniority, context (usage + rationale).
+- **Send LI** — copy draft + auto-appended demo URL/password + open LinkedIn (same dialog as Sequences).
+- **Email** — edit draft, toggle "Flag to send" for the orchestrator (Step A above).
+- Click a row for the full detail modal (signup email, signals, Cursor usage).
+- No enroll-in-sequence by default — one-time touches. Promote to Sequences only when deliberate.
 
-The full reference is `docs/outreach-integration.md` in the repo.
+Full reference: `docs/outreach-integration.md`.
 
 ---
 
@@ -546,6 +547,6 @@ The full reference is `docs/outreach-integration.md` in the repo.
 
 - **Daily Slack digest** of who opened their demo: `GET https://cursor.omarsimon.com/api/chatgtm/digest/opened?since=24h` (separate automation, see `docs/chatgtm-daily-digest-automation.md`). Same bearer token.
 
-- **Field reference, full response shape, full enum values**: `docs/chatgtm-integration.md` in this repo.
+- **Field reference**: `docs/chatgtm-integration.md` (cold) · `docs/outreach-integration.md` (intent) · `docs/README.md` (index)
 
 - **Token rotation**: change `CHATGTM_API_TOKEN` in Vercel (Project Settings → Environment Variables) → redeploy → update the same token in ChatGTM's secret store. Until both are updated, calls return `401 unauthorized`.

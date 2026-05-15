@@ -92,4 +92,8 @@ export type ChatgtmProspectInput = {
   // `level` (the raw title) so the API contract is unambiguous.
   classified_level?: string | null;
   preferred_first_name?: string | null;
+  // Discriminator for list filters. `chatgtm` = cold outbound (Sequences).
+  // `outreach` = intent-demo shadow row (Intent Data only). `outreach_promote`
+  // = deliberately enrolled from Intent Data.
+  source?: string | null;
 };

@@ -29,11 +29,17 @@ export type IntentRow = {
   linkedin_url: string | null;
   account_display_name: string;
   account_name: string;
+  account_mau: number | null;
   signal_types: string[];
   signal_latest_at: string;
   priority_tier_value: 'hot' | 'warm' | 'nurture';
+  priority_rationale: string | null;
   is_power_user: boolean;
   prior_employer_match_count: number;
+  cursor_user_id: string | null;
+  agent_requests_l30d: number | null;
+  plan_type_value: string | null;
+  last_active_at: string | null;
   linkedin_message: string | null;
   linkedin_sent: boolean;
   email_subject: string | null;
@@ -111,6 +117,7 @@ export function IntentDataTab({ apiToken }: Props) {
         r.title,
         r.account_display_name,
         r.account_name,
+        r.priority_rationale,
         ...r.signal_types,
       ]
         .filter(Boolean)
@@ -298,7 +305,7 @@ export function IntentDataTab({ apiToken }: Props) {
                 <th className="text-left px-3 py-2.5">Contact</th>
                 <th className="text-left px-3 py-2.5">Signals</th>
                 <th className="text-left px-3 py-2.5">Priority</th>
-                <th className="text-left px-3 py-2.5">Intent</th>
+                <th className="text-left px-3 py-2.5 min-w-[200px]">Context</th>
                 <th className="text-left px-3 py-2.5">LinkedIn</th>
                 <th className="text-left px-3 py-2.5">Email</th>
                 <th className="text-left px-3 py-2.5">Signal</th>
@@ -362,16 +369,35 @@ function IntentRowView({
     month: 'short',
     day: 'numeric',
   });
-  const hasEmail = Boolean(r.work_email && r.email_body);
+  const hasWorkEmail = Boolean(r.work_email);
+  const hasEmailDraft = Boolean(r.work_email && r.email_body);
   const emailSent = r.email_sent_at != null;
+  const usageParts: string[] = [];
+  if (r.cursor_user_id) usageParts.push('Cursor user');
+  if (r.agent_requests_l30d != null && r.agent_requests_l30d > 0) {
+    usageParts.push(`${r.agent_requests_l30d} agent req${r.agent_requests_l30d === 1 ? '' : 's'}`);
+  }
+  if (r.plan_type_value) usageParts.push(r.plan_type_value);
+  if (r.last_active_at) {
+    usageParts.push(
+      `active ${new Date(r.last_active_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`,
+    );
+  }
+  if (r.account_mau != null) usageParts.push(`acct MAU ${r.account_mau}`);
 
   return (
     <tr className="border-b border-dark-border/60 hover:bg-dark-surface-hover transition-colors">
-      <td className="px-3 py-2 align-top min-w-[160px]">
+      <td className="px-3 py-2 align-top min-w-[180px]">
         <p className="text-text-primary font-medium text-[13px] leading-tight">{r.full_name}</p>
         <p className="text-[10px] text-text-tertiary leading-tight mt-0.5">{r.title}</p>
-        <p className="text-[10px] text-text-tertiary truncate max-w-[200px]">
-          {r.work_email || <span className="italic">no email</span>}
+        <p className="text-[10px] text-text-tertiary truncate max-w-[220px]">
+          {hasWorkEmail ? (
+            r.work_email
+          ) : (
+            <span className="italic" title="No employer-matched work email — use LinkedIn outreach">
+              no work email
+            </span>
+          )}
         </p>
         <p className="text-[10px] text-text-tertiary">
           {r.account_display_name}
@@ -379,6 +405,9 @@ function IntentRowView({
             <span className="opacity-70"> · {r.account_name}</span>
           )}
         </p>
+        {usageParts.length > 0 && (
+          <p className="text-[10px] text-text-secondary mt-0.5 leading-snug">{usageParts.join(' · ')}</p>
+        )}
       </td>
       <td className="px-3 py-2 align-top max-w-[140px]">
         <div className="flex flex-wrap gap-1">
@@ -403,8 +432,15 @@ function IntentRowView({
           {r.priority_tier_value}
         </span>
       </td>
-      <td className="px-3 py-2 align-top">
-        <div className="flex flex-wrap gap-1">
+      <td className="px-3 py-2 align-top max-w-[280px]">
+        {r.priority_rationale ? (
+          <p className="text-[10px] text-text-secondary leading-snug line-clamp-4" title={r.priority_rationale}>
+            {r.priority_rationale}
+          </p>
+        ) : (
+          <span className="text-[10px] text-text-tertiary italic">—</span>
+        )}
+        <div className="flex flex-wrap gap-1 mt-1">
           {r.is_power_user && (
             <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-accent-amber/15 text-accent-amber border border-accent-amber/30 inline-flex items-center gap-0.5">
               <Zap className="w-2.5 h-2.5" />
@@ -430,7 +466,7 @@ function IntentRowView({
         />
       </td>
       <td className="px-3 py-2 align-top min-w-[120px]">
-        {hasEmail ? (
+        {hasEmailDraft ? (
           <div className="space-y-1">
             <p className="text-[10px] text-text-secondary truncate max-w-[160px]" title={r.email_subject ?? ''}>
               {r.email_subject || <span className="italic text-text-tertiary">(no subject)</span>}
@@ -449,7 +485,12 @@ function IntentRowView({
             )}
           </div>
         ) : (
-          <span className="text-[10px] text-text-tertiary italic">—</span>
+          <span
+            className="text-[10px] text-text-tertiary italic"
+            title={r.email_status === 'no_work_email' ? 'ChatGTM found no employer-matched work email' : undefined}
+          >
+            {r.email_status === 'no_work_email' ? 'LI only' : '—'}
+          </span>
         )}
       </td>
       <td className="px-3 py-2 align-top text-[11px] tabular-nums text-text-secondary whitespace-nowrap">
@@ -458,7 +499,7 @@ function IntentRowView({
       <td className="px-3 py-2 align-top text-right whitespace-nowrap">
         <div className="inline-flex items-center gap-1">
           <LinkedinSendButton r={r} busy={busy} onClick={onLinkedinSend} />
-          {hasEmail && !emailSent && (
+          {hasEmailDraft && !emailSent && (
             <button
               type="button"
               onClick={onEditEmail}

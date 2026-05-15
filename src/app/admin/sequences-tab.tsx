@@ -17,10 +17,12 @@ import {
   Reply,
   Search,
   Send,
+  Sparkles,
   X,
 } from 'lucide-react';
 import { SequenceEditModal, type EditableSequenceProspect } from './sequence-edit-modal';
 import { LinkedinSendDialog, type LinkedinSendTarget } from './linkedin-send-dialog';
+import { buildDefaultLinkedinDraft } from '@/lib/prospect-store/linkedin-draft-template';
 
 // Row shape returned by GET /api/chatgtm/prospects?include=opens.
 // Only the columns the dashboard actually renders or sends back via
@@ -105,6 +107,10 @@ export function SequencesTab({ apiToken }: Props) {
   // create a race on the same row.
   const [busyId, setBusyId] = useState<string | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
+  // Bulk backfill of `linkedin_draft` (sequences-tab toolbar action).
+  // Drives the modal that previews + applies the default template
+  // across every prospect missing a draft.
+  const [backfillOpen, setBackfillOpen] = useState(false);
 
   // Apply a partial update to a single row in local state. Used after
   // a successful PATCH so the UI reflects the change without
@@ -264,6 +270,19 @@ export function SequencesTab({ apiToken }: Props) {
     return c;
   }, [rows]);
 
+  // Empty-draft count drives the toolbar's "Fill drafts" button. We
+  // recompute on every render off the canonical rows array so the
+  // count is always in sync with whatever the in-row toggles have
+  // mutated since the last load.
+  const emptyDraftRows = useMemo(
+    () =>
+      rows.filter((r) => {
+        const d = (r.linkedin_draft ?? '').trim();
+        return d.length === 0;
+      }),
+    [rows],
+  );
+
   // Re-derive the LinkedIn dialog target from the canonical rows
   // array on every render, so any inline pill toggle / batch update
   // that mutates the row is reflected inside the open dialog.
@@ -359,6 +378,26 @@ export function SequencesTab({ apiToken }: Props) {
         </label>
 
         <button
+          type="button"
+          onClick={() => setBackfillOpen(true)}
+          disabled={loading || emptyDraftRows.length === 0}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-[#0a66c2]/40 bg-[#0a66c2]/10 text-[#9ec5f1] hover:bg-[#0a66c2]/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title={
+            emptyDraftRows.length === 0
+              ? 'Every prospect already has a LinkedIn draft on file.'
+              : `Fill the LinkedIn draft on ${emptyDraftRows.length} prospects missing one with the default template.`
+          }
+        >
+          <Sparkles className="w-4 h-4" />
+          Fill drafts
+          {emptyDraftRows.length > 0 && (
+            <span className="tabular-nums font-mono text-[10px] bg-[#0a66c2]/30 text-white px-1.5 py-0.5 rounded">
+              {emptyDraftRows.length}
+            </span>
+          )}
+        </button>
+
+        <button
           onClick={load}
           disabled={loading}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-dark-border hover:bg-dark-surface transition-colors disabled:opacity-50"
@@ -403,6 +442,23 @@ export function SequencesTab({ apiToken }: Props) {
           apiToken={apiToken}
           onClose={() => setLiTargetId(null)}
           onUpdated={(patch) => mergeRow(liTarget.id, patch as Partial<SequenceRow>)}
+        />
+      )}
+
+      {backfillOpen && (
+        <BackfillDraftsDialog
+          apiToken={apiToken}
+          emptyCount={emptyDraftRows.length}
+          previewRows={emptyDraftRows.slice(0, 3).map((r) => ({
+            name: r.name,
+            company_name: r.company_name,
+            draft: buildDefaultLinkedinDraft(r.name),
+          }))}
+          onClose={() => setBackfillOpen(false)}
+          onApplied={() => {
+            setBackfillOpen(false);
+            void load();
+          }}
         />
       )}
 
@@ -833,4 +889,172 @@ function CountTile({
     );
   }
   return <div className={className}>{inner}</div>;
+}
+
+// Modal that drives the bulk LinkedIn-draft backfill. Shows the rep:
+//
+//   - How many prospects are missing a draft.
+//   - A 1-3 row preview of what the rendered template will look like
+//     for the actual prospects in their list (so they see the first
+//     name substitution before they pull the trigger).
+//   - Apply / Cancel buttons.
+//
+// The "Apply" button POSTs `/api/chatgtm/admin/backfill-linkedin-drafts`
+// (no `dry_run`, no `overwrite` — fill-only) with the rep's
+// CHATGTM_API_TOKEN bearer auth, then closes the modal and triggers a
+// table reload so the new drafts show up immediately.
+function BackfillDraftsDialog({
+  apiToken,
+  emptyCount,
+  previewRows,
+  onClose,
+  onApplied,
+}: {
+  apiToken: string;
+  emptyCount: number;
+  previewRows: { name: string; company_name: string; draft: string }[];
+  onClose: () => void;
+  onApplied: () => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ changed: number; skipped: number } | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !submitting) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, submitting]);
+
+  const apply = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/chatgtm/admin/backfill-linkedin-drafts', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiToken}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body?.detail || `Backfill failed (${res.status})`);
+        setSubmitting(false);
+        return;
+      }
+      setResult({
+        changed: Number(body?.changed) || 0,
+        skipped: Number(body?.skipped) || 0,
+      });
+      // Tiny delay so the rep registers the success state before the
+      // modal closes + the table reloads.
+      setTimeout(() => onApplied(), 800);
+    } catch (err) {
+      setError((err as Error).message);
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 py-8 overflow-y-auto">
+      <div className="w-full max-w-xl rounded-2xl border border-dark-border bg-dark-bg shadow-2xl">
+        <header className="flex items-center justify-between px-6 py-4 border-b border-dark-border">
+          <div>
+            <p className="text-[11px] font-mono uppercase tracking-wider text-text-tertiary inline-flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-[#9ec5f1]" />
+              Bulk LinkedIn draft backfill
+            </p>
+            <h2 className="text-base font-semibold text-text-primary">
+              Fill empty drafts on{' '}
+              <span className="tabular-nums">{emptyCount}</span> prospect{emptyCount === 1 ? '' : 's'}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="p-1 text-text-tertiary hover:text-text-primary disabled:opacity-40"
+            aria-label="Close backfill dialog"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </header>
+
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm text-text-secondary leading-relaxed">
+            Every prospect without a LinkedIn draft will get the default template below.
+            The demo URL and password are appended automatically when you hit{' '}
+            <span className="text-text-primary font-medium">Send LI</span>, so they aren&apos;t stored in the draft itself.
+          </p>
+
+          {previewRows.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-wider font-mono text-text-tertiary">
+                Preview ({previewRows.length} of {emptyCount})
+              </p>
+              <ul className="space-y-2">
+                {previewRows.map((row, idx) => (
+                  <li
+                    key={idx}
+                    className="rounded-lg border border-dark-border bg-dark-surface/50 p-3"
+                  >
+                    <p className="text-[11px] font-mono text-text-tertiary mb-1">
+                      {row.name}{' '}
+                      <span className="text-text-tertiary/70">— {row.company_name}</span>
+                    </p>
+                    <p className="text-[12px] text-text-primary whitespace-pre-wrap leading-snug">
+                      {row.draft}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {result && (
+            <div className="rounded-md border border-accent-green/40 bg-accent-green/5 px-3 py-2 text-sm text-accent-green inline-flex items-center gap-2">
+              <Check className="w-4 h-4" />
+              Filled {result.changed} draft{result.changed === 1 ? '' : 's'}
+              {result.skipped > 0 && (
+                <span className="text-text-tertiary text-xs">
+                  (skipped {result.skipped} already-populated)
+                </span>
+              )}
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-md border border-accent-red/40 bg-accent-red/5 px-3 py-2 text-xs text-accent-red inline-flex items-start gap-2">
+              <X className="w-3.5 h-3.5 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
+
+        <footer className="flex items-center justify-end gap-2 px-6 py-4 border-t border-dark-border">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="px-4 py-2 rounded-md text-sm text-text-secondary border border-dark-border hover:border-dark-border-hover hover:bg-dark-surface transition-colors disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={apply}
+            disabled={submitting || emptyCount === 0 || !!result}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold bg-[#0a66c2] text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            Apply to {emptyCount} prospect{emptyCount === 1 ? '' : 's'}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
 }

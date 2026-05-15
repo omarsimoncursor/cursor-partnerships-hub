@@ -50,6 +50,7 @@ export type ProspectRow = {
   last_email_send_date: string | null;
   replied: boolean;
   thread_id: string | null;
+  preferred_first_name: string | null;
 };
 
 // Public view of the prospect — never exposes the password to the
@@ -90,4 +91,5 @@ export type ChatgtmProspectInput = {
   // The Executive/Leader/Manager/IC bucket. Named distinctly from
   // `level` (the raw title) so the API contract is unambiguous.
   classified_level?: string | null;
+  preferred_first_name?: string | null;
 };

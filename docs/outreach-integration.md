@@ -90,7 +90,7 @@ Compact table (same density as Sequences):
 | Signal | Latest signal date |
 | Actions | Send LI (copy + open), Edit email |
 
-**Send LI** reuses the Sequences copy-and-open LinkedIn dialog (intent mode — no demo append).
+**Send LI** reuses the Sequences copy-and-open LinkedIn dialog — draft plus auto-appended demo URL/password when present.
 
 **Email** — edit draft in modal, toggle "Flag to send". The orchestrator add-on sends flagged rows and stamps `email_sent_at`.
 

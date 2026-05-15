@@ -26,6 +26,7 @@ import { ActivityModal } from './activity-modal';
 import { AnalyticsTab } from './analytics-tab';
 import { CreateProspectModal } from './create-modal';
 import { SequencesTab } from './sequences-tab';
+import { IntentDataTab } from './intent-data-tab';
 import { Pager, paginate } from './pager';
 
 // Legacy localStorage key — left unchanged when the route moved
@@ -81,7 +82,7 @@ export function AdminClient() {
   const [query, setQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState<string>('');
   const [page, setPage] = useState(0);
-  const [activeTab, setActiveTab] = useState<'prospects' | 'sequences' | 'analytics'>('prospects');
+  const [activeTab, setActiveTab] = useState<'prospects' | 'sequences' | 'intent-data' | 'analytics'>('prospects');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
@@ -275,22 +276,21 @@ export function AdminClient() {
                 label="Sequences"
               />
               <TabButton
+                active={activeTab === 'intent-data'}
+                onClick={() => setActiveTab('intent-data')}
+                label="Intent Data"
+              />
+              <TabButton
                 active={activeTab === 'analytics'}
                 onClick={() => setActiveTab('analytics')}
                 label="Analytics"
               />
-              <Link
-                href="/outreach/dashboard"
-                className="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-text-tertiary hover:text-text-primary transition-colors inline-flex items-center gap-1.5"
-                title="Open the territory outreach dashboard (intent-signal driven)"
-              >
-                Outreach
-                <ExternalLink className="w-3 h-3" />
-              </Link>
             </div>
           )}
 
           {apiToken && activeTab === 'sequences' && <SequencesTab apiToken={apiToken.trim()} />}
+
+          {apiToken && activeTab === 'intent-data' && <IntentDataTab apiToken={apiToken.trim()} />}
 
           {apiToken && activeTab === 'analytics' && <AnalyticsTab apiToken={apiToken.trim()} />}
 

@@ -397,9 +397,9 @@ PATCHing `{"replied": true}` against an already-replied row is a no-op (server o
 
 ## Automation 4: Intent Signal LinkedIn Outreach
 
-**Goal**: Every weekday morning, scan the territory's intent signals (Cursor signups, job changes, title changes, team-admin signups, …) for the last 24h, enrich each contact, generate a personalized LinkedIn message, and POST the day's run to the outreach endpoints. The dashboard at `/outreach/runs/<id>` and `/outreach/dashboard` is where Omar works the queue manually — sends the LinkedIn message, marks state, optionally enrolls a contact in the cold email sequence.
+**Goal**: Every weekday morning, scan the territory's intent signals (Cursor signups, job changes, title changes, team-admin signups, …) for the last 24h, enrich each contact, draft a brief LinkedIn thank-you + training offer, draft a one-time email when a work email exists, and POST the day's run to the outreach endpoints. Omar works the queue in the **Intent Data** tab at `/admin` — compact table view, copy-and-open LinkedIn, edit emails, flag rows to send.
 
-This automation is **distinct from the cold-outbound flow** (Automations 1-3 above): warm-signal driven, LinkedIn-only by default, runs across all 23 accounts in a single pass (no per-account split).
+This automation is **distinct from the cold-outbound flow** (Automations 1-3): warm-signal driven, one-time outreach (not a 6-step sequence), runs across all 23 accounts in a single pass.
 
 ### Step A — dedup against recent contacts
 
@@ -444,10 +444,28 @@ Body shape: `{ run_id, contacts: [...] }`. Up to 100 contacts per request. Idemp
 
 **Critical agent behaviors:**
 
-1. **`linkedin.message` is PROSE ONLY.** The server appends `\n\n<demo_url>\nPassword: <demo_password>` server-side at upsert time. Your prose should end at "…walkthrough:" or similar — do **not** inline a placeholder URL or password in the message string.
-2. **`demo.demo_url` and `demo.demo_password` are ignored on the success path.** The server generates them by either reusing an existing prospect's demo (matched on `linkedin_url || work_email`) or creating a new prospect row. Set `demo.demo_ok: true` to opt into demo generation; set `demo.demo_ok: false` to skip (e.g. for IC contacts you don't want a demo for, or when your upstream demo session failed).
-3. **UI-managed columns are the dashboard's, not yours.** Do not set `connection_status_value`, `connection_*_at`, `omar_notes`, `promoted_to_prospect_id`, or `promoted_at`. These are written only via `/api/outreach/contacts/<id>` PATCH (the dashboard's "Mark sent" / "Mark replied" / "Edit notes" buttons). The upsert preserves them across your re-POSTs.
-4. **`account_display_name` is the rollup key.** Cognizant + 18 subsidiaries should all set `account_display_name = "Cognizant"` even though `account_name` is the specific entity ("Cognizant Softvision"). The dashboard groups + filters by `account_display_name`.
+1. **`linkedin.message` is the full LinkedIn DM** — a brief thank-you for using Cursor plus an offer of training / office hours. 2-4 sentences, first-name personalized. Stored verbatim; the dashboard copies it as-is (no server-side demo URL append).
+2. **When `work_email` is present, always include an `email` block** with `status: "drafted"`, a subject, and a body. Omar edits these in the Intent Data tab and flags rows to send; a separate orchestrator step sends flagged emails once.
+3. **When no work email**, set `email.status: "no_work_email"` and omit subject/body.
+4. **UI-managed columns are the dashboard's, not yours.** Do not set `linkedin_sent`, `email_flagged_to_send`, `email_sent_at`, `connection_status_value`, `connection_*_at`, or `omar_notes`. The upsert preserves them across your re-POSTs.
+5. **`account_display_name` is the rollup key.** Cognizant + 18 subsidiaries should all set `account_display_name = "Cognizant"` even though `account_name` is the specific entity ("Cognizant Softvision"). The dashboard groups + filters by `account_display_name`.
+6. **`demo.demo_ok` should be `false`** for this automation — intent outreach is training-focused, not demo-focused. Omit demo URL generation.
+
+**Example `linkedin.message`:**
+
+```
+Hi Jane — saw you've been using Cursor at Cognizant Softvision. Thanks for being an early adopter! Happy to set up a quick training session for your team if useful — we run informal office hours for power users rolling this out org-wide.
+```
+
+**Example `email` block (when work_email present):**
+
+```json
+{
+  "subject": "Cursor training for your team at Cognizant Softvision",
+  "body": "Hi Jane,\n\nThanks for using Cursor...",
+  "status": "drafted"
+}
+```
 
 ### Step D — POST the per-signal child rows
 
@@ -467,10 +485,28 @@ Post to Omar (Slack ID: `U0ASG70KCKX`):
 🎯 Intent Outreach run complete · {run_date}
 {total_contacts} contacts ({unique_executives} exec, {unique_leaders} leader, {unique_managers} mgr)
 Hot: {count of priority_tier=hot}
-Open the run: https://cursor.omarsimon.com/outreach/runs/{run_id}
+Open Intent Data: https://cursor.omarsimon.com/admin
 ```
 
-The deep link is the canonical way Omar enters the dashboard for the day. The rolling territory view at `/outreach/dashboard` is for cross-day work; the per-run view is for "what's new today."
+### One-time email sends (orchestrator add-on)
+
+Omar flags rows in the Intent Data tab (`email_flagged_to_send = true`). Your Sequence Orchestrator (or a sibling automation) should add a step **before** the cold sequence loop:
+
+```
+GET https://cursor.omarsimon.com/api/outreach/contacts?email_flagged_to_send=true
+```
+
+For each returned contact with `work_email`, `email_subject`, and `email_body`:
+
+1. Send via `gmail_send` to `work_email`.
+2. Stamp the row:
+
+```
+PATCH https://cursor.omarsimon.com/api/outreach/contacts/<id>
+{ "email_sent_at": "<ISO datetime>", "email_flagged_to_send": false }
+```
+
+These are **one-time** sends to active Cursor users — do not enroll them in the 6-step cold sequence.
 
 ### Errors to handle
 
@@ -484,11 +520,12 @@ The deep link is the canonical way Omar enters the dashboard for the day. The ro
 
 ### Dashboard contract
 
-Once the run lands, Omar works the queue at `https://cursor.omarsimon.com/outreach/runs/<run_id>`:
+Once the run lands, Omar works the queue at `https://cursor.omarsimon.com/admin` → **Intent Data** tab:
 
-- "Mark sent" / "Mark accepted" / "Mark replied" buttons drive `connection_status_value` through the lifecycle. The agent never writes those columns.
-- "Enroll in sequence" creates a corresponding row in the cold-prospects table so the email Sequence Orchestrator (Automation 2) picks them up.
-- "Add notes" persists free-form text in `omar_notes`.
+- Compact table (like Sequences): one row per contact with signal chips, priority, POWER/ALUMNI badges.
+- **Send LI** — copy message + open LinkedIn (same flow as Sequences tab).
+- **Email** — edit draft, toggle "Flag to send" for the orchestrator.
+- No enroll-in-sequence — these are one-time touches, not cold outbound.
 
 The full reference is `docs/outreach-integration.md` in the repo.
 
@@ -499,8 +536,8 @@ The full reference is `docs/outreach-integration.md` in the repo.
 - **Admin UI**: `https://cursor.omarsimon.com/admin` — four tabs:
   - **Prospects** — every row created via this API + the build status of the personalized demo.
   - **Sequences** — every row's email-tracking state (`last_sequence_sent` / `last_email_send_date` / `thread_id` / `replied` / demo opened) plus inline edits.
+  - **Intent Data** — warm-signal contacts from Automation 4 (table view, LinkedIn + one-time email).
   - **Analytics** — aggregate opens.
-  - **Outreach** — link to `/outreach/dashboard` (Automation 4's surface).
 
   Sign in with the admin password; the rep paste-loads the same `CHATGTM_API_TOKEN` to view the data.
 

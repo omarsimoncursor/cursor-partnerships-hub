@@ -16,12 +16,10 @@ export const dynamic = 'force-dynamic';
  * GET /api/outreach/contacts/:id
  * PATCH /api/outreach/contacts/:id
  *
- * The PATCH body is restricted to UI-managed lifecycle fields:
- *   - connection_status_value
- *   - connection_sent_at
- *   - connection_accepted_at
- *   - reply_received_at
- *   - omar_notes
+ * The PATCH body is restricted to UI-managed fields:
+ *   - linkedin_message, linkedin_sent
+ *   - email_subject, email_body, email_flagged_to_send, email_sent_at
+ *   - legacy: connection_status_*, omar_notes
  *
  * Anything else returns 400 invalid_field. The agent's batch upsert
  * route is the only path that can write data fields; this route is

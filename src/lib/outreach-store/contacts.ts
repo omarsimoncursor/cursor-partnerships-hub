@@ -1,21 +1,6 @@
-// Persistence helpers for `outreach_contacts`. The upsert path is
-// the heavy one — it (a) preserves UI-managed lifecycle columns
-// across agent re-POSTs, (b) generates the demo URL + password
-// server-side as a side effect (decision (2) at impl time), and (c)
-// appends `<url> (pw: <password>)` to the LinkedIn message prose so
-// the dashboard can render the full clipboard string.
-//
-// Per the agent contract:
-// - The agent sends the linkedin.message as PROSE ONLY (no URL /
-//   password inline). The server appends them.
-// - The agent's demo.demo_url / demo.demo_password fields, if
-//   present, are reused only when the server can't generate / find
-//   one (e.g. demo_ok = false).
-// - On re-POST of the same (run_id, external_key), the
-//   connection_status_value / connection_sent_at /
-//   connection_accepted_at / reply_received_at / omar_notes columns
-//   are preserved (the agent can never set them; only the dashboard
-//   can).
+// Persistence helpers for `outreach_contacts`. The upsert path preserves
+// UI-managed columns across agent re-POSTs and stores the agent's LinkedIn
+// message verbatim (training thank-you copy — no server-side demo append).
 
 import { createProspect, getProspectBySlug } from '../prospect-store/prospects';
 import { buildDefaultLinkedinDraft } from '../prospect-store/linkedin-draft-template';
@@ -141,32 +126,15 @@ async function resolveDemoForContact(
 }
 
 /**
- * Compose the full LinkedIn message stored on the row: the agent's
- * prose followed by the demo URL + password block. Mirrors the
- * append logic in `linkedin-send-dialog.tsx` so the cold-prospect
- * Send LI dialog and the outreach contact card produce identical
- * paste payloads.
+ * Compose the stored LinkedIn message: agent copy only.
  */
-function composeLinkedinMessage(
-  prose: string | null,
-  demoUrl: string | null,
-  demoPassword: string | null,
-): string | null {
-  const trimmedProse = (prose ?? '').trim();
-  const lines: string[] = [];
-  if (trimmedProse) lines.push(trimmedProse);
-  const lower = trimmedProse.toLowerCase();
-  const hasUrl = demoUrl ? lower.includes(demoUrl.toLowerCase()) : false;
-  const hasPassword = demoPassword ? trimmedProse.includes(demoPassword) : false;
-  const append: string[] = [];
-  if (demoUrl && !hasUrl) append.push(demoUrl);
-  if (demoPassword && !hasPassword) append.push(`Password: ${demoPassword}`);
-  if (append.length > 0) {
-    if (lines.length > 0) lines.push('');
-    lines.push(...append);
-  }
-  if (lines.length === 0) return null;
-  return lines.join('\n');
+function storeLinkedinMessage(message: string | null | undefined): {
+  text: string | null;
+  charCount: number | null;
+} {
+  const trimmed = (message ?? '').trim();
+  if (!trimmed) return { text: null, charCount: null };
+  return { text: trimmed, charCount: trimmed.length };
 }
 
 export async function upsertContact(
@@ -190,12 +158,9 @@ export async function upsertContact(
     demoProspectId = resolved.demo_prospect_id;
   }
 
-  const linkedinFull = composeLinkedinMessage(
-    input.linkedin?.message ?? null,
-    demoUrl,
-    demoPassword,
-  );
-  const linkedinCharCount = linkedinFull?.length ?? null;
+  const linkedinStored = storeLinkedinMessage(input.linkedin?.message ?? null);
+  const linkedinFull = linkedinStored.text;
+  const linkedinCharCount = linkedinStored.charCount;
 
   const a = input.account;
   const c = input.contact;
@@ -373,19 +338,19 @@ export async function upsertContact(
         demo_session_id = EXCLUDED.demo_session_id,
         demo_prospect_id = COALESCE(EXCLUDED.demo_prospect_id, outreach_contacts.demo_prospect_id),
 
-        linkedin_message    = EXCLUDED.linkedin_message,
-        linkedin_char_count = EXCLUDED.linkedin_char_count,
+        linkedin_message    = COALESCE(outreach_contacts.linkedin_message, EXCLUDED.linkedin_message),
+        linkedin_char_count = COALESCE(outreach_contacts.linkedin_char_count, EXCLUDED.linkedin_char_count),
 
-        email_subject   = EXCLUDED.email_subject,
-        email_body      = EXCLUDED.email_body,
+        email_subject   = COALESCE(outreach_contacts.email_subject, EXCLUDED.email_subject),
+        email_body      = COALESCE(outreach_contacts.email_body, EXCLUDED.email_body),
         email_status    = EXCLUDED.email_status,
         gmail_action_id = EXCLUDED.gmail_action_id,
 
         -- UI-managed columns INTENTIONALLY OMITTED:
+        --   linkedin_sent, email_flagged_to_send, email_sent_at,
         --   connection_status_value, connection_sent_at,
         --   connection_accepted_at, reply_received_at, omar_notes,
         --   promoted_to_prospect_id, promoted_at
-        -- Those are the contract: agent re-POST never clobbers them.
 
         updated_at = now()
       RETURNING *,
@@ -581,8 +546,76 @@ export async function listRecentContacts(args: {
   return rows;
 }
 
+export type ListContactsFilters = {
+  emailFlaggedToSend?: boolean;
+  emailSent?: boolean;
+  linkedinSent?: boolean;
+  runId?: string;
+  accountDisplayName?: string;
+  priorityTier?: string;
+  sinceDays?: number;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listContacts(
+  filters: ListContactsFilters = {},
+): Promise<{ contacts: OutreachContactRow[]; total: number }> {
+  const clauses: string[] = ['1=1'];
+  const params: unknown[] = [];
+
+  if (filters.emailFlaggedToSend === true) {
+    clauses.push('email_flagged_to_send = TRUE');
+    clauses.push('email_sent_at IS NULL');
+  }
+  if (filters.emailSent === true) {
+    clauses.push('email_sent_at IS NOT NULL');
+  } else if (filters.emailSent === false) {
+    clauses.push('email_sent_at IS NULL');
+  }
+  if (filters.linkedinSent === true) {
+    clauses.push('linkedin_sent = TRUE');
+  } else if (filters.linkedinSent === false) {
+    clauses.push('linkedin_sent = FALSE');
+  }
+  if (filters.runId) {
+    params.push(filters.runId);
+    clauses.push(`run_id = $${params.length}`);
+  }
+  if (filters.accountDisplayName) {
+    params.push(filters.accountDisplayName);
+    clauses.push(`account_display_name = $${params.length}`);
+  }
+  if (filters.priorityTier) {
+    params.push(filters.priorityTier);
+    clauses.push(`priority_tier_value = $${params.length}`);
+  }
+  if (filters.sinceDays != null && filters.sinceDays > 0) {
+    params.push(filters.sinceDays);
+    clauses.push(`signal_latest_at >= now() - ($${params.length} || ' days')::interval`);
+  }
+
+  const where = clauses.join(' AND ');
+  const limit = Math.min(Math.max(filters.limit ?? 500, 1), 1000);
+  const offset = Math.max(filters.offset ?? 0, 0);
+
+  const countRes = await query<{ count: string }>(
+    `SELECT COUNT(*)::text AS count FROM outreach_contacts WHERE ${where}`,
+    params,
+  );
+  const total = Number(countRes.rows[0]?.count ?? 0);
+
+  params.push(limit, offset);
+  const { rows } = await query<OutreachContactRow>(
+    `SELECT * FROM outreach_contacts
+       WHERE ${where}
+       ORDER BY signal_latest_at DESC
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params,
+  );
+  return { contacts: rows, total };
+}
 // Resolve external_key -> contact_id within a run, used by the
-// signals batch endpoint to wire child rows to the right parent.
 export async function mapExternalKeysToIds(
   runId: string,
   externalKeys: string[],

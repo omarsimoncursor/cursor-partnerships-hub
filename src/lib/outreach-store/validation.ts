@@ -538,6 +538,12 @@ export function validateSignalInput(
 // Contact PATCH (UI-managed lifecycle)
 
 const PATCHABLE_FIELDS: ReadonlySet<keyof OutreachContactPatch> = new Set([
+  'linkedin_message',
+  'linkedin_sent',
+  'email_subject',
+  'email_body',
+  'email_flagged_to_send',
+  'email_sent_at',
   'connection_status_value',
   'connection_sent_at',
   'connection_accepted_at',
@@ -562,6 +568,27 @@ export function validateContactPatch(body: unknown): OutreachContactPatch {
       'connection_status_value',
       CONNECTION_STATUS_VALUES,
     );
+  }
+  if ('linkedin_message' in obj) {
+    out.linkedin_message = optionalString(obj.linkedin_message, 'linkedin_message');
+  }
+  if ('linkedin_sent' in obj) {
+    out.linkedin_sent = optionalBoolean(obj.linkedin_sent, 'linkedin_sent');
+  }
+  if ('email_subject' in obj) {
+    out.email_subject = optionalString(obj.email_subject, 'email_subject');
+  }
+  if ('email_body' in obj) {
+    out.email_body = optionalString(obj.email_body, 'email_body');
+  }
+  if ('email_flagged_to_send' in obj) {
+    out.email_flagged_to_send = optionalBoolean(
+      obj.email_flagged_to_send,
+      'email_flagged_to_send',
+    );
+  }
+  if ('email_sent_at' in obj) {
+    out.email_sent_at = optionalIsoDatetime(obj.email_sent_at, 'email_sent_at');
   }
   if ('connection_sent_at' in obj) {
     out.connection_sent_at = optionalIsoDatetime(

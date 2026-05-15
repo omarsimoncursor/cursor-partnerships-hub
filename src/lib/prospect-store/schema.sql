@@ -331,20 +331,23 @@ CREATE TABLE IF NOT EXISTS outreach_contacts (
   -- engagement events without re-resolving via slug.
   demo_prospect_id                UUID REFERENCES prospects(id) ON DELETE SET NULL,
 
-  -- LinkedIn message. Stored as the FULL message: prose + URL + password
-  -- already appended server-side at upsert time. The agent's POST sends
-  -- prose only.
+  -- LinkedIn message. Stored verbatim from the agent (brief thank-you +
+  -- training offer). The dashboard's Send LI dialog copies this as-is.
   linkedin_message                TEXT,
   linkedin_char_count             INT,
+  linkedin_sent                   BOOLEAN NOT NULL DEFAULT FALSE,
 
-  -- Email draft (preserved verbatim from the agent's gmail_send action).
+  -- Email draft (agent-authored when work_email is present). Omar edits
+  -- in the Intent Data tab and flags rows for the one-time send worker.
   email_subject                   TEXT,
   email_body                      TEXT,
   email_status                    outreach_email_draft_status NOT NULL,
   gmail_action_id                 TEXT,
+  email_flagged_to_send           BOOLEAN NOT NULL DEFAULT FALSE,
+  email_sent_at                   TIMESTAMPTZ,
 
-  -- Outreach lifecycle (UI-managed; preserved across agent re-POSTs of the
-  -- same (run_id, external_key) row).
+  -- Legacy lifecycle columns (kept for backwards compat; Intent Data tab
+  -- uses linkedin_sent + email_flagged_to_send instead).
   connection_status_value         outreach_connection_status NOT NULL DEFAULT 'pending',
   connection_sent_at              TIMESTAMPTZ,
   connection_accepted_at          TIMESTAMPTZ,
@@ -397,3 +400,11 @@ CREATE TABLE IF NOT EXISTS outreach_contact_signals (
 CREATE INDEX IF NOT EXISTS outreach_signals_detected_idx      ON outreach_contact_signals(detected_at DESC);
 CREATE INDEX IF NOT EXISTS outreach_signals_type_detected_idx ON outreach_contact_signals(signal_type, detected_at DESC);
 CREATE INDEX IF NOT EXISTS outreach_signals_contact_idx       ON outreach_contact_signals(contact_id);
+
+-- Idempotent column adds for deployments that ran an earlier schema pass.
+ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS linkedin_sent BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_flagged_to_send BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS outreach_contacts_email_flagged_idx
+  ON outreach_contacts(email_flagged_to_send, email_sent_at)
+  WHERE email_flagged_to_send = TRUE AND email_sent_at IS NULL;

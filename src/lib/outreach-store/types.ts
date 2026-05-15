@@ -150,12 +150,15 @@ export type OutreachContactRow = {
   // LinkedIn
   linkedin_message: string | null;
   linkedin_char_count: number | null;
+  linkedin_sent: boolean;
 
   // Email
   email_subject: string | null;
   email_body: string | null;
   email_status: OutreachEmailDraftStatus;
   gmail_action_id: string | null;
+  email_flagged_to_send: boolean;
+  email_sent_at: string | null;
 
   // Lifecycle (UI-managed)
   connection_status_value: OutreachConnectionStatus;
@@ -295,9 +298,8 @@ export type OutreachContactInput = {
     demo_session_id?: string | null;
   };
   linkedin?: {
-    // Prose only; the server appends ` <url> (pw: <password>)` server-side
-    // when persisting and uses the resulting full message in the response
-    // and on the dashboard. char_count from the agent is informational.
+    // Full message from the agent — brief thank-you for using Cursor +
+    // offer of training. Copied verbatim to LinkedIn; no server append.
     message?: string | null;
     char_count?: number | null;
   };
@@ -316,10 +318,15 @@ export type OutreachContactSignalInput = {
   raw?: Record<string, unknown> | null;
 };
 
-// PATCH /api/outreach/contacts/:id — only the UI-managed lifecycle columns
-// can be flipped via this endpoint. The agent's batch upsert preserves
-// these columns on re-POST.
+// PATCH /api/outreach/contacts/:id — UI-managed columns only. The agent's
+// batch upsert preserves these on re-POST.
 export type OutreachContactPatch = Partial<{
+  linkedin_message: string | null;
+  linkedin_sent: boolean;
+  email_subject: string | null;
+  email_body: string | null;
+  email_flagged_to_send: boolean;
+  email_sent_at: string | null;
   connection_status_value: OutreachConnectionStatus;
   connection_sent_at: string | null;
   connection_accepted_at: string | null;

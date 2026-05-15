@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" fill="none">
+  <g fill="#0079D5">
+    <!-- Mark: stylized Z inside a rounded square (zero-trust shield-like glyph) -->
+    <rect x="2" y="8" width="48" height="48" rx="10" fill="#0079D5"/>
+    <path d="M14 19h24v6L21 41h17v6H12v-6l17-16H14z" fill="#FFFFFF"/>
+  </g>
+  <!-- Wordmark: "zscaler" lowercase -->
+  <g fill="#0079D5" font-family="'Inter', 'Helvetica Neue', Arial, sans-serif" font-weight="700">
+    <text x="62" y="42" font-size="30" letter-spacing="-0.5">zscaler</text>
+  </g>
+</svg>

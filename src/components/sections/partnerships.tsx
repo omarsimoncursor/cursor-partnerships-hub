@@ -181,6 +181,14 @@ export function Partnerships() {
                 color: '#A259FF',
                 letter: 'F',
               },
+              {
+                href: '/partnerships/zscaler',
+                partner: 'Zscaler',
+                title: 'From Zero Trust Violation to Merged PR',
+                description: 'Zscaler ZPA flags an over-permissive policy. Cursor reads the application policy out of the codebase, scopes it down, verifies deny-by-default, and submits a PR.',
+                color: '#0079D5',
+                letter: 'Z',
+              },
             ].map((demo) => (
               <Link
                 key={demo.href}

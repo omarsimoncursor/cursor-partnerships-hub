@@ -19,6 +19,7 @@ export const PARTNER_CATEGORIES = {
       { name: 'Cloudflare', webinar: 'AI-Assisted Edge Application Development', rationale: "Workers and edge compute benefit from Cursor's ability to reason about distributed application logic.", logo: '/logos/cloudflare.svg' },
       { name: 'MongoDB', webinar: 'AI-Native Application Development', rationale: "MongoDB's developer data platform combined with Cursor's code reasoning accelerates full-stack development.", logo: '/logos/mongodb-wordmark-light.svg' },
       { name: 'Confluent', webinar: 'AI-Accelerated Event-Driven Architecture', rationale: 'Event-driven architectures are complex. Cursor helps developers reason about async data flows at scale.', logo: '/logos/Confluent,_Inc._logo.svg' },
+      { name: 'Zscaler', webinar: 'From Zero Trust Violation to Merged PR', rationale: 'Zscaler ZPA flags over-permissive policies. Cursor scopes them down in code and ships a verified PR. The Zero Trust Exchange becomes a continuous remediation engine.', logo: '/logos/zscaler.svg' },
     ],
   },
   consulting: {

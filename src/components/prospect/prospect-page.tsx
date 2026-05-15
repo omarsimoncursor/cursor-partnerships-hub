@@ -8,7 +8,6 @@ import {
   Code2,
   ExternalLink,
   Gauge,
-  Layers,
   Sparkles,
   Workflow,
 } from 'lucide-react';
@@ -209,90 +208,8 @@ export function ProspectPage({
             </div>
           </header>
 
-          {/* Stack matrix */}
-          <section className="mb-16">
-            <SectionHeader
-              icon={<Layers className="w-4 h-4" />}
-              eyebrow="Detected stack"
-              title={`Cursor integrates with the tools ${config.account} already runs on.`}
-              accent={accent}
-            />
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {vendors.map(v => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => openVendorWorkflow(v)}
-                  className="rounded-lg border p-4 hover:scale-[1.01] transition-all text-left"
-                  style={{
-                    borderColor: `${v.brand}33`,
-                    background: `${v.brand}0a`,
-                  }}
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className="w-9 h-9 rounded-md flex items-center justify-center text-xs font-bold overflow-hidden"
-                      style={{ background: `${v.brand}25`, color: v.brand }}
-                    >
-                      {v.logo ? (
-                        <img src={v.logo} alt={`${v.name} logo`} className="w-full h-full object-contain p-1.5" />
-                      ) : (
-                        v.name.charAt(0)
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-text-primary truncate">{v.name}</p>
-                      <p className="text-[10px] uppercase tracking-wider font-mono text-text-tertiary">
-                        {v.mode === 'mcp' ? 'MCP' : v.mode === 'sdk' ? 'SDK' : 'MCP + SDK'}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-text-secondary leading-snug">{v.category}</p>
-                </button>
-              ))}
-              {vendors.length === 0 && (
-                <p className="col-span-full text-sm text-text-secondary">
-                  No vendors selected. Pop back into the builder to add their stack.
-                </p>
-              )}
-            </div>
-          </section>
-
-          {/* Cursor SDK live demo — moved to the top of the page after
-              the stack matrix so prospects land on the "build a real
-              Cursor agent" surface first. The full multi-phase live
-              demo we ship publicly at /partnerships/cursor-sdk/demo. */}
-          <section id="composer" className="mb-20">
-            <SectionHeader
-              icon={<Code2 className="w-4 h-4" />}
-              eyebrow="Cursor SDK live demo"
-              title="Build a real Cursor agent, live."
-              description={`Pick automated response actions for any tool in your stack, and the demo will automatically produce runnable typescript code that can be used to programmatically launch headless Cursor agents. Press Run to watch the agent execute your workflow and produce five inspectable artifacts (Jira ticket, GitHub PR, Slack thread, audit timeline, SDK call trace).`}
-              accent={accent}
-            />
-            <CursorSdkLiveDemo hero={false} />
-          </section>
-
-          {/* ROI — leadership / executive levels only. Sits between the
-              SDK demo and the per-vendor automations so a Director / VP
-              who lands here sees workflow + ROI before drilling into
-              individual vendors. */}
-          {showRoiCalculator && (
-            <section id="roi" className="mb-20">
-              <SectionHeader
-                icon={<Calculator className="w-4 h-4" />}
-                eyebrow="Token ROI"
-                title="Auto router pays for Cursor before productivity gains kick in."
-                description={`Most engineering queries don't need a frontier model. Cursor's auto router sends only the queries that need reasoning to Claude Opus and routes the rest to Composer. Move the sliders to see the swing for ${config.account}.`}
-                accent={accent}
-              />
-              <RoiCalculator account={config.account} accent={accent} />
-            </section>
-          )}
-
-          {/* Per-vendor automations — these live below the SDK demo + ROI
-              so prospects see the strategic case before drilling into
-              individual vendor workflows. */}
+          {/* Per-vendor automations — shown first so prospects land on
+              the illustrated vendor workflows before the SDK demo. */}
           <section id="integrations" className="mb-20">
             <SectionHeader
               icon={<Sparkles className="w-4 h-4" />}
@@ -314,6 +231,34 @@ export function ProspectPage({
               ))}
             </div>
           </section>
+
+          {/* Cursor SDK live demo — the full multi-phase live demo we ship
+              publicly at /partnerships/cursor-sdk/demo. */}
+          <section id="composer" className="mb-20">
+            <SectionHeader
+              icon={<Code2 className="w-4 h-4" />}
+              eyebrow="Cursor SDK live demo"
+              title="Build a real Cursor agent, live."
+              description={`Pick automated response actions for any tool in your stack, and the demo will automatically produce runnable typescript code that can be used to programmatically launch headless Cursor agents. Press Run to watch the agent execute your workflow and produce five inspectable artifacts (Jira ticket, GitHub PR, Slack thread, audit timeline, SDK call trace).`}
+              accent={accent}
+            />
+            <CursorSdkLiveDemo hero={false} />
+          </section>
+
+          {/* ROI — leadership / executive levels only. Sits between the
+              SDK demo and unmatched-technology callouts. */}
+          {showRoiCalculator && (
+            <section id="roi" className="mb-20">
+              <SectionHeader
+                icon={<Calculator className="w-4 h-4" />}
+                eyebrow="Token ROI"
+                title="Auto router pays for Cursor before productivity gains kick in."
+                description={`Most engineering queries don't need a frontier model. Cursor's auto router sends only the queries that need reasoning to Claude Opus and routes the rest to Composer. Move the sliders to see the swing for ${config.account}.`}
+                accent={accent}
+              />
+              <RoiCalculator account={config.account} accent={accent} />
+            </section>
+          )}
 
           {/* Unmatched technologies — the SDK fallback cards land at the
               very bottom (just above the next-step CTA) so the rep has

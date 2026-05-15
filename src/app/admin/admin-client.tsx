@@ -279,6 +279,14 @@ export function AdminClient() {
                 onClick={() => setActiveTab('analytics')}
                 label="Analytics"
               />
+              <Link
+                href="/outreach/dashboard"
+                className="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-text-tertiary hover:text-text-primary transition-colors inline-flex items-center gap-1.5"
+                title="Open the territory outreach dashboard (intent-signal driven)"
+              >
+                Outreach
+                <ExternalLink className="w-3 h-3" />
+              </Link>
             </div>
           )}
 

@@ -18,6 +18,7 @@
 //   can).
 
 import { createProspect, getProspectBySlug } from '../prospect-store/prospects';
+import { buildDefaultLinkedinDraft } from '../prospect-store/linkedin-draft-template';
 import { query, withClient } from './db';
 import type {
   OutreachContactInput,
@@ -91,6 +92,13 @@ async function resolveDemoForContact(
   // generation, password generation, and the after()-scheduled demo
   // build.
   try {
+    // Inherit the agent's prose LinkedIn message as the linkedin_draft
+    // when present — that draft is already personalized to this
+    // contact's signal context. Fall back to the shared template
+    // (same one the bulk-backfill toolbar uses) so every
+    // outreach-sourced prospect lands with a usable draft from
+    // minute one.
+    const proseDraft = (input.linkedin?.message ?? '').trim();
     const created = await createProspect(
       {
         name: input.contact.full_name,
@@ -100,6 +108,11 @@ async function resolveDemoForContact(
         linkedin_url: linkedinUrl ?? undefined,
         level: input.contact.title,
         classified_level: mapSeniorityToClassifiedLevel(input.contact.seniority_tier),
+        linkedin_draft:
+          proseDraft.length > 0
+            ? proseDraft
+            : buildDefaultLinkedinDraft(input.contact.full_name),
+        mcp_detail: input.priority.rationale ?? null,
         // Source discriminator so cold-outbound views can filter these
         // out and we can later attribute conversion back to the intent
         // surface that surfaced them.

@@ -102,7 +102,7 @@ Compact table (same density as Sequences):
 
 **Email** — edit draft in modal, toggle "Flag to send". The orchestrator add-on sends flagged rows and stamps `email_sent_at`.
 
-No enroll-in-sequence — one-time outreach to active users.
+No enroll-in-sequence — one-time outreach to active users. Intent contacts get a demo via a shadow `prospects` row (`source = 'outreach'`) that is hidden from the Sequences tab until promoted.
 
 ---
 

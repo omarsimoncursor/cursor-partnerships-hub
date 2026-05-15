@@ -232,6 +232,9 @@ Pagination is **cursor-based**: callers iterate by passing `cursor` from a previ
 | `cursor`                   | Opaque cursor from a previous page's `next_cursor`. Resumes strictly after that row. |
 | `include`                  | Comma-separated. Currently supports `opens` — joins `prospect_views` and adds `unlocked_view_count` / `first_unlocked_at` / `last_unlocked_at` to every row. Used by the Sequences dashboard to compute the read/unread badge. |
 | `personalization_ready`    | `true` or `false` (opt-in). When `true`, only returns rows where both `classified_level` and `mcp_detail` are non-null. Default: no filter. |
+| `include_outreach`         | `true` to include intent-demo shadow rows (`source = 'outreach'`). Default **excludes** them so Sequences / orchestrator only see cold outbound. |
+
+**Intent vs Sequences:** demo generation for Intent Data creates a shadow row in `prospects` with `source = 'outreach'`. These are **excluded by default** from this GET. Deliberate enrollment uses `POST /api/outreach/contacts/:id/promote`, which sets `source = 'outreach_promote'` (included in sequence pulls).
 
 **Email dedup (read path):** every list response collapses to **one row per
 `LOWER(email)`** before pagination. Survivor preference: non-null
